@@ -12,6 +12,14 @@ const Compass := preload("res://scripts/compass.gd")
 const Minimap := preload("res://scripts/minimap.gd")
 const MapView := preload("res://scripts/map_view.gd")
 const Menu := preload("res://scripts/menu.gd")
+const Sun := preload("res://scripts/sun.gd")
+const Porukka := preload("res://scripts/porukka.gd")
+const Ai := preload("res://scripts/ai.gd")
+const Kumivene := preload("res://scripts/kumivene.gd")
+const Mokki := preload("res://scripts/mokki.gd")
+## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
+## Jukka grillillä.
+const SPAWNS := [Vector2(-5.6, 0.6), Vector2(-3.7, -1.0), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
 
 ## Aloituspisteen maantieteelliset koordinaatit ja metrit astetta kohden (GRS80, 64,43° N): HUD:n sijainti.
 const START_LAT := 64.432089
@@ -26,6 +34,7 @@ var world: Node3D
 var player: CharacterBody3D
 var _env: Environment
 var _sun: DirectionalLight3D
+var sun: Node
 var _hud: CanvasLayer
 var _place: Label
 var _coords: Label
@@ -35,6 +44,13 @@ var _compass: Control
 var _map: Control
 var _menu: CanvasLayer
 var _start_offset := Vector3.ZERO
+var crew: Array = []
+var player_index := 0
+var boat: CharacterBody3D
+var _amb: Node
+var _mm: Control
+var _clock: Label
+var _prompt: Label
 
 
 func _ready() -> void:
@@ -42,14 +58,28 @@ func _ready() -> void:
 	_setup_environment()
 	world = World.new()
 	add_child(world)
-	player = OnFoot.new()
-	player.world = world
-	add_child(player)
-	respawn()
-	var amb := Ambience.new()
-	amb.player = player
-	add_child(amb)
+	for i in Porukka.CREW.size():
+		var b := OnFoot.new()
+		b.world = world
+		b.look = Porukka.look(i)
+		b.display_name = Porukka.CREW[i].name
+		add_child(b)
+		Porukka.decorate(i, b.body())
+		var w: Vector2 = Mokki.yw(SPAWNS[i].x, SPAWNS[i].y)
+		b.global_position = Vector3(w.x, Mokki.DY + 0.1, w.y)
+		b.rotation.y = randf() * TAU
+		crew.append(b)
+	player = crew[0]
+	boat = Kumivene.new()
+	add_child(boat)
+	var bw: Vector2 = Mokki.yw(-4.6, 9.0)
+	boat.global_position = Vector3(bw.x, 0.0, bw.y)
+	boat.rotation.y = atan2(-Mokki.LAKE.x, -Mokki.LAKE.y) + 0.6
+	_amb = Ambience.new()
+	_amb.player = player
+	add_child(_amb)
 	_build_hud()
+	choose_character(0)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -81,12 +111,43 @@ func map_open() -> bool:
 	return _map.visible
 
 
-## Pelaaja aloituspaikalle rannalle, katse järvelle (pohjoiseen).
+## Pelaaja omalle aloituspaikalleen mökin terassille, katse järvelle.
 func respawn() -> void:
-	var s: Vector3 = world.start_position()
-	player.global_position = s + Vector3(0, 0.2, 0)
-	player.rotation.y = 0.0
+	if player.boat != null:
+		player.leave_boat()
+	player.set_hidden_inside(false)
+	player.pose = ""
+	var w: Vector2 = Mokki.yw(SPAWNS[player_index].x, SPAWNS[player_index].y)
+	player.global_position = Vector3(w.x, Mokki.DY + 0.1, w.y)
+	player.rotation.y = atan2(-Mokki.LAKE.x, -Mokki.LAKE.y)
 	player.velocity = Vector3.ZERO
+	player.activate_camera()
+
+
+## Pelaaja ohjaa hahmoa i, muita ohjaa tietokone.
+func choose_character(i: int) -> void:
+	player_index = i
+	for j in crew.size():
+		var b: CharacterBody3D = crew[j]
+		if j == i:
+			b.brain = null
+			b.is_player = true
+			if b.boat == null:
+				b.set_hidden_inside(false)
+				b.pose = ""
+			CamCtl.mark_own_body(b.body())
+		else:
+			if b.boat != null:
+				b.leave_boat()
+			b.is_player = false
+			b.brain = Ai.new(b, world.mokki, sun, Porukka.CREW[j].name)
+			for mi in b.body().find_children("*", "VisualInstance3D", true, false):
+				(mi as VisualInstance3D).layers = 1
+	player = crew[i]
+	_amb.player = player
+	_map.player = player
+	_compass.player = player
+	_mm.player = player
 	player.activate_camera()
 
 
@@ -98,6 +159,8 @@ func _process(_delta: float) -> void:
 		RenderingServer.global_shader_parameter_set("lod_eye", cam.global_position)
 	if world.trees != null:
 		world.trees.update_around(player.global_position)
+	if world.mokki != null:
+		world.mokki.set_lamp(1.0 - smoothstep(-5.0, 3.0, sun.altitude))
 	_update_hud()
 
 
@@ -109,6 +172,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("restart"):
 		respawn()
+	elif event.is_action_pressed("interact"):
+		if player.boat != null:
+			player.leave_boat()
+		elif _near_boat():
+			player.enter_boat(boat)
+
+
+func _near_boat() -> bool:
+	return boat.rower == null and player.global_position.distance_to(boat.global_position) < 2.6 \
+		and not player.hidden_inside
 
 
 # --- Syöte, ympäristö ja asetukset ----------------------------------------------------------------------------
@@ -136,8 +209,10 @@ func _add_action(action: String, keys: Array) -> void:
 
 func _setup_environment() -> void:
 	var sky := Sky.new()
-	sky.sky_material = B.shader_mat("res://shaders/sky.gdshader")
+	var sky_mat := B.shader_mat("res://shaders/sky.gdshader")
+	sky.sky_material = sky_mat
 	sky.radiance_size = Sky.RADIANCE_SIZE_256
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	var env := Environment.new()
 	_env = env
 	env.background_mode = Environment.BG_SKY
@@ -171,17 +246,19 @@ func _setup_environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	# Kesäillan aurinko luoteesta järven yllä.
-	var sun := DirectionalLight3D.new()
-	_sun = sun
-	sun.rotation_degrees = Vector3(-28, 140, 0)
-	sun.light_color = Color(1.0, 0.92, 0.8)
-	sun.light_energy = 1.3
-	sun.shadow_enabled = true
-	sun.shadow_blur = 1.5
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 180.0
-	sun.directional_shadow_blend_splits = true
+	# Aurinko oikeassa paikassa pelin päivämäärän ja kellonajan mukaan (sun.gd).
+	var light := DirectionalLight3D.new()
+	_sun = light
+	light.shadow_enabled = true
+	light.shadow_blur = 1.5
+	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	light.directional_shadow_max_distance = 180.0
+	light.directional_shadow_blend_splits = true
+	add_child(light)
+	sun = Sun.new()
+	sun.light = light
+	sun.env = env
+	sun.sky_mat = sky_mat
 	add_child(sun)
 
 
@@ -190,8 +267,8 @@ func _apply_settings() -> void:
 	_env.ssao_enabled = q >= 2
 	_env.ssil_enabled = q >= 3
 	_env.glow_enabled = q >= 2
-	_sun.shadow_enabled = q >= 1
-	_sun.directional_shadow_max_distance = [70.0, 70.0, 120.0, 180.0][q]
+	sun.shadows_allowed = q >= 1
+	sun.max_shadow = [70.0, 70.0, 120.0, 180.0][q]
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
 	_fps_label.visible = Settings.get_v("show_fps")
 	get_tree().call_group(B.GUIDES, "set_visible", Settings.get_v("show_guides"))
@@ -224,10 +301,22 @@ func _build_hud() -> void:
 	mm.player = player
 	mm.map_view = _map
 	_hud.add_child(mm)
+	_mm = mm
 	_place = _label(_hud, 26)
 	_place.position = Vector2(20, 16)
 	_coords = _label(_hud, 15)
 	_coords.position = Vector2(20, 52)
+	_clock = _label(_hud, 17)
+	_clock.position = Vector2(20, 100)
+	_prompt = _label(_hud, 22)
+	_prompt.anchor_left = 0.5
+	_prompt.anchor_right = 0.5
+	_prompt.anchor_top = 1.0
+	_prompt.anchor_bottom = 1.0
+	_prompt.offset_left = -300
+	_prompt.offset_right = 300
+	_prompt.offset_top = -90
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_stamina = ProgressBar.new()
 	_stamina.show_percentage = false
 	_stamina.position = Vector2(20, 82)
@@ -258,7 +347,9 @@ func _update_hud() -> void:
 	var p := player.global_position
 	var near: Dictionary = world.nearest_name(Vector2(p.x, p.z))
 	var where: String = near.name if near.dist < 450.0 else "Äpätinniemi"
-	if player.swimming:
+	if player.boat != null:
+		where += " · soutamassa"
+	elif player.swimming:
 		where += " · uimassa"
 	elif player.water_depth > 0.05:
 		where += " · kahlaamassa"
@@ -272,5 +363,14 @@ func _update_hud() -> void:
 		Terrain.h(p.x, p.z) + float(world.data.meta.water_level_n2000), depth]
 	_stamina.value = player.stamina
 	_stamina.modulate = Color(1, 0.4, 0.3) if player.exhausted else Color.WHITE
+	var day: Dictionary = sun.today()
+	_clock.text = "%s · %s · aurinko laskee %s, nousee %s%s" % [Porukka.CREW[player_index].name, sun.clock_text(),
+		day.set, day.rise, "  ▶▶ (T)" if sun.fast else ""]
+	if player.boat != null:
+		_prompt.text = "W/S soutaa · A/D kääntää · E nouse veneestä"
+	elif _near_boat():
+		_prompt.text = "E: nouse kumiveneeseen"
+	else:
+		_prompt.text = ""
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()

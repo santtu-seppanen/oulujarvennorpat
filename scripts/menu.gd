@@ -10,7 +10,10 @@ Shift	juokse (kuluttaa kuntoa)
 Välilyönti	hyppää
 VEDESSÄ
 W / S, A / D	ui (syvässä vedessä), kahlaa (matalassa)
+E	nouse kumiveneeseen / veneestä
+W / S, A / D	soutaa veneellä eteen / taakse, kääntää
 YLEISET
+T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)
 V	FPS / kolmas persoona
 Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
@@ -72,7 +75,7 @@ func open_main() -> void:
 	_menu_cam.current = true
 	game._hud.visible = false
 	_title("OULUJÄRVEN NORPAT", "Ä P Ä T I N N I E M I  ·  V A A L A")
-	_button("Aloita peli", close)
+	_button("Aloita peli", _choose)
 	_button("Asetukset", func() -> void: _settings("sub_main"))
 	_button("Ohjaimet", func() -> void: _controls("sub_main"))
 	_button("Tekijät", func() -> void: _credits("sub_main"))
@@ -102,6 +105,36 @@ func close() -> void:
 		game._hud.visible = true
 		game.player.activate_camera()
 	_mode = ""
+
+
+## Hahmon ja ajankohdan valinta: pelaaja on yksi neljästä, muita ohjaa tietokone.
+func _choose() -> void:
+	_mode = "sub_main"
+	_clear()
+	_title("KUKA OLET?", "Muita mökkiläisiä ohjaa tietokone")
+	var when := OptionButton.new()
+	for p in game.Sun.PRESETS:
+		when.add_item(p[0])
+	when.selected = 0
+	when.add_theme_font_size_override("font_size", 18)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	row.add_child(_label("Ajankohta", 18, Color.WHITE))
+	row.add_child(when)
+	for i in game.Porukka.CREW.size():
+		var c: Dictionary = game.Porukka.CREW[i]
+		_button(c.name, func() -> void:
+			game.choose_character(i)
+			game.respawn()
+			game.sun.start_preset(when.selected)
+			close())
+		var d := _label(c.desc, 15, Color(0.85, 0.85, 0.8))
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.custom_minimum_size = Vector2(560, 0)
+		_box.add_child(d)
+	_box.add_child(row)
+	_button("Takaisin", open_main)
 
 
 func _back(from: String) -> void:

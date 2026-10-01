@@ -11,6 +11,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Trees := preload("res://scripts/trees.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const DATA := "res://assets/map/kohteet.json"
 const NEAR_CHUNK := 100.0
@@ -20,6 +21,7 @@ const AREA_HALF := 990.0   # kävelyalue (näkymättömät seinät)
 
 var data := {}
 var trees: Node3D
+var mokki: Node3D
 var ponds: Array = []   # [{level, poly: PackedVector2Array}]
 var names: Array = []   # [{name, p: Vector2}]
 var _near_h_tex: ImageTexture
@@ -30,6 +32,7 @@ var _far_c_tex: ImageTexture
 
 func _ready() -> void:
 	Terrain.ensure()
+	Mokki.terraform()
 	var f := FileAccess.open(DATA, FileAccess.READ)
 	data = JSON.parse_string(f.get_as_text()) if f != null else {}
 	if data.is_empty():
@@ -45,6 +48,8 @@ func _ready() -> void:
 	_build_buildings()
 	_build_props()
 	_build_walls()
+	mokki = Mokki.new()
+	add_child(mokki)
 	trees = Trees.new()
 	add_child(trees)
 
@@ -286,6 +291,11 @@ func _build_buildings() -> void:
 		var pts := _poly(bd.pts)
 		if pts.size() < 3:
 			continue
+		var mid := Vector2.ZERO
+		for q in pts:
+			mid += q / pts.size()
+		if Mokki.clears_tree(mid.x, mid.y):
+			continue  # mökkipihan sauna ja ylämökki mallinnettu tarkemmin (mokki.gd)
 		if Geometry2D.is_polygon_clockwise(pts):
 			pts.reverse()
 		var base := INF

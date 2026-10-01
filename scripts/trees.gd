@@ -10,6 +10,7 @@ extends Node3D
 
 const Foliage := preload("res://scripts/foliage.gd")
 const B := preload("res://scripts/build.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const BIN := "res://assets/map/puut.bin"
 enum { PINE, SPRUCE, BIRCH, ASPEN, BUSH }
@@ -62,6 +63,14 @@ func _ready() -> void:
 	var raw_b := f.get_buffer(w * h * 4)
 	data_a = raw_a.to_float32_array()
 	data_b = raw_b
+	# Mökkipihan rakennusten, terassien ja portaiden kohdalta puut pois (matalaksi maan alle).
+	for i in count:
+		var x := data_a[i * 4]
+		var z := data_a[i * 4 + 2]
+		if absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z):
+			data_a[i * 4 + 1] = -50.0
+			data_a[i * 4 + 3] = 0.01
+	raw_a = data_a.to_byte_array()
 	_tex_a = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBAF, raw_a))
 	_tex_b = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, raw_b))
 	_make_meshes()

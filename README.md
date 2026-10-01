@@ -10,7 +10,8 @@ rannassa Äpätinniemen kärjessä.
 
 ## Pelaaminen
 
-Avaa projekti Godot 4.7:llä ja käynnistä (F5).
+Avaa projekti Godot 4.7:llä ja käynnistä (F5). Alussa valitaan, kuka mökin porukasta olet (Santtu, Marko,
+Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 
 | Näppäin | Toiminto |
 |---|---|
@@ -18,6 +19,8 @@ Avaa projekti Godot 4.7:llä ja käynnistä (F5).
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää |
+| T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
 | R | takaisin aloituspaikalle |
@@ -25,6 +28,24 @@ Avaa projekti Godot 4.7:llä ja käynnistä (F5).
 
 Vedessä kahlataan (hidastaa syvyyden mukaan), ja yli 1,35 m syvässä uidaan. HUD näyttää lähimmän paikannimen,
 sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä syvyyden.
+
+## Mökki
+
+Aloituspaikan mökkipiha on mallinnettu valokuvista ja maastotietokannan pohjapiirroksista (`scripts/mokki.gd`):
+rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grillikatoksineen ja telttoineen,
+etuterassi, kelluva laituri tikkaineen, huussi, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
+terassi) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
+reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
+kumivene, jolla voi soutaa.
+
+Porukka (`scripts/porukka.gd`, `scripts/ai.gd`): tietokoneen ohjaamat hahmot istuvat pöydän ääressä ja
+juttelevat, grillaavat, käyvät saunassa ja uimassa, ylämökillä ja huussissa, ja kerääntyvät laiturille ja
+etuterassille katsomaan auringonlaskua.
+
+Aurinko (`scripts/sun.gd`) lasketaan NOAA:n algoritmilla aloituspaikalle pelin päivämäärän ja kellonajan
+mukaan (Suomen aika, kesäaika huomioiden), ilmakehän taittuminen mukana. Pelivuorokausi kestää 24 minuuttia ja
+päivä vaihtuu keskiyöllä, joten aurinko laskee joka ilta oikeaan aikaan oikeaan suuntaan. Esimerkiksi 7.7.
+aurinko koskettaa horisonttia klo 23.24 suunnassa 334° (luode-pohjoinen), kuten saman illan valokuvassa.
 
 ## Kartta
 
@@ -63,7 +84,12 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/ambience.gd` | ympäristöäänet maaston mukaan |
 | `scripts/character.gd`, `looks.gd`, `cam_ctl.gd`, `settings.gd`, `menu.gd`, `audio.gd`, `touch_controls.gd`, `build.gd`, `foliage.gd` | Normipäivästä: hahmot, kamera, asetukset, valikot, äänet, kosketusohjaimet, apurit |
 | `tools/kartta/bake.py` | kartta-aineisto → `assets/map/` |
+| `scripts/mokki.gd`, `shaders/mokki.gdshader` | mökkipiha: rakennukset, terassit, portaat, laituri, maaston kaivu, reittipisteet |
+| `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
+| `scripts/kumivene.gd` | kumivene ja soutaminen |
+| `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |
+| `tools/testit/mokkitesti.gd`, `mokki_kuvat.gd` | mökin testi (`--headless --fixed-fps 60`) ja kuvakaappaukset valokuvien kuvakulmista |
 
 ## Tekijänoikeudet
 
