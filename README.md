@@ -29,6 +29,27 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 Vedessä kahlataan (hidastaa syvyyden mukaan), ja yli 1,35 m syvässä uidaan. HUD näyttää lähimmän paikannimen,
 sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä syvyyden.
 
+## Moninpeli
+
+Valikosta **Moninpeli → Luo uusi peli** avaa huoneen ja näyttää sen nelikirjaimisen koodin; kaverit liittyvät
+koodilla (**Liity peliin**), selaimessa tai työpöytäversiossa. Kukin valitsee oman mökkiläisensä, ja vapaita
+hahmoja ohjaa huoneen luojan (hostin) tietokone. Host pitää myös kelloa; T kelaa aikaa kaikilta. Jos host
+lähtee, seuraava pelaaja jatkaa hostina.
+
+Välityspalvelin on `server/`-hakemistossa: Cloudflare Worker ja yksi Durable Object per huone
+(`wss://norpat.santtu-seppane.workers.dev/huone/<KOODI>`). Pelaajat lähettävät ohjaamiensa hahmojen ja
+kumiveneen tilan 12 kertaa sekunnissa (`scripts/moninpeli.gd`, `scripts/net.gd`); maailma rakennetaan
+jokaisella koneella itse.
+
+```sh
+cd server && npm install
+npx wrangler dev        # paikallinen palvelin, peliin: godot --path . -- --palvelin=ws://localhost:8787
+npx wrangler deploy     # julkaisu Cloudflareen
+node test.mjs           # protokollatesti (NORPAT_URL=wss://.../huone/X tuotantoa vastaan)
+```
+
+Kahden koneen testi: `tools/testit/moninpelitesti.gd` (ohjeet tiedoston alussa).
+
 ## Mökki
 
 Aloituspaikan mökkipiha on mallinnettu valokuvista ja maastotietokannan pohjapiirroksista (`scripts/mokki.gd`):

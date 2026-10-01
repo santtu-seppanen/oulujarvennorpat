@@ -1,0 +1,11 @@
+// Moninpelin välityspalvelin: Cloudflare Worker + Durable Object (yksi per huone).
+// Käyttöönotto: cd server && npx wrangler deploy · paikallisesti: npx wrangler dev
+{
+  "name": "norpat",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}

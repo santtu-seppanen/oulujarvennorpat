@@ -76,6 +76,7 @@ func open_main() -> void:
 	game._hud.visible = false
 	_title("OULUJÄRVEN NORPAT", "Ä P Ä T I N N I E M I  ·  V A A L A")
 	_button("Aloita peli", _choose)
+	_button("Moninpeli", _multi)
 	_button("Asetukset", func() -> void: _settings("sub_main"))
 	_button("Ohjaimet", func() -> void: _controls("sub_main"))
 	_button("Tekijät", func() -> void: _credits("sub_main"))
@@ -101,7 +102,8 @@ func open_pause() -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
-	if _mode == "main" or _mode == "sub_main":
+	game.player.controls_enabled = true
+	if _mode == "main" or _mode == "sub_main" or _mode == "online":
 		game._hud.visible = true
 		game.player.activate_camera()
 	_mode = ""
@@ -135,6 +137,93 @@ func _choose() -> void:
 		_box.add_child(d)
 	_box.add_child(row)
 	_button("Takaisin", open_main)
+
+
+## Moninpeli: uusi huone tai liittyminen kaverin koodilla. Kukin ohjaa omaa mökkiläistään.
+func _multi(status := "") -> void:
+	_mode = "sub_main"
+	_clear()
+	_title("MONINPELI", "Kukin ohjaa omaa mökkiläistään, vapaita ohjaa tietokone")
+	var when := OptionButton.new()
+	for p in game.Sun.PRESETS:
+		when.add_item(p[0])
+	when.selected = 0
+	when.add_theme_font_size_override("font_size", 18)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	row.add_child(_label("Ajankohta", 18, Color.WHITE))
+	row.add_child(when)
+	_box.add_child(row)
+	var info := _label(status, 17, YELLOW)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.custom_minimum_size = Vector2(560, 0)
+	_button("Luo uusi peli", func() -> void:
+		info.text = "Yhdistetään…"
+		_listen()
+		game.mp.create(when.selected))
+	var code := LineEdit.new()
+	code.placeholder_text = "Huoneen koodi"
+	code.max_length = 12
+	code.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code.custom_minimum_size = Vector2(320, 46)
+	code.add_theme_font_size_override("font_size", 22)
+	var go := func() -> void:
+		if code.text.strip_edges().length() < 3:
+			info.text = "Kirjoita kaverin huoneen koodi"
+			return
+		info.text = "Yhdistetään…"
+		_listen()
+		game.mp.join(code.text)
+	code.text_submitted.connect(func(_t: String) -> void: go.call())
+	_box.add_child(code)
+	_button("Liity peliin", go)
+	_box.add_child(info)
+	_button("Takaisin", func() -> void:
+		if game.mp.net.busy():
+			get_tree().reload_current_scene()  # irti huoneesta ja hahmot alkutilaan
+		else:
+			open_main())
+
+
+func _listen() -> void:
+	if not game.mp.roster_changed.is_connected(_online_roster):
+		game.mp.roster_changed.connect(_online_roster)
+		game.mp.failed.connect(_online_failed)
+
+
+func _online_roster() -> void:
+	if not visible or _mode == "pause" or _mode == "sub_pause":
+		return
+	if game.mp.mine >= 0:
+		_mode = "online"
+		close()
+		return
+	_choose_online()
+
+
+func _online_failed(why: String) -> void:
+	if visible and _mode != "pause" and _mode != "sub_pause":
+		_multi(why)
+
+
+## Hahmon valinta moninpelissä: muiden pelaajien varaamat näkyvät varattuina.
+func _choose_online() -> void:
+	_mode = "sub_main"
+	_clear()
+	_title("KUKA OLET?", "Huone %s · kerro koodi kavereille" % game.mp.room())
+	for i in game.Porukka.CREW.size():
+		var c: Dictionary = game.Porukka.CREW[i]
+		var taken: bool = game.mp.taken_by_other(i)
+		_button(c.name + (" (pelaaja)" if taken else ""), func() -> void: game.mp.claim(i))
+		var b: Button = _box.get_child(_box.get_child_count() - 1)
+		b.disabled = taken
+		var d := _label(c.desc, 15, Color(0.85, 0.85, 0.8))
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.custom_minimum_size = Vector2(560, 0)
+		_box.add_child(d)
+	_box.add_child(_label("%d pelaajaa huoneessa" % game.mp.players(), 17, YELLOW))
+	_button("Takaisin", func() -> void: get_tree().reload_current_scene())
 
 
 func _back(from: String) -> void:
@@ -217,6 +306,7 @@ func _settings(from: String) -> void:
 func _show() -> void:
 	visible = true
 	get_tree().paused = true
+	game.player.controls_enabled = false  # moninpelissä hahmot liikkuvat valikonkin aikana
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_clear()
 

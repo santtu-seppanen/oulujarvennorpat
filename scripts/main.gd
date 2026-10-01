@@ -17,6 +17,7 @@ const Porukka := preload("res://scripts/porukka.gd")
 const Ai := preload("res://scripts/ai.gd")
 const Kumivene := preload("res://scripts/kumivene.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Moninpeli := preload("res://scripts/moninpeli.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-5.6, 0.6), Vector2(-3.7, -1.0), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -45,7 +46,9 @@ var _map: Control
 var _menu: CanvasLayer
 var _start_offset := Vector3.ZERO
 var crew: Array = []
+var crew_modes: Array = []  # player | ai | remote (moninpelissä toisen koneen ohjaama)
 var player_index := 0
+var mp: Node
 var boat: CharacterBody3D
 var _amb: Node
 var _mm: Control
@@ -69,6 +72,7 @@ func _ready() -> void:
 		b.global_position = Vector3(w.x, Mokki.DY + 0.1, w.y)
 		b.rotation.y = randf() * TAU
 		crew.append(b)
+		crew_modes.append("")
 	player = crew[0]
 	boat = Kumivene.new()
 	add_child(boat)
@@ -80,6 +84,9 @@ func _ready() -> void:
 	add_child(_amb)
 	_build_hud()
 	choose_character(0)
+	mp = Moninpeli.new()
+	mp.game = self
+	add_child(mp)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -126,23 +133,37 @@ func respawn() -> void:
 
 ## Pelaaja ohjaa hahmoa i, muita ohjaa tietokone.
 func choose_character(i: int) -> void:
-	player_index = i
 	for j in crew.size():
-		var b: CharacterBody3D = crew[j]
-		if j == i:
-			b.brain = null
-			b.is_player = true
-			if b.boat == null:
-				b.set_hidden_inside(false)
-				b.pose = ""
-			CamCtl.mark_own_body(b.body())
-		else:
-			if b.boat != null:
-				b.leave_boat()
-			b.is_player = false
-			b.brain = Ai.new(b, world.mokki, sun, Porukka.CREW[j].name)
-			for mi in b.body().find_children("*", "VisualInstance3D", true, false):
-				(mi as VisualInstance3D).layers = 1
+		set_crew_mode(j, "player" if j == i else "ai")
+	set_player(i)
+
+
+## Kuka hahmoa j ohjaa: tämän koneen pelaaja, tietokone tai (moninpelissä) toinen kone.
+func set_crew_mode(j: int, mode: String) -> void:
+	if crew_modes[j] == mode:
+		return
+	crew_modes[j] = mode
+	var b: CharacterBody3D = crew[j]
+	if b.brain != null:
+		b.brain.reset()  # vapauttaa istumapaikan
+		b.brain = null
+	if b.boat != null and mode == "ai":
+		b.leave_boat()
+	b.set_remote(mode == "remote")
+	b.is_player = mode == "player"
+	b.controls_enabled = true
+	if mode == "player":
+		CamCtl.mark_own_body(b.body())
+		return
+	if mode == "ai":
+		b.brain = Ai.new(b, world.mokki, sun, Porukka.CREW[j].name)
+	for mi in b.body().find_children("*", "VisualInstance3D", true, false):
+		(mi as VisualInstance3D).layers = 1
+
+
+## Kamera, HUD ja äänet seuraamaan hahmoa i.
+func set_player(i: int) -> void:
+	player_index = i
 	player = crew[i]
 	_amb.player = player
 	_map.player = player
@@ -366,6 +387,8 @@ func _update_hud() -> void:
 	var day: Dictionary = sun.today()
 	_clock.text = "%s · %s · aurinko laskee %s, nousee %s%s" % [Porukka.CREW[player_index].name, sun.clock_text(),
 		day.set, day.rise, "  ▶▶ (T)" if sun.fast else ""]
+	if mp.online():
+		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
 	if player.boat != null:
 		_prompt.text = "W/S soutaa · A/D kääntää · E nouse veneestä"
 	elif _near_boat():

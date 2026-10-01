@@ -30,6 +30,8 @@ var sky_mat: ShaderMaterial
 ## Pelin hetki: Unix-aika sekunteina UTC (päivämäärä ja kellonaika samassa).
 var t_utc := 0.0
 var fast := false
+var key_fast := false  # T pohjassa tällä koneella
+var remote_fast := false  # moninpeli: joku muu kelaa
 var altitude := 0.0  # astetta, näennäinen (taittuminen mukana)
 var azimuth := 0.0   # astetta pohjoisesta myötäpäivään
 var sun_dir := Vector3.UP  # suunta aurinkoon pelin kehyksessä (x itään, z etelään)
@@ -57,12 +59,13 @@ func start_preset(i: int) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.physical_keycode == KEY_T and not event.echo:
-		fast = event.pressed
+		key_fast = event.pressed
 
 
 func _process(delta: float) -> void:
-	if get_tree().paused:
+	if not can_process():  # moninpelissä kello kulkee myös valikon ollessa auki
 		return
+	fast = key_fast or remote_fast
 	t_utc += delta * TIME_SCALE * (FAST if fast else 1.0)
 	_update(false, delta)
 

@@ -28,7 +28,10 @@ var look: Dictionary = Looks.PLAYER
 var display_name := ""
 var is_player := true
 var brain: RefCounted = null  # ai.gd: kun asetettu, syötteet tulevat siltä
+## Moninpeli: hahmoa ohjataan toisella koneella, tila tulee verkosta (net_apply) ja tässä vain näytetään.
+var remote := false
 var pose := ""  # tekoälyn asento paikallaan (Sitting_Idle, Idle_Talking, ...)
+var airborne := false
 var boat: CharacterBody3D = null
 var hidden_inside := false
 var surface := Terrain.FOREST
@@ -47,6 +50,10 @@ var _step_t := 0.0
 var _breath_t := 0.0
 var _shape: CollisionShape3D
 var _label: Label3D
+var _net_pos := Vector3.ZERO
+var _net_rot := 0.0
+var _net_throttle := 0.0
+var _net_steer := 0.0
 
 
 func _ready() -> void:
@@ -77,12 +84,16 @@ func activate_camera() -> void:
 # --- Syötteet: näppäimet tai tekoäly --------------------------------------------------------------------------
 
 func input_throttle() -> float:
+	if remote:
+		return _net_throttle
 	if brain != null:
 		return brain.throttle
 	return Input.get_axis("back", "forward")
 
 
 func input_steer() -> float:
+	if remote:
+		return _net_steer
 	if brain != null:
 		return brain.steer
 	return Input.get_axis("right", "left")
@@ -223,6 +234,9 @@ func _ride(delta: float) -> void:
 # --- Fysiikka -------------------------------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	if remote:
+		_puppet(delta)
+		return
 	if brain != null and controls_enabled:
 		brain.think(delta)
 	if boat != null:
@@ -267,11 +281,8 @@ func _physics_process(delta: float) -> void:
 		# Kelluu: vartalo hakeutuu pinnan alle niin, että pää jää pinnalle.
 		velocity.y = clampf((level + FLOAT_Y - p.y) * 4.0, -3.0, 3.0)
 		move_and_slide()
-		_body.play("Swim_Fwd" if absf(speed) > 0.2 else "Swim_Idle", 0.3, maxf(0.6, absf(speed) / SWIM))
-		_step_t += delta
-		if _step_t > (0.9 if absf(speed) > 0.2 else 2.2):
-			_step_t = 0.0
-			_sound("water", -12.0 if absf(speed) > 0.2 else -18.0, randf_range(1.1, 1.4))
+		airborne = false
+		_animate(delta)
 		_update_camera(delta)
 		return
 
@@ -305,11 +316,24 @@ func _physics_process(delta: float) -> void:
 		var col := get_slide_collision(i).get_collider()
 		if col != null and col.has_meta("puu"):
 			on_wood = true
+	airborne = not is_on_floor()
+	_animate(delta)
+	_update_camera(delta)
 
+
+## Animaatio ja askeläänet nopeuden, asennon ja pinnan mukaan: sama omalle, tekoälyn ja verkon hahmolle.
+func _animate(delta: float) -> void:
 	var s := absf(speed)
+	if swimming:
+		_body.play("Swim_Fwd" if s > 0.2 else "Swim_Idle", 0.3, maxf(0.6, s / SWIM))
+		_step_t += delta
+		if _step_t > (0.9 if s > 0.2 else 2.2):
+			_step_t = 0.0
+			_sound("water", -12.0 if s > 0.2 else -18.0, randf_range(1.1, 1.4))
+		return
 	if pose != "" and s < 0.2:
 		_body.play(pose, 0.35)
-	elif not is_on_floor() and not pose.begins_with("Sitting"):
+	elif airborne and not pose.begins_with("Sitting"):
 		_body.play("Jump", 0.1)
 	elif s < 0.2:
 		_body.play("Idle", 0.25)
@@ -326,7 +350,65 @@ func _physics_process(delta: float) -> void:
 			_sound("water", -9.0, randf_range(1.4, 1.8))
 		var step := "step_hard" if on_wood or surface in [Terrain.ROAD, Terrain.ROCK, Terrain.FILL] else "step_grass"
 		_sound(step, -8.0 + (3.0 if s > 2.8 else 0.0), randf_range(0.9, 1.1))
-	_update_camera(delta)
+
+
+# --- Moninpeli ------------------------------------------------------------------------------------------------
+
+func set_remote(on: bool) -> void:
+	remote = on
+	_net_pos = global_position
+	_net_rot = rotation.y
+	_net_throttle = 0.0
+	_net_steer = 0.0
+
+
+## Tila verkkoon: [hahmo, x, y, z, suunta, nopeus, liput, asento, kaasu, kääntö]; liput 1 ui, 2 ilmassa,
+## 4 sisällä, 8 veneessä.
+func net_state(index: int) -> Array:
+	var p := global_position
+	var f := (1 if swimming else 0) | (2 if airborne else 0) | (4 if hidden_inside else 0) | (8 if boat != null else 0)
+	var th := input_throttle() if controls_enabled else 0.0
+	var st := input_steer() if controls_enabled else 0.0
+	return [index, snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01), snappedf(rotation.y, 0.01),
+		snappedf(speed, 0.01), f, pose, snappedf(th, 0.01), snappedf(st, 0.01)]
+
+
+## Toisen koneen lähettämä tila (net_state); veneeseen nousu ja siitä poistuminen hoidetaan moninpeli.gd:ssä.
+func net_apply(a: Array) -> void:
+	_net_pos = Vector3(a[1], a[2], a[3])
+	_net_rot = a[4]
+	speed = a[5]
+	var f := int(a[6])
+	swimming = f & 1 != 0
+	airborne = f & 2 != 0
+	if (f & 4 != 0) != hidden_inside:
+		set_hidden_inside(f & 4 != 0)
+	pose = a[7]
+	_net_throttle = a[8]
+	_net_steer = a[9]
+
+
+## Verkon hahmo: liukuu kohti viimeisintä tilaa, animaatio ja äänet paikallisesti.
+func _puppet(delta: float) -> void:
+	if boat != null:
+		_ride(delta)
+		return
+	if hidden_inside:
+		return
+	var k := 1.0 - exp(-12.0 * delta)
+	if global_position.distance_to(_net_pos) > 4.0:
+		global_position = _net_pos
+	else:
+		global_position = global_position.lerp(_net_pos, k)
+	rotation.y = lerp_angle(rotation.y, _net_rot, k)
+	velocity = Vector3.ZERO
+	var p := global_position
+	surface = Terrain.surface(p.x, p.z)
+	var ground := Terrain.h(p.x, p.z)
+	on_wood = p.y > ground + 0.15 and not airborne
+	var level: float = world.water_level_at(p.x, p.z) if world != null else 0.0
+	water_depth = maxf(0.0, level - (p.y if on_wood else ground)) if not is_nan(level) else 0.0
+	_animate(delta)
 
 
 func _update_camera(delta: float) -> void:

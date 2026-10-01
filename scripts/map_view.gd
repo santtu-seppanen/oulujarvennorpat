@@ -27,6 +27,7 @@ func open() -> void:
 	visible = true
 	_center = Vector2(player.global_position.x, player.global_position.z)
 	get_tree().paused = true
+	player.controls_enabled = false  # moninpelissä hahmot liikkuvat tauonkin aikana
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	queue_redraw()
 
@@ -34,6 +35,7 @@ func open() -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
+	player.controls_enabled = true
 
 
 func _to_screen(p: Vector2) -> Vector2:

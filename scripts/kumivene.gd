@@ -25,6 +25,10 @@ var rower: Node3D = null  # on_foot.gd, kun joku soutaa
 var speed := 0.0
 var yaw_rate := 0.0
 var phase := 0.0
+## Moninpeli: veneen paikka tulee verkosta soutajan (tai, kun kukaan ei souda, hostin) koneelta.
+var remote := false
+var _net_pos := Vector3.ZERO
+var _net_rot := 0.0
 var _oars: Array[Node3D] = []
 var _hull: Node3D
 var _t := 0.0
@@ -78,9 +82,29 @@ func _physics_process(delta: float) -> void:
 		phase = fmod(phase + delta / STROKE_TIME, 1.0)
 	else:
 		phase = move_toward(phase, 0.75, delta * 0.5)  # airot lepoasentoon
-	var in_drive := rowing and phase < DRIVE
+	if remote:
+		_follow_net(delta)
+	else:
+		_drive(throttle, steer, rowing, delta)
+	# Kelluminen ja keinunta.
+	var p := global_position
+	var water := 0.0
+	var ground := Terrain.h(p.x, p.z)
+	var y := maxf(water + 0.02 * sin(_t * 1.7) + 0.015 * sin(_t * 2.9 + 1.0), ground + 0.12)
+	global_position.y = y
+	_hull.rotation.x = 0.03 * sin(_t * 1.3) + (0.04 * sin(phase * TAU) if rowing else 0.0)
+	_hull.rotation.z = 0.035 * sin(_t * 1.1 + 0.5)
+	_pose_oars(phase if rowing else -1.0, steer)
+	if rowing and phase < DRIVE:
+		_splash_t -= delta
+		if _splash_t <= 0.0:
+			_splash_t = STROKE_TIME
+			Sfx.play_on(self, "water", -10.0, randf_range(1.2, 1.5))
+
+
+func _drive(throttle: float, steer: float, rowing: bool, delta: float) -> void:
 	# Vedon aikana työntö, muuten veden vastus.
-	if in_drive:
+	if rowing and phase < DRIVE:
 		var pull := sin(phase / DRIVE * PI)
 		speed += throttle * pull * 2.4 * delta
 		yaw_rate += steer * pull * 2.6 * delta
@@ -98,20 +122,38 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	if get_slide_collision_count() > 0:
 		speed *= 0.8
-	# Kelluminen ja keinunta.
+
+
+func _follow_net(delta: float) -> void:
+	var k := 1.0 - exp(-10.0 * delta)
 	var p := global_position
-	var water := 0.0
-	var ground := Terrain.h(p.x, p.z)
-	var y := maxf(water + 0.02 * sin(_t * 1.7) + 0.015 * sin(_t * 2.9 + 1.0), ground + 0.12)
-	global_position.y = y
-	_hull.rotation.x = 0.03 * sin(_t * 1.3) + (0.04 * sin(phase * TAU) if rowing else 0.0)
-	_hull.rotation.z = 0.035 * sin(_t * 1.1 + 0.5)
-	_pose_oars(phase if rowing else -1.0, steer)
-	if rowing and phase < DRIVE:
-		_splash_t -= delta
-		if _splash_t <= 0.0:
-			_splash_t = STROKE_TIME
-			Sfx.play_on(self, "water", -10.0, randf_range(1.2, 1.5))
+	if Vector2(p.x - _net_pos.x, p.z - _net_pos.z).length() > 5.0:
+		k = 1.0
+	global_position = Vector3(lerpf(p.x, _net_pos.x, k), p.y, lerpf(p.z, _net_pos.z, k))
+	rotation.y = lerp_angle(rotation.y, _net_rot, k)
+
+
+func set_remote(on: bool) -> void:
+	remote = on
+	_net_pos = global_position
+	_net_rot = rotation.y
+
+
+## Tila verkkoon: [x, z, suunta, nopeus, kääntönopeus, soutuvaihe]. Korkeus ja keinunta lasketaan paikallisesti.
+func net_state() -> Array:
+	var p := global_position
+	return [snappedf(p.x, 0.01), snappedf(p.z, 0.01), snappedf(rotation.y, 0.01), snappedf(speed, 0.01),
+		snappedf(yaw_rate, 0.01), snappedf(phase, 0.01)]
+
+
+func net_apply(a: Array) -> void:
+	_net_pos = Vector3(a[0], 0.0, a[1])
+	_net_rot = a[2]
+	speed = a[3]
+	yaw_rate = a[4]
+	# Soutuvaihe kulkee paikallisesti; korjataan vain, jos se on karannut.
+	if absf(wrapf(phase - float(a[5]), -0.5, 0.5)) > 0.15:
+		phase = a[5]
 
 
 ## Kädensijojen paikat veneen avaruudessa soutuvaiheen mukaan (-1 = airot lepäävät).
