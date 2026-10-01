@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode world_vertex_coords;
+
 // Puun runko ja umpinainen latvus (keski- ja kaukotaso). bark = koivun tuohi, muuten tasaväri.
 
 #include "res://shaders/tree.gdshaderinc"
@@ -17,7 +17,7 @@ void vertex() {
 	vec3 v = VERTEX;
 	vec3 n = NORMAL;
 	float tn;
-	place_tree(v, n, INSTANCE_ID, tn);
+	place_tree(v, n, INSTANCE_ID, INSTANCE_CUSTOM.xy, tn);
 	tint = tn;
 	wpos = v;
 	if (foliage) {

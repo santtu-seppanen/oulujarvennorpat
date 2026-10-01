@@ -1,5 +1,6 @@
-// Puun sijoitus datatekstuurista (trees.gd, assets/map/puut.bin): MultiMeshin instanssi INSTANCE_ID + base
-// = puun indeksi. tree_a: x, y, z, pituus; tree_b: latvuksen säde (x 40), laji, kaksi satunnaislukua.
+// Puun sijoitus datatekstuurista (trees.gd, assets/map/puut.bin): puun indeksi = lohkon alku + INSTANCE_ID.
+// Alku on instanssin custom datassa kahtena alle 2048 lukuna (x + y * 2048), koska yhteensopivuustilassa
+// custom data on puolitarkkuuden liukulukuja (tarkat kokonaisluvut vain 2048 asti). tree_a: x, y, z, pituus; tree_b: latvuksen säde (x 40), laji, kaksi satunnaislukua.
 // Malli on tehty viitepituudelle ref_h ja latvuksen säteelle ref_r; puu skaalataan omiin mittoihinsa.
 
 uniform sampler2D tree_a : filter_nearest, repeat_disable;
@@ -13,14 +14,13 @@ uniform float lod_min = 0.0;
 uniform float lod_max = 100000.0;
 // Rungot levenevät pituuden mukaan (ei latvuksen leveyden), etteivät leveälatvaiset saa paksuja runkoja.
 uniform bool trunk = false;
-instance uniform int base = 0;
 
 varying vec3 wpos;
 varying float tint;
 
-void place_tree(inout vec3 v, inout vec3 n, int iid, out float tn) {
+void place_tree(inout vec3 v, inout vec3 n, int iid, vec2 base, out float tn) {
 	int w = textureSize(tree_a, 0).x;
-	int i = base + iid;
+	int i = int(base.x + 0.5) + int(base.y + 0.5) * 2048 + iid;
 	ivec2 c = ivec2(i % w, i / w);
 	vec4 a = texelFetch(tree_a, c, 0);
 	vec4 b = texelFetch(tree_b, c, 0);

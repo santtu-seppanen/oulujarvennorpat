@@ -148,28 +148,29 @@ func _build_near_chunk(k: Vector2i) -> Array:
 	return out
 
 
-## MultiMesh, jonka kaikki instanssit ovat identiteettejä: varjostin sijoittaa puut (base + INSTANCE_ID).
+## MultiMesh, jonka kaikki instanssit ovat identiteettejä ja custom datana lohkon alku: varjostin sijoittaa
+## puut (alku + INSTANCE_ID). Custom data eikä instance uniform, koska yhteensopivuustilassa (selain) niitä
+## saa olla vain 4096; alku kahtena alle 2048 lukuna, koska siellä custom data on puolitarkkuutta.
 func _mmi(mesh: Mesh, r: Vector2i, aabb: AABB) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
 	mm.mesh = mesh
 	mm.instance_count = r.y
-	mm.buffer = _identity_buffer(r.y)
+	mm.buffer = _buffer(r.y, r.x)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.custom_aabb = aabb
-	mmi.set_instance_shader_parameter("base", r.x)
 	return mmi
 
 
-static var _ident := PackedFloat32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0])
-
-
-## n identiteettimuunnosta (12 lukua kukin) tuplaamalla: ei silmukkaa instanssien yli.
-static func _identity_buffer(n: int) -> PackedFloat32Array:
-	while _ident.size() < n * 12:
-		_ident.append_array(_ident)
-	return _ident.slice(0, n * 12)
+## n kertaa [identiteettimuunnos (12 lukua), custom data (base % 2048, base / 2048, 0, 0)] tuplaamalla: ei
+## silmukkaa instanssien yli.
+static func _buffer(n: int, base: int) -> PackedFloat32Array:
+	var b := PackedFloat32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, base % 2048, base / 2048, 0, 0])
+	while b.size() < n * 16:
+		b.append_array(b)
+	return b.slice(0, n * 16)
 
 
 func _update_bodies(c: Vector2i) -> void:

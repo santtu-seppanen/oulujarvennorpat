@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode world_vertex_coords, cull_disabled, depth_prepass_alpha;
+render_mode cull_disabled, depth_prepass_alpha;
 // Lähipuun latvus läpikuultavista korteista (foliage.gd): lehti-/neulastekstuuri alfaleikkauksella, tuulihuojunta.
 
 #include "res://shaders/tree.gdshaderinc"
@@ -15,7 +15,7 @@ void vertex() {
 	vec3 v = VERTEX;
 	vec3 n = NORMAL;
 	float tn;
-	place_tree(v, n, INSTANCE_ID, tn);
+	place_tree(v, n, INSTANCE_ID, INSTANCE_CUSTOM.xy, tn);
 	tint = tn;
 	wpos = v;
 	float s = sin(TIME * 1.3 + v.x * 0.13 + v.z * 0.09) * sway * hh * 0.12
