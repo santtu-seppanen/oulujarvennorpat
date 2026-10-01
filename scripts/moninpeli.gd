@@ -25,6 +25,7 @@ var _time_t := 0.0
 var _fast := {}  # hostilla: tunnus -> T pohjassa
 var _sent_fast := false
 var _host_fast := false
+var _handlers := {}  # viestityyppi -> Callable(d: Dictionary, from: int): minipelien viestit
 
 
 func _ready() -> void:
@@ -67,6 +68,17 @@ func claim(i: int) -> void:
 		_grant(net.my_id, i)
 	else:
 		net.send({"t": "claim", "i": i, "to": net.host_id})
+
+
+## Viesti muille (yksinpelissä ei tee mitään).
+func send(d: Dictionary) -> void:
+	if net.online():
+		net.send(d)
+
+
+## Minipelin viestityypin käsittelijä.
+func on(type: String, cb: Callable) -> void:
+	_handlers[type] = cb
 
 
 func taken_by_other(i: int) -> bool:
@@ -187,6 +199,9 @@ func _on_message(d: Dictionary) -> void:
 				game.sun.remote_fast = bool(d.f)
 		"nopeus":
 			_fast[from] = bool(d.on)
+		var t:
+			if _handlers.has(t):
+				_handlers[t].call(d, from)
 
 
 func _on_state(d: Dictionary, from: int) -> void:

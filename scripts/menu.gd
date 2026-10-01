@@ -12,6 +12,11 @@ VEDESSÄ
 W / S, A / D	ui (syvässä vedessä), kahlaa (matalassa)
 E	nouse kumiveneeseen / veneestä
 W / S, A / D	soutaa veneellä eteen / taakse, kääntää
+ALAMÖKKI
+E	istu lauteille, heitä löylyä
+E	paista lettuja (vain Marko), istu pöytään (ristiseiska)
+W / S	nouse / lopeta
+E / Q	kätkö saunan takana: olut / huikka viinaa
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)
@@ -102,7 +107,7 @@ func open_pause() -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
-	game.player.controls_enabled = true
+	game.player.controls_enabled = game.activity == ""
 	if _mode == "main" or _mode == "sub_main" or _mode == "online":
 		game._hud.visible = true
 		game.player.activate_camera()

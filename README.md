@@ -19,7 +19,8 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista lettuja, istu pöytään |
+| Q | kätköllä saunan takana huikka viinaa (E = olut) |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
@@ -28,6 +29,26 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 
 Vedessä kahlataan (hidastaa syvyyden mukaan), ja yli 1,35 m syvässä uidaan. HUD näyttää lähimmän paikannimen,
 sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä syvyyden.
+
+## Alamökki: sauna, keittiö ja kätkö
+
+Alamökin ovet ovat terassin puoleisella pitkällä sivulla katon alla (valokuva `20210709_171210.jpg`):
+
+- **Vasen ovi, keittiö:** pieni keittiö oikealla ja pöytä neljälle järven puoleisen ikkunan edessä.
+  - Vain Marko osaa kokata: hellalla paistetaan lettuja. Kaada taikina, käännä kullanruskeana ja nosta lautaselle; liian kauan pannulla ja lettu palaa.
+  - Pöytään istuva syö letun, jolloin kunto palaa täyteen.
+  - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
+  - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
+- **Oikea ovi, sauna:** pukuhuone ja löylyhuone, jossa lauteet ja kiuas.
+  - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
+  - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
+  - Moninpelissä löyly tuntuu kaikilla lauteilla istujilla.
+- **Kätkö saunan takana:** törmässä on ehtymätön olut- ja viinakätkö (E olut, Q viina).
+  - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
+  - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
+  - Humala haihtuu noin promillen neljässä minuutissa.
+
+Testit: `tools/testit/alamokkitesti.gd` ja `tools/testit/ristiseiskatesti.gd`.
 
 ## Moninpeli
 

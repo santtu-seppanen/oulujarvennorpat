@@ -18,6 +18,9 @@ const Ai := preload("res://scripts/ai.gd")
 const Kumivene := preload("res://scripts/kumivene.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Moninpeli := preload("res://scripts/moninpeli.gd")
+const Sauna := preload("res://scripts/sauna.gd")
+const Kokkaus := preload("res://scripts/kokkaus.gd")
+const Korttipeli := preload("res://scripts/korttipeli.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-5.6, 0.6), Vector2(-3.7, -1.0), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -49,6 +52,19 @@ var crew: Array = []
 var crew_modes: Array = []  # player | ai | remote (moninpelissä toisen koneen ohjaama)
 var player_index := 0
 var mp: Node
+## Alamökin minipeli käynnissä: "" | sauna | kokkaus | kortit (vastaava solmu: start, act, stop, prompt).
+var activity := ""
+var sauna: Node
+var kokkaus: Node
+var kortit: Node
+var _toast: Label
+var _toast_t := 0.0
+var _was_fps := false
+var _drunk_label: Label
+var _drunk_fx: ColorRect
+var _was_out := false
+## Minipeleissä katsotaan silmistä: lauteilta kiukaalle, hellalla pannuun, pöydässä kortteihin (kallistus).
+const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kortit": -0.4}
 var boat: CharacterBody3D
 var _amb: Node
 var _mm: Control
@@ -87,6 +103,16 @@ func _ready() -> void:
 	mp = Moninpeli.new()
 	mp.game = self
 	add_child(mp)
+	world.mokki.bodies = crew
+	sauna = Sauna.new()
+	sauna.game = self
+	add_child(sauna)
+	kokkaus = Kokkaus.new()
+	kokkaus.game = self
+	add_child(kokkaus)
+	kortit = Korttipeli.new()
+	kortit.game = self
+	add_child(kortit)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -120,6 +146,7 @@ func map_open() -> bool:
 
 ## Pelaaja omalle aloituspaikalleen mökin terassille, katse järvelle.
 func respawn() -> void:
+	end_activity()
 	if player.boat != null:
 		player.leave_boat()
 	player.set_hidden_inside(false)
@@ -163,6 +190,7 @@ func set_crew_mode(j: int, mode: String) -> void:
 
 ## Kamera, HUD ja äänet seuraamaan hahmoa i.
 func set_player(i: int) -> void:
+	end_activity()
 	player_index = i
 	player = crew[i]
 	_amb.player = player
@@ -194,10 +222,117 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("restart"):
 		respawn()
 	elif event.is_action_pressed("interact"):
-		if player.boat != null:
+		if activity != "":
+			_activity_node().act()
+		elif player.boat != null:
 			player.leave_boat()
-		elif _near_boat():
-			player.enter_boat(boat)
+		else:
+			var it := _interaction()
+			if it.has("cb"):
+				it.cb.call()
+	elif activity != "" and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
+		end_activity()
+	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
+		_booze()
+
+
+# --- Kätkö saunan takana --------------------------------------------------------------------------------------
+
+func _near_stash() -> bool:
+	var s: Vector3 = world.mokki.stash_pos
+	var p := player.global_position
+	return Vector2(p.x - s.x, p.z - s.z).length() < 1.5 and p.y > Mokki.DY - 0.3 and p.y < Mokki.DY + 1.2 \
+		and player.pose != "Sammunut" and player.boat == null
+
+
+func _beer() -> void:
+	player.drink(0.22)
+	toast(["Kylmä olut kätköstä. Kippis!", "Tsuih! Taas yksi kylmä.", "Olutta riittää – kätkö ei tyhjene."][randi() % 3]
+		+ " (%d. huikka, %.1f ‰)" % [player.drinks, player.promille])
+
+
+func _booze() -> void:
+	player.drink(0.45)
+	toast(["Huikka viinaa. Polttaa!", "Viinapullo kiertää – ja kirvelee.", "Hyi saakeli, mutta hyvää."][randi() % 3]
+		+ " (%d. huikka, %.1f ‰)" % [player.drinks, player.promille])
+
+
+static func drunk_text(pm: float) -> String:
+	if pm < 0.3:
+		return ""
+	if pm < 0.8:
+		return "hiprakassa"
+	if pm < 1.5:
+		return "humalassa"
+	if pm < 2.2:
+		return "kännissä"
+	if pm < 3.0:
+		return "kaatokännissä"
+	if pm < 3.6:
+		return "tolkuttomassa humalassa – kävely ei onnistu"
+	return "sammunut"
+
+
+# --- Alamökin minipelit ---------------------------------------------------------------------------------------
+
+func _activity_node() -> Node:
+	return {"sauna": sauna, "kokkaus": kokkaus, "kortit": kortit}.get(activity, null)
+
+
+func start_activity(a: String) -> void:
+	end_activity()
+	activity = a
+	if not _activity_node().start():
+		activity = ""
+		return
+	player.controls_enabled = false
+	_was_fps = CamCtl.fps
+	CamCtl.fps = true
+	CamCtl.yaw = 0.0
+	CamCtl.pitch = ACTIVITY_PITCH[a]
+
+
+func end_activity(why := "") -> void:
+	if activity == "":
+		return
+	var n := _activity_node()
+	activity = ""
+	player.controls_enabled = true
+	CamCtl.fps = _was_fps
+	CamCtl.pitch = 0.0 if _was_fps else -0.12
+	n.stop(why)
+
+
+## Lyhyt ilmoitus ruudun alareunaan.
+func toast(text: String, secs := 3.0) -> void:
+	_toast.text = text
+	_toast_t = secs
+
+
+## Mitä E tekee tässä kohdassa: {text, cb} (cb puuttuu, jos pelkkä vihje).
+func _interaction() -> Dictionary:
+	if _near_boat():
+		return {"text": "E: nouse kumiveneeseen", "cb": func() -> void: player.enter_boat(boat)}
+	if player.hidden_inside or player.swimming or player.pose == "Sammunut":
+		return {}
+	if _near_stash():
+		return {"text": "E: kylmä olut · Q: huikka viinaa (ehtymätön kätkö)", "cb": _beer}
+	if player.pose == "Ryomii":
+		return {}
+	var m: Node3D = world.mokki
+	match Mokki.room_at(player.global_position):
+		"loylyhuone":
+			return {"text": "E: istu lauteille", "cb": func() -> void: start_activity("sauna")}
+		"keittio":
+			if player.global_position.distance_to(m.cook_spot) < 0.75:
+				if Porukka.CREW[player_index].name == "Marko":
+					return {"text": "E: paista lettuja", "cb": func() -> void: start_activity("kokkaus")}
+				return {"text": "Vain Marko osaa paistaa lettuja"}
+			var t := "E: istu pöytään (ristiseiska)"
+			if kokkaus.letut > 0:
+				t += " · pöydässä %d lettua" % kokkaus.letut
+			return {"text": t, "cb": func() -> void: start_activity("kortit")}
+	return {}
 
 
 func _near_boat() -> bool:
@@ -216,6 +351,7 @@ func _setup_input() -> void:
 	_add_action("interact", [KEY_E])
 	_add_action("restart", [KEY_R])
 	_add_action("map", [KEY_M])
+	_add_action("drink", [KEY_Q])
 
 
 func _add_action(action: String, keys: Array) -> void:
@@ -338,6 +474,29 @@ func _build_hud() -> void:
 	_prompt.offset_right = 300
 	_prompt.offset_top = -90
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_drunk_label = _label(_hud, 15)
+	_drunk_label.position = Vector2(210, 76)
+	_drunk_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.35))
+	var fx_layer := CanvasLayer.new()
+	fx_layer.layer = 0
+	add_child(fx_layer)
+	_drunk_fx = ColorRect.new()
+	_drunk_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_drunk_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_drunk_fx.material = B.shader_mat("res://shaders/humala.gdshader")
+	_drunk_fx.visible = false
+	fx_layer.add_child(_drunk_fx)
+	_toast = _label(_hud, 20)
+	_toast.anchor_left = 0.5
+	_toast.anchor_right = 0.5
+	_toast.anchor_top = 1.0
+	_toast.anchor_bottom = 1.0
+	_toast.offset_left = -420
+	_toast.offset_right = 420
+	_toast.offset_top = -60
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_toast.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_stamina = ProgressBar.new()
 	_stamina.show_percentage = false
 	_stamina.position = Vector2(20, 82)
@@ -383,17 +542,33 @@ func _update_hud() -> void:
 	_coords.text = "%.5f N  %.5f E · %s · %.1f m mpy%s" % [lat, lon, Terrain.SURFACE_NAMES[player.surface],
 		Terrain.h(p.x, p.z) + float(world.data.meta.water_level_n2000), depth]
 	_stamina.value = player.stamina
+	var pm: float = player.promille
+	var dt := drunk_text(pm)
+	_drunk_label.text = "%.1f ‰ · %s" % [pm, dt] if dt != "" else ""
+	var d: float = player.drunk()
+	_drunk_fx.visible = d > 0.08 or player.pose == "Sammunut"
+	if _drunk_fx.visible:
+		var mat: ShaderMaterial = _drunk_fx.material
+		mat.set_shader_parameter("amount", d)
+		mat.set_shader_parameter("out_k", 1.0 if player.pose == "Sammunut" else 0.0)
+	var out: bool = player.pose == "Sammunut"
+	if out != _was_out:
+		_was_out = out
+		toast("Sammuit kätkön viereen… Herätys, kun humala laskee." if out else "Heräsit. Pää on kuin kiuas.", 5.0)
 	_stamina.modulate = Color(1, 0.4, 0.3) if player.exhausted else Color.WHITE
 	var day: Dictionary = sun.today()
 	_clock.text = "%s · %s · aurinko laskee %s, nousee %s%s" % [Porukka.CREW[player_index].name, sun.clock_text(),
 		day.set, day.rise, "  ▶▶ (T)" if sun.fast else ""]
 	if mp.online():
 		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
-	if player.boat != null:
+	if activity != "":
+		_prompt.text = _activity_node().prompt()
+	elif player.boat != null:
 		_prompt.text = "W/S soutaa · A/D kääntää · E nouse veneestä"
-	elif _near_boat():
-		_prompt.text = "E: nouse kumiveneeseen"
 	else:
-		_prompt.text = ""
+		_prompt.text = _interaction().get("text", "")
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
+	if _toast_t > 0.0:
+		_toast_t -= get_process_delta_time()
+		_toast.modulate.a = clampf(_toast_t, 0.0, 1.0)

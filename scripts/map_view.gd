@@ -35,7 +35,7 @@ func open() -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
-	player.controls_enabled = true
+	player.controls_enabled = get_parent().get_parent().activity == ""
 
 
 func _to_screen(p: Vector2) -> Vector2:

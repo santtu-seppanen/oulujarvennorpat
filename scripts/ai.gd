@@ -5,9 +5,9 @@ extends RefCounted
 ## Kun aurinko on laskemassa, porukka kerääntyy laiturille ja etuterassille katsomaan sitä.
 
 const ACTIVITIES := {"poyta": 5.0, "grilli": 2.0, "sauna": 2.5, "uinti": 1.5, "ylamokki": 1.2, "huussi": 0.6,
-	"kaide": 1.5}
+	"kaide": 1.5, "kokkaus": 1.2, "kalja": 1.0}
 ## Tekemiset per hahmo painotettuina (Jukka grillaa, Jaakko ui, Marko istuu).
-const LIKES := {"Jukka": {"grilli": 3.0}, "Jaakko": {"uinti": 2.5, "sauna": 1.5}, "Marko": {"poyta": 1.6},
+const LIKES := {"Jukka": {"grilli": 3.0, "kalja": 1.5}, "Jaakko": {"uinti": 2.5, "sauna": 1.5}, "Marko": {"poyta": 1.6, "kokkaus": 1.0},
 	"Santtu": {"ylamokki": 1.6}}
 
 static var _taken := {}  # istumapaikan indeksi -> hahmo
@@ -35,6 +35,9 @@ var _next := ""
 var _talk_t := 0.0
 var _avoid := 0.0
 var _avoid_dir := 1.0
+var _loyly_t := 0.0
+var _card_seat: Array = []
+var _seat_s := -1  # lauteiden paikka, jolle ollaan menossa
 
 
 func _init(b: CharacterBody3D, m: Node3D, s: Node, n: String) -> void:
@@ -61,8 +64,8 @@ func think(delta: float) -> void:
 	jump = false
 	if activity == "":
 		_choose()
-	# Auringonlasku vetää laiturille (paitsi saunassa olevia).
-	if _sunset() and activity != "aurinko" and _state != "hidden":
+	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
+	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -74,6 +77,30 @@ func think(delta: float) -> void:
 			if _timer <= 0.0:
 				body.set_hidden_inside(false)
 				_done()
+
+
+## Korttipeli alkoi: pöytään omalle paikalle (seat = [paikka, katse]) pelin ajaksi.
+func cards(seat: Array) -> void:
+	if activity == "kortit":
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_leave_seat()
+	body.pose = ""
+	body.set_hidden_inside(false)
+	_next = ""
+	activity = "kortit"
+	_state = "walk"
+	_card_seat = seat
+	_path = mokki.route(body.global_position, "keittio")
+	_path.append(seat[0])
+
+
+func cards_end() -> void:
+	if activity == "kortit":
+		_timer = 0.0
+		if _state != "stay":
+			_done()
 
 
 func _sunset() -> bool:
@@ -89,6 +116,8 @@ func _choose() -> void:
 	var total := 0.0
 	var w := {}
 	for a in ACTIVITIES:
+		if a == "kokkaus" and name != "Marko":
+			continue  # vain Marko osaa kokata
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
 	var r := rng.randf() * total
@@ -112,7 +141,12 @@ func _start(a: String) -> void:
 		"grilli":
 			goal = "grilli"
 		"sauna":
-			goal = "sauna_ovi"
+			goal = "loylyhuone"
+			_seat_s = mokki.free_seat(mokki.sauna_seats, body)
+		"kokkaus":
+			goal = "hella"
+		"kalja":
+			goal = "katko"
 		"uinti":
 			goal = "uinti" + str(rng.randi_range(1, 3))
 		"ylamokki":
@@ -218,8 +252,24 @@ func _arrive() -> void:
 		"uinti":
 			_stay_for(rng.randf_range(10.0, 25.0), "")
 		"sauna":
-			_hide(rng.randf_range(40.0, 80.0))
+			var i: int = _seat_s if _seat_s >= 0 else mokki.free_seat(mokki.sauna_seats, body)
+			if i >= 0 and mokki.free_seat([mokki.sauna_seats[i]], body) < 0:
+				i = mokki.free_seat(mokki.sauna_seats, body)  # joku ehti ensin
+			if i >= 0:
+				body.sit_at(mokki.sauna_seats[i][0], mokki.sauna_seats[i][1])
+			_loyly_t = rng.randf_range(4.0, 10.0)
+			_stay_for(rng.randf_range(40.0, 80.0), "Sitting_Idle" if i >= 0 else "Idle")
 			_next = "uinti"
+		"kokkaus":
+			_face = mokki.cook_face
+			_stay_for(rng.randf_range(25.0, 45.0), "Idle")
+		"kalja":
+			_face = mokki.stash_pos
+			body.drink(0.0)
+			_stay_for(rng.randf_range(8.0, 16.0), "Idle_Talking")
+		"kortit":
+			body.sit_at(_card_seat[0], _card_seat[1])
+			_stay_for(1e9, "Sitting_Idle")
 		"ylamokki":
 			_hide(rng.randf_range(25.0, 60.0))
 		"huussi":
@@ -248,6 +298,11 @@ func _hide(t: float) -> void:
 
 func _stay(delta: float) -> void:
 	_timer -= delta
+	if activity == "sauna" and body.pose.begins_with("Sitting"):
+		_loyly_t -= delta
+		if _loyly_t <= 0.0:
+			_loyly_t = rng.randf_range(10.0, 22.0)
+			mokki.loyly.emit()
 	if _face != Vector3.ZERO and body.pose != "Sitting_Idle" and body.pose != "Sitting_Talking":
 		var d := _face - body.global_position
 		var want := atan2(-d.x, -d.z)
@@ -272,7 +327,9 @@ func _stay(delta: float) -> void:
 
 func _done() -> void:
 	if body.pose.begins_with("Sitting"):
-		body.stand_up()
+		body.stand_up(activity == "sauna")
+	if activity == "kokkaus":
+		mokki.cooked.emit(rng.randi_range(2, 4))
 	body.pose = ""
 	_face = Vector3.ZERO
 	_leave_seat()

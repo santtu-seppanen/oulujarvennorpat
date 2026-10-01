@@ -1,8 +1,11 @@
 extends Node3D
 ## Mökki Äpätinniemen kärjessä valokuvien ja maastotietokannan mukaan:
-## - alamökki eli rantasauna (MML:n rakennus 5,8 x 3,8 m, pitkä sivu kohti järveä NNW): sinharmaa hirsi,
+## - alamökki eli rantasauna (MML:n rakennus 5,8 x 3,8 m, pääty kohti järveä NNW): sinharmaa hirsi,
 ##   valkoiset vuorilaudat ja räystäät, matala harjakatto kuusikulmiopaanuin, piippu, avokuisti järven puolella,
-##   kaksi valkoista ovea, lyhdyt pylväissä ja halkovaja itäpäädyssä
+##   lyhdyt pylväissä ja halkovaja itäpäädyssä. Terassin puoleisella pitkällä sivulla katon alla pylväs ja kaksi
+##   valkoista ovea (valokuva 20210709_171210): vasemmasta (järven päästä) pieneen keittiöön, jossa keittiö
+##   oikealla ja pöytä neljälle järven puoleisen ikkunan edessä; oikeasta saunaan (pukuhuone ja löylyhuone,
+##   lauteet ja kiuas). Sisätiloihin voi kävellä. Saunan takana törmässä ehtymätön olut- ja viinakätkö.
 ## - iso terassi saunan länsipuolella: grillikatos (hirsi, matalat seinät, aumakatto, kaappi ja kaasugrilli),
 ##   valkoinen pop-up-teltta pöytineen ja penkkeineen, kaiteet ja portaat rantaan
 ## - etuterassi ja portaat kelluvalle laiturille, laiturin päässä tikkaat; huussi omalla terassillaan
@@ -14,6 +17,9 @@ extends Node3D
 ##
 ## Kehykset: piha (u itään saunan päätyä pitkin, v järvelle saunan pitkää sivua pitkin), ylämökki (x pitkin
 ## järven puoleista seinää, v järvelle) ja portaat (v ylös). Kaikissa paikallinen z = -v.
+
+signal loyly  # tietokoneen hahmo heitti löylyä (sauna.gd)
+signal cooked(n: int)  # tietokoneen Marko paistoi lettuja (kokkaus.gd)
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -48,6 +54,9 @@ const CABIN_HV := 2.64
 const DECKS := [[-10.8, -1.9, -3.2, 2.0], [-3.4, 2.2, 2.0, 4.3], [2.2, 5.4, -0.8, 4.3], [-1.9, 1.9, -2.9, 2.9],
 	[1.9, 3.2, -2.9, -0.8]]
 const STAIR_W := 1.2
+## Alamökin ovet terassin puoleisessa seinässä (v-välit): vasen keittiöön, oikea saunaan.
+const DOOR_KITCHEN := [0.0, 0.8]
+const DOOR_SAUNA := [-2.35, -1.5]
 const CUT_MARGIN := 2.9  # kaivanto ulottuu näin kauas terassin reunasta (2 m korkeusruudun lävistäjä)
 
 ## Sävyt (sRGB valokuvista).
@@ -69,6 +78,32 @@ var links := []
 var seats := []
 ## Paikat, joista katsellaan auringonlaskua (laituri, etuterassi), maailman pisteinä.
 var views := []
+## Sisätilat maailman pisteinä: lauteiden istumapaikat ja keittiön pöydän neljä paikkaa [paikka, katse],
+## kokin paikka hellan edessä, pannu, pöydän lettulautanen ja kiukaan kivet.
+var sauna_seats := []
+var table_seats := []
+var cook_spot := Vector3.ZERO
+var cook_face := Vector3.ZERO
+var pan_pos := Vector3.ZERO
+var plate_pos := Vector3.ZERO
+var kiuas_pos := Vector3.ZERO
+var stash_pos := Vector3.ZERO  # olut- ja viinakätkö saunan takana
+var bodies: Array = []  # mökkiläiset (main.gd): istumapaikan varaus katsotaan heidän paikoistaan
+
+
+## Vapaa istumapaikka (indeksi) listasta: kukaan muu ei istu tai seiso siinä. -1 = kaikki varattuja.
+func free_seat(list: Array, me: Node3D) -> int:
+	var free := []
+	for i in list.size():
+		var q: Vector3 = list[i][0]
+		var ok := true
+		for b in bodies:
+			if b != me and Vector2(b.global_position.x - q.x, b.global_position.z - q.z).length() < 0.35 \
+					and absf(b.global_position.y - q.y) < 0.8:
+				ok = false
+		if ok:
+			free.append(i)
+	return free[randi() % free.size()] if not free.is_empty() else -1
 var lamps: Array[OmniLight3D] = []
 var _mat: ShaderMaterial
 
@@ -125,6 +160,16 @@ static func in_decks(q: Vector2, m := 0.0) -> bool:
 
 
 ## Etäisyys lähimpään terassiin (0 sisällä), pihan kehyksessä.
+## Alamökin huone pihan kehyksen pisteessä: keittio, pukuhuone, loylyhuone tai "".
+static func room_at(p: Vector3) -> String:
+	var q := wy(Vector2(p.x, p.z))
+	if q.x < -1.72 or q.x > 1.72 or q.y < -2.72 or q.y > 0.92 or p.y > DY + 2.0 or p.y < DY - 0.6:
+		return ""
+	if q.y > -1.1:
+		return "keittio"
+	return "pukuhuone" if q.x < -0.3 else "loylyhuone"
+
+
 static func deck_dist(q: Vector2) -> float:
 	var best := INF
 	for r in DECKS:
@@ -381,20 +426,20 @@ func _log_wall_v(pt: Part, x0: float, x1: float, v0: float, v1: float, y0: float
 
 ## Seinä paloiksi aukkojen ympäriltä. along_v: seinä kulkee v-suunnassa (aukot v-väleinä), muuten x-suunnassa.
 func _log_wall(pt: Part, along_v: bool, x0: float, x1: float, v0: float, v1: float, y0: float, y1: float,
-		col: Color, holes: Array) -> void:
+		col: Color, holes: Array, alpha := LOG, solid := true) -> void:
 	var a0 := v0 if along_v else x0
 	var a1 := v1 if along_v else x1
 	var cuts := [a0]
 	var hs := holes.duplicate()
 	hs.sort_custom(func(p: Array, q: Array) -> bool: return p[0] < q[0])
-	var lc := Color(col.r, col.g, col.b, LOG)
+	var lc := Color(col.r, col.g, col.b, alpha)
 	var put := func(s0: float, s1: float, h0: float, h1: float) -> void:
 		if s1 - s0 < 0.005 or h1 - h0 < 0.005:
 			return
 		if along_v:
-			pt.bx(x0, x1, s0, s1, h0, h1, lc, true)
+			pt.bx(x0, x1, s0, s1, h0, h1, lc, solid)
 		else:
-			pt.bx(s0, s1, v0, v1, h0, h1, lc, true)
+			pt.bx(s0, s1, v0, v1, h0, h1, lc, solid)
 	var s := a0
 	for h in hs:
 		put.call(s, h[0], y0, y1)
@@ -612,24 +657,39 @@ func _sauna(pt: Part) -> void:
 		g = minf(g, Terrain.h(yw(q.x, q.y).x, yw(q.x, q.y).y))
 	pt.bx(-1.85, 1.85, -2.85, 1.05, g - 0.3, y0 - 0.05, Color(0.45, 0.44, 0.42, STONE))
 	pt.bx(-1.9, 2.2, 1.1, 2.9, y0 - 0.05, y0, Color(DECK.r, DECK.g, DECK.b, BOARD_V))  # kuistin lattia
-	# Hirsiseinät: takaseinä, länsiseinä (ikkuna järvelle), itäseinä, kuistin seinä kahdella ovella.
+	# Hirsiseinät: takaseinä, itäseinä, terassin puoleinen länsiseinä kahdella ovella (vasen keittiöön, oikea
+	# saunaan) ja kuistin seinä, jossa keittiön ikkuna järvelle.
 	_log_wall_v(pt, -1.9, 1.9, -2.9, -2.72, y0, eave, WALL)
-	_log_wall_x(pt, -1.9, -1.72, -2.72, 0.92, y0, eave, WALL, [[-1.4, -0.6, y0 + 1.0, y0 + 1.6]])
+	_log_wall_x(pt, -1.9, -1.72, -2.72, 0.92, y0, eave, WALL, [DOOR_KITCHEN + [y0, y0 + 1.95],
+		DOOR_SAUNA + [y0, y0 + 1.95]])
 	_log_wall_x(pt, 1.72, 1.9, -2.72, 0.92, y0, eave, WALL)
-	_log_wall_v(pt, -1.9, 1.9, 0.92, 1.1, y0, eave, WALL, [[-1.3, -0.45, y0, y0 + 1.95], [0.5, 1.3, y0, y0 + 1.95]])
+	_log_wall_v(pt, -1.9, 1.9, 0.92, 1.1, y0, eave, WALL, [[-0.2, 0.8, y0 + 0.85, y0 + 1.55]])
 	_log_corners(pt, -1.81, 1.81, -2.81, 1.01, y0, eave, WALL)
-	_window_x(pt, -1.4, -0.6, -1.9, -1.0, y0 + 1.0, y0 + 1.6, true)
-	# Ovet: vasemmassa ikkuna (pukuhuoneen valo), oikea umpinainen; valkoiset vuorilaudat.
-	for d in [[-1.3, -0.45, true], [0.5, 1.3, false]]:
-		var x0: float = d[0]
-		var x1: float = d[1]
-		pt.bx(x0, x1, 1.06, 1.1, y0, y0 + 1.95, Color(0.95, 0.95, 0.93, BOARD_V))
-		pt.bx(x0 - 0.08, x0, 1.1, 1.14, y0, y0 + 2.03, TRIM)
-		pt.bx(x1, x1 + 0.08, 1.1, 1.14, y0, y0 + 2.03, TRIM)
-		pt.bx(x0 - 0.08, x1 + 0.08, 1.1, 1.14, y0 + 1.95, y0 + 2.03, TRIM)
-		pt.bx(x0 + 0.08, x0 + 0.13, 1.1, 1.15, y0 + 0.95, y0 + 1.0, Color(0.3, 0.3, 0.32, METAL))  # kahva
-		if d[2]:
-			pt.bx(x0 + 0.2, x1 - 0.2, 1.08, 1.12, y0 + 1.45, y0 + 1.8, Color(0.3, 0.2, 0.1, WINDOW))
+	_window_v(pt, -0.2, 0.8, 1.1, 1.0, y0 + 0.85, y0 + 1.55, true)
+	_pane(pt, Part.p(0.3, 1.01, y0 + 1.2), Vector3(1.0, 0.7, 0.02))
+	# Ovet auki terassia vasten: valkoiset, keittiön ovessa iso ikkuna, saunan ovessa kapea.
+	for d in [[DOOR_KITCHEN, 1.0, 0.55], [DOOR_SAUNA, -1.0, 0.25]]:
+		var dv: Array = d[0]
+		var v0: float = dv[0]
+		var v1: float = dv[1]
+		for k in [[v0 - 0.08, v0], [v1, v1 + 0.08]]:
+			pt.bx(-1.98, -1.9, k[0], k[1], y0, y0 + 2.03, TRIM)
+		pt.bx(-1.98, -1.9, v0 - 0.08, v1 + 0.08, y0 + 1.95, y0 + 2.03, TRIM)
+		pt.bx(-1.72, -1.9, v0, v1, y0 - 0.05, y0 + 0.01, Color(DECK.r, DECK.g, DECK.b, BOARD_V))  # kynnys
+		# Ovilehti saranoiltaan seinän suuntaisesti auki (hinge = toinen reuna).
+		var hinge: float = v0 if d[1] > 0.0 else v1
+		var leaf: float = (v1 - v0) * -float(d[1])
+		var a := minf(hinge, hinge + leaf)
+		var b := maxf(hinge, hinge + leaf)
+		var xo := -2.04 if d[1] > 0.0 else -2.0
+		pt.bx(xo - 0.04, xo, a, b, y0 + 0.02, y0 + 1.93, Color(0.95, 0.95, 0.93, BOARD_V))
+		var gw: float = d[2]
+		pt.bx(xo - 0.05, xo + 0.01, (a + b) * 0.5 - gw * 0.5, (a + b) * 0.5 + gw * 0.5, y0 + 0.9, y0 + 1.75,
+			Color(0.3, 0.2, 0.1, WINDOW))
+		var hv := a + 0.1 if d[1] > 0.0 else b - 0.1  # kahva vapaassa reunassa
+		pt.bx(xo - 0.09, xo - 0.04, hv - 0.025, hv + 0.025, y0 + 0.95, y0 + 1.0, Color(0.3, 0.3, 0.32, METAL))
+	_interior(pt)
+	_stash(pt)
 	# Kuistin pylväät (valkoiset, pyöreät) ja otsapalkki.
 	for x: float in [-1.75, 1.75]:
 		pt.cyl(Part.p(x, 2.75, y0), Part.p(x, 2.75, eave - 0.05), 0.07, TRIM)
@@ -639,13 +699,19 @@ func _sauna(pt: Part) -> void:
 		pt.bx(x - 0.11 * signf(x), x - 0.25 * signf(x), 2.7, 2.8, y0 + 1.58, y0 + 1.8, Color(1, 0.9, 0.7, LAMP))
 		_lamp(pt, Part.p(x - 0.18 * signf(x), 2.75, y0 + 1.7), 0.8, 6.0)
 	pt.bx(-1.9, 1.9, 2.7, 2.85, eave - 0.2, eave, TRIM)
-	# Katto: matala harja pitkittäin (v), räystäät 0,45 m, kuistin päällä 0,4 m yli.
-	var ex := 2.35
-	var ey := eave - (ex - 1.9) * tan(pitch)
+	# Katto: matala harja pitkittäin (v), räystäät 0,45 m, kuistin päällä 0,4 m yli. Terassin puolella katto
+	# jatkuu ovien yli 1,25 m ja nojaa palkkiin ja pyöreään pylvääseen.
 	var vb := -3.3
 	var vf := 3.3
 	var rc := Color(ROOF.r, ROOF.g, ROOF.b, SHINGLE)
+	var wx := 3.15
+	var wy_ := eave - (wx - 1.9) * tan(pitch)
+	pt.beam(Part.p(-3.0, vb + 0.3, wy_ - 0.2), Part.p(-3.0, vf - 0.55, wy_ - 0.2), 0.12, 0.14, TRIM)
+	pt.cyl(Part.p(-3.0, -0.75, y0), Part.p(-3.0, -0.75, wy_ - 0.27), 0.07, TRIM)
+	pt.body.add_child(B.box_shape(Vector3(0.14, wy_ - y0, 0.14), Part.p(-3.0, -0.75, (y0 + wy_) * 0.5)))
 	for s: float in [-1.0, 1.0]:
+		var ex := wx if s < 0.0 else 2.35
+		var ey := eave - (ex - 1.9) * tan(pitch)
 		var a := Part.p(s * ex, vb, ey)
 		var b := Part.p(0, vb, ridge)
 		var c := Part.p(0, vf, ridge)
@@ -661,19 +727,198 @@ func _sauna(pt: Part) -> void:
 	# Päätykolmiot: takana hirttä, kuistin päällä valkoista laudoitusta.
 	pt.tri(Part.p(-1.9, -2.9, eave), Part.p(1.9, -2.9, eave), Part.p(0, -2.9, ridge - 0.04), Color(WALL.r, WALL.g, WALL.b, LOG))
 	pt.tri(Part.p(-1.9, 2.85, eave), Part.p(1.9, 2.85, eave), Part.p(0, 2.85, ridge - 0.04), Color(0.9, 0.9, 0.88, BOARD_V))
-	pt.bx(-1.9, 1.9, -2.9, 1.1, eave - 0.02, eave, Color(0.8, 0.78, 0.74, BOARD_U))  # sisäkatto
-	# Piippu (musta), hattu ja kipinäsuoja; tuuletusputki.
-	pt.bx(0.15, 0.65, -1.0, -0.5, eave - 0.3, ridge + 0.85, Color(0.1, 0.1, 0.11, PLAIN))
-	pt.bx(0.1, 0.7, -1.05, -0.45, ridge + 0.85, ridge + 0.9, Color(0.2, 0.2, 0.21, METAL))
+	pt.bx(-1.9, 1.9, -2.9, 1.1, eave - 0.02, eave, Color(0.8, 0.78, 0.74, BOARD_U), true)  # sisäkatto
+	# Piippu (musta) kiukaan yllä, hattu ja kipinäsuoja; tuuletusputki.
+	pt.bx(1.15, 1.55, -1.62, -1.22, eave, ridge + 0.85, Color(0.1, 0.1, 0.11, PLAIN))
+	pt.bx(1.1, 1.6, -1.67, -1.17, ridge + 0.85, ridge + 0.9, Color(0.2, 0.2, 0.21, METAL))
 	for k in 4:
-		var x := 0.12 + (k % 2) * 0.54
-		var v := -1.03 + (k / 2) * 0.54
+		var x := 1.12 + (k % 2) * 0.44
+		var v := -1.65 + (k / 2) * 0.44
 		pt.bx(x, x + 0.03, v, v + 0.03, ridge + 0.9, ridge + 1.15, Color(0.2, 0.2, 0.21, METAL))
-	pt.bx(0.1, 0.7, -1.05, -0.45, ridge + 1.13, ridge + 1.16, Color(0.2, 0.2, 0.21, METAL))
+	pt.bx(1.1, 1.6, -1.67, -1.17, ridge + 1.13, ridge + 1.16, Color(0.2, 0.2, 0.21, METAL))
 	pt.cyl(Part.p(-0.7, 0.4, ridge - 0.25), Part.p(-0.7, 0.4, ridge + 0.15), 0.06, Color(0.15, 0.15, 0.16, METAL))
 	pt.cyl(Part.p(-0.7, 0.4, ridge + 0.15), Part.p(-0.7, 0.4, ridge + 0.2), 0.09, Color(0.15, 0.15, 0.16, METAL))
-	# Löylyhuoneen ikkunan valo illalla.
-	_lamp(pt, Part.p(-2.4, -1.0, y0 + 1.3), 0.5, 4.0)
+	# Keittiön ikkunan valo kuistille illalla.
+	_lamp(pt, Part.p(0.3, 1.6, y0 + 1.3), 0.5, 4.0)
+
+
+## Läpinäkyvä ikkunalasi omana meshinään (koko paikallisessa avaruudessa: leveys x, korkeus y, paksuus).
+func _pane(pt: Part, center: Vector3, size: Vector3) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = B.boxm(size)
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.75, 0.85, 0.9, 0.12)
+	m.roughness = 0.05
+	m.metallic_specular = 0.9
+	mi.material_override = m
+	mi.position = center
+	pt.node.add_child(mi)
+
+
+## Alamökin sisätilat: keittiö järven päässä, sauna (pukuhuone ja löylyhuone) takana. Lattiat, paneelit,
+## väliseinät, kalusteet, valot ja minipelien paikat.
+func _interior(pt: Part) -> void:
+	var y0 := DY
+	var top := DY + 2.23
+	var panel := Color(0.86, 0.78, 0.64)
+	var sauna := Color(0.62, 0.46, 0.32)
+	var white := Color(0.93, 0.93, 0.91)
+	# Lattiat (törmäys tulee terassin lattiasta).
+	pt.bx(-1.72, 1.72, -1.1, 0.92, y0 - 0.04, y0, Color(0.72, 0.62, 0.5, BOARD_U))
+	pt.bx(-1.72, 1.72, -2.72, -1.1, y0 - 0.04, y0, Color(0.6, 0.48, 0.36, BOARD_U))
+	# Paneelit hirsiseinien sisäpintoihin (aukot samoissa kohdissa).
+	_log_wall(pt, true, -1.72, -1.7, -1.1, 0.92, y0, top, panel, [DOOR_KITCHEN + [y0, y0 + 1.95]], BOARD_V, false)
+	_log_wall(pt, true, -1.72, -1.7, -2.72, -1.1, y0, top, sauna, [DOOR_SAUNA + [y0, y0 + 1.95]], BOARD_V, false)
+	_log_wall(pt, true, 1.7, 1.72, -1.1, 0.92, y0, top, panel, [], BOARD_V, false)
+	_log_wall(pt, true, 1.7, 1.72, -2.72, -1.1, y0, top, sauna, [], BOARD_V, false)
+	_log_wall(pt, false, -1.72, 1.72, 0.9, 0.92, y0, top, panel, [[-0.2, 0.8, y0 + 0.85, y0 + 1.55]], BOARD_U, false)
+	_log_wall(pt, false, -1.72, 1.72, -2.72, -2.7, y0, top, sauna, [], BOARD_U, false)
+	# Väliseinä keittiön ja saunan välillä (ei ovea) sekä pukuhuoneen ja löylyhuoneen välillä (ovi).
+	pt.bx(-1.72, 1.72, -1.15, -1.05, y0, top, Color(panel.r, panel.g, panel.b, BOARD_V), true)
+	_log_wall(pt, true, -0.35, -0.25, -2.72, -1.15, y0, top, sauna, [[-1.95, -1.2, y0, y0 + 1.9]], BOARD_V, true)
+	pt.bx(-0.36, -0.24, -1.95, -1.2, y0 + 1.9, y0 + 1.95, Color(0.55, 0.4, 0.26))
+
+	# --- Keittiö: työtaso oikealla (väliseinää vasten), pöytä neljälle ikkunan edessä ---
+	var ct := Color(0.42, 0.43, 0.44)
+	# Kapea keittiö (syvyys 45 cm), jotta kokki mahtuu työtason ja pöydän väliin.
+	pt.bx(-0.2, 1.72, -1.05, -0.6, y0, y0 + 0.86, white, true)
+	pt.bx(-0.22, 1.72, -1.05, -0.58, y0 + 0.86, y0 + 0.9, ct)
+	for k in 5:
+		var x := -0.2 + k * 0.384
+		pt.bx(x + 0.01, x + 0.374, -0.6, -0.585, y0 + 0.1, y0 + 0.82, Color(0.97, 0.97, 0.95))
+		pt.bx(x + 0.17, x + 0.21, -0.585, -0.57, y0 + 0.72, y0 + 0.74, Color(0.3, 0.3, 0.32, METAL))
+	pt.bx(-0.2, 1.72, -0.59, -0.58, y0, y0 + 0.1, Color(0.25, 0.25, 0.26))  # sokkeli
+	# Liesi: musta keraaminen taso, kaksi levyä; pannu etulevyllä.
+	pt.bx(-0.15, 0.45, -1.0, -0.63, y0 + 0.9, y0 + 0.91, Color(0.05, 0.05, 0.06, GLASS))
+	for q: Vector2 in [Vector2(0.05, -0.76), Vector2(0.28, -0.92)]:
+		pt.cyl(Part.p(q.x, q.y, y0 + 0.91), Part.p(q.x, q.y, y0 + 0.915), 0.09, Color(0.18, 0.1, 0.08, METAL), 16)
+	pt.cyl(Part.p(0.05, -0.76, y0 + 0.915), Part.p(0.05, -0.76, y0 + 0.95), 0.12, Color(0.12, 0.12, 0.13, METAL), 16)
+	pt.beam(Part.p(0.05, -0.64, y0 + 0.94), Part.p(0.05, -0.4, y0 + 0.96), 0.03, 0.02, Color(0.1, 0.1, 0.1))
+	pan_pos = _world3(pt, 0.05, -0.76, y0 + 0.95)
+	cook_spot = _world3(pt, 0.05, -0.225, y0)
+	cook_face = _world3(pt, 0.05, -0.9, y0)
+	# Tiskiallas ja hana.
+	pt.bx(0.95, 1.4, -0.95, -0.66, y0 + 0.78, y0 + 0.905, Color(0.7, 0.72, 0.74, METAL))
+	pt.cyl(Part.p(1.18, -0.98, y0 + 0.9), Part.p(1.18, -0.98, y0 + 1.15), 0.015, Color(0.75, 0.77, 0.8, METAL))
+	pt.beam(Part.p(1.18, -0.98, y0 + 1.15), Part.p(1.18, -0.8, y0 + 1.12), 0.025, 0.025, Color(0.75, 0.77, 0.8, METAL))
+	# Yläkaapit, kahvinkeitin ja leipälaatikko.
+	pt.bx(0.55, 1.72, -1.05, -0.75, y0 + 1.45, y0 + 2.1, white)
+	for k in 3:
+		pt.bx(0.56 + k * 0.39, 0.93 + k * 0.39, -0.75, -0.74, y0 + 1.47, y0 + 2.08, Color(0.97, 0.97, 0.95))
+	pt.bx(0.6, 0.8, -1.0, -0.85, y0 + 0.9, y0 + 1.2, Color(0.1, 0.1, 0.11))
+	pt.cyl(Part.p(0.7, -0.78, y0 + 0.9), Part.p(0.7, -0.78, y0 + 1.02), 0.05, Color(0.6, 0.65, 0.7, GLASS))
+	pt.bx(1.45, 1.7, -1.0, -0.8, y0 + 0.9, y0 + 1.05, Color(0.75, 0.2, 0.15))
+	# Pöytä ja penkit: kaksi paikkaa kummallakin pitkällä sivulla, kasvot pöytään.
+	var tw := Color(0.8, 0.68, 0.5)
+	pt.bx(-0.1, 0.7, 0.15, 0.88, y0 + 0.72, y0 + 0.76, tw, true)
+	pt.body.add_child(B.box_shape(Vector3(0.8, 0.72, 0.73), Part.p(0.3, 0.515, y0 + 0.36)))
+	for q: Vector2 in [Vector2(-0.05, 0.2), Vector2(0.65, 0.2), Vector2(-0.05, 0.83), Vector2(0.65, 0.83)]:
+		pt.bx(q.x - 0.03, q.x + 0.03, q.y - 0.03, q.y + 0.03, y0, y0 + 0.72, tw)
+	for bx_: float in [-0.42, 1.02]:
+		pt.bx(bx_ - 0.17, bx_ + 0.17, 0.17, 0.86, y0 + 0.42, y0 + 0.46, tw)
+		for vv: float in [0.23, 0.8]:
+			pt.bx(bx_ - 0.14, bx_ + 0.14, vv - 0.03, vv + 0.03, y0, y0 + 0.42, tw)
+	# Paikat kiertävät pöydän ympäri: länsi järven puolelta, länsi, itä, itä järven puolelta.
+	for q: Vector2 in [Vector2(-0.42, 0.72), Vector2(-0.42, 0.33), Vector2(1.02, 0.33), Vector2(1.02, 0.72)]:
+		table_seats.append([_world3(pt, q.x, q.y, y0), _world3(pt, 0.3, q.y, y0)])
+	plate_pos = _world3(pt, 0.3, 0.52, y0 + 0.76)
+	pt.cyl(Part.p(0.3, 0.52, y0 + 0.76), Part.p(0.3, 0.52, y0 + 0.77), 0.13, Color(0.96, 0.96, 0.94), 16)
+	pt.bx(0.12, 0.2, 0.72, 0.82, y0 + 0.76, y0 + 0.86, Color(0.75, 0.15, 0.2))  # hillopurkki
+	# Kattolamppu.
+	pt.cyl(Part.p(0.3, 0.48, top - 0.35), Part.p(0.3, 0.48, top), 0.01, DARK)
+	pt.cyl(Part.p(0.3, 0.48, top - 0.45), Part.p(0.3, 0.48, top - 0.35), 0.16, Color(1, 0.9, 0.7, LAMP), 12)
+	_room_light(pt, Part.p(0.3, 0.48, top - 0.55), 1.1, 3.0)
+
+	# --- Pukuhuone: penkki ja pyyhkeet ---
+	pt.bx(-1.7, -0.37, -2.72, -2.42, y0 + 0.42, y0 + 0.46, sauna)
+	for x: float in [-1.6, -0.47]:
+		pt.bx(x - 0.03, x + 0.03, -2.7, -2.45, y0, y0 + 0.42, sauna)
+	var towels := [Color(0.85, 0.2, 0.2), Color(0.95, 0.95, 0.9), Color(0.2, 0.4, 0.75), Color(0.95, 0.75, 0.2)]
+	for k in 4:
+		var x := -1.55 + k * 0.32
+		pt.bx(x - 0.12, x + 0.12, -1.18, -1.14, y0 + 1.0, y0 + 1.6, towels[k])
+	_room_light(pt, Part.p(-1.0, -1.9, top - 0.2), 0.5, 2.0)
+
+	# --- Löylyhuone: ylälaude ja askel takaseinällä, kiuas oikeassa etunurkassa ---
+	var lw := Color(0.85, 0.68, 0.46)
+	pt.bx(-0.25, 1.7, -2.7, -2.25, y0 + 0.96, y0 + 1.0, Color(lw.r, lw.g, lw.b, BOARD_V), true)
+	pt.bx(-0.25, 1.7, -2.7, -2.25, y0, y0 + 0.96, Color(lw.r * 0.7, lw.g * 0.7, lw.b * 0.7, BOARD_U), true)
+	pt.bx(-0.25, 1.1, -2.25, -1.9, y0 + 0.46, y0 + 0.5, Color(lw.r, lw.g, lw.b, BOARD_V), true)
+	pt.bx(-0.25, 1.1, -2.25, -1.9, y0, y0 + 0.46, Color(lw.r * 0.7, lw.g * 0.7, lw.b * 0.7, BOARD_U), true)
+	for x: float in [0.1, 0.6, 1.1]:
+		sauna_seats.append([_world3(pt, x, -2.32, y0 + 0.55), _world3(pt, x, -1.0, y0 + 0.55)])
+	var kc := Color(0.1, 0.1, 0.11, METAL)
+	pt.bx(1.15, 1.6, -1.62, -1.22, y0, y0 + 0.72, kc, true)
+	pt.bx(1.14, 1.61, -1.63, -1.21, y0 + 0.62, y0 + 0.65, Color(0.25, 0.25, 0.26, METAL))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for k in 22:
+		var q := Vector2(rng.randf_range(1.2, 1.55), rng.randf_range(-1.57, -1.27))
+		var r := rng.randf_range(0.05, 0.08)
+		var gc := rng.randf_range(0.3, 0.5)
+		pt.bt.add(B.sphere(r, 6), Transform3D(Basis().scaled(Vector3(1, 0.7, 1)),
+			Part.p(q.x, q.y, y0 + 0.72 + rng.randf() * 0.12)), Color(gc, gc, gc * 0.95, STONE))
+	pt.cyl(Part.p(1.375, -1.42, y0 + 0.9), Part.p(1.375, -1.42, top), 0.07, kc)
+	kiuas_pos = _world3(pt, 1.375, -1.42, y0 + 0.85)
+	# Kiulu ja kauha lattialla kiukaan vieressä.
+	pt.cyl(Part.p(0.85, -1.35, y0), Part.p(0.85, -1.35, y0 + 0.22), 0.12, Color(0.6, 0.42, 0.25), 12)
+	pt.beam(Part.p(0.85, -1.35, y0 + 0.2), Part.p(0.85, -1.0, y0 + 0.45), 0.025, 0.025, Color(0.55, 0.38, 0.22))
+	_room_light(pt, Part.p(-0.15, -2.6, top - 0.25), 0.55, 2.4, Color(1.0, 0.78, 0.55))
+
+
+## Kätkö saunan takana törmässä, terassin takakulmasta käden ulottuvilla: kylmälaukku täynnä olutta, keltainen
+## olutkori ja kivien ja kuusenhavujen alle piilotettu viinapullo. Ehtymätön.
+func _stash(pt: Part) -> void:
+	var g := func(u: float, v: float) -> float:
+		var w := yw(u, v)
+		return oh(w) + 0.02
+	var y: float = g.call(-1.35, -3.25)
+	# Kylmälaukku (sininen, valkoinen kansi), kansi raollaan ja tölkit näkyvissä.
+	pt.bx(-1.65, -1.15, -3.45, -3.1, y - 0.1, y + 0.3, Color(0.15, 0.35, 0.75, PLAIN))
+	pt.beam(Part.p(-1.66, -3.45, y + 0.33), Part.p(-1.66, -3.08, y + 0.42), 0.02, 0.05, Color(0.95, 0.95, 0.93))
+	pt.bx(-1.66, -1.14, -3.47, -3.08, y + 0.3, y + 0.34, Color(0.95, 0.95, 0.93))
+	for k in 6:
+		var u := -1.58 + (k % 3) * 0.13
+		var v := -3.37 + (k / 3) * 0.12
+		pt.cyl(Part.p(u, v, y + 0.18), Part.p(u, v, y + 0.31), 0.033, Color(0.75, 0.78, 0.8, METAL), 8)
+	# Olutkori tölkkeineen.
+	var y2: float = g.call(-0.75, -3.3)
+	pt.bx(-0.95, -0.55, -3.5, -3.15, y2 - 0.05, y2 + 0.22, Color(0.95, 0.75, 0.1))
+	for k in 8:
+		var u := -0.9 + (k % 4) * 0.1
+		var v := -3.42 + (k / 4) * 0.12
+		pt.cyl(Part.p(u, v, y2 + 0.1), Part.p(u, v, y2 + 0.25), 0.032, Color(0.15, 0.3, 0.6, METAL), 8)
+	# Viinapullo kivien ja havujen alla.
+	var y3: float = g.call(-2.05, -3.35)
+	pt.cyl(Part.p(-2.05, -3.35, y3 - 0.05), Part.p(-2.05, -3.35, y3 + 0.22), 0.045, Color(0.85, 0.9, 0.92, GLASS), 10)
+	pt.cyl(Part.p(-2.05, -3.35, y3 + 0.22), Part.p(-2.05, -3.35, y3 + 0.32), 0.016, Color(0.85, 0.9, 0.92, GLASS), 8)
+	pt.cyl(Part.p(-2.05, -3.35, y3 + 0.32), Part.p(-2.05, -3.35, y3 + 0.35), 0.019, Color(0.8, 0.1, 0.1, METAL), 8)
+	pt.bx(-2.1, -2.0, -3.31, -3.3, y3 + 0.05, y3 + 0.15, Color(0.95, 0.95, 0.9))  # etiketti
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for k in 5:
+		var q := Vector2(-2.05 + rng.randf_range(-0.25, 0.25), -3.35 + rng.randf_range(-0.25, 0.15))
+		var r := rng.randf_range(0.08, 0.14)
+		var gc := rng.randf_range(0.35, 0.5)
+		pt.bt.add(B.sphere(r, 7), Transform3D(Basis().scaled(Vector3(1.2, 0.7, 1)), Part.p(q.x, q.y, y3)),
+			Color(gc, gc * 0.98, gc * 0.95, STONE))
+	for k in 4:
+		var a := Part.p(-2.3 + k * 0.12, -3.2, y3 + 0.25)
+		pt.beam(a, a + Vector3(0.25, -0.2, 0.15), 0.12, 0.02, Color(0.15, 0.3, 0.15))
+	stash_pos = _world3(pt, -1.35, -3.25, DY)
+
+
+## Huoneen valo: aina päällä, himmeä; varjot estävät valoa paistamasta katon ja seinien läpi ulos.
+func _room_light(pt: Part, pos: Vector3, energy: float, rng: float, col := Color(1.0, 0.82, 0.6)) -> void:
+	var l := OmniLight3D.new()
+	l.position = pos
+	l.light_color = col
+	l.light_energy = energy
+	l.omni_range = rng
+	l.omni_attenuation = 1.4
+	l.shadow_enabled = true
+	pt.node.add_child(l)
 
 
 func _woodshed(pt: Part) -> void:
@@ -1047,7 +1292,12 @@ func _waypoints() -> void:
 	points = {
 		"piha": y.call(-5.6, 0.6, DY), "portaat_ala": y.call(-5.8, -1.3, DY), "poyta": y.call(-3.7, -1.0, DY),
 		"grilli_ovi": y.call(-6.7, -1.4, DY), "grilli": y.call(-8.6, -1.8, DY), "etuterassi": y.call(-2.2, 3.6, DY), "kulku": y.call(-2.65, 1.4, DY),
-		"kuisti": y.call(0.0, 2.2, DY), "sauna_ovi": y.call(-0.85, 1.4, DY), "kaide": y.call(0.6, 3.8, DY),
+		"kuisti": y.call(0.0, 2.2, DY), "kaide": y.call(0.6, 3.8, DY),
+		"keittio_ovi": y.call(-2.55, 0.4, DY), "keittio": y.call(-1.15, 0.4, DY),
+		"keittio_kaytava": y.call(-0.85, -0.225, DY), "hella": cook_spot,
+		"sauna_ovi": y.call(-2.55, -1.925, DY), "pukuhuone": y.call(-1.05, -1.75, DY),
+		"loylyhuone": y.call(0.35, -1.5, DY),
+		"katko": y.call(-2.3, -2.95, DY),
 		"itaterassi": y.call(2.9, 3.4, DY), "huussi": y.call(3.3, 0.55, DY), "laituri_alku": y.call(-2.2, 6.4, 0.42),
 		"laituri_paa": y.call(-2.2, 13.2, 0.42), "rantaportaat": y.call(-8.0, 1.5, DY),
 		"ranta": Vector3(beach.x, Terrain.h(beach.x, beach.y), beach.y),
@@ -1056,7 +1306,11 @@ func _waypoints() -> void:
 		"portaat_yla": cab.call(4.1, 1.9), "ylamokki_ovi": cab.call(3.2, -0.25),
 	}
 	links = [["piha", "portaat_ala"], ["piha", "poyta"], ["piha", "grilli_ovi"], ["grilli_ovi", "grilli"],
-		["piha", "kulku"], ["kulku", "etuterassi"], ["etuterassi", "kuisti"], ["kuisti", "sauna_ovi"],
+		["piha", "kulku"], ["kulku", "etuterassi"], ["etuterassi", "kuisti"], ["kulku", "keittio_ovi"],
+		["keittio_ovi", "keittio"], ["keittio", "keittio_kaytava"],
+		["keittio_kaytava", "hella"], ["keittio_ovi", "sauna_ovi"], ["sauna_ovi", "pukuhuone"],
+		["pukuhuone", "loylyhuone"], ["poyta", "sauna_ovi"],
+		["sauna_ovi", "katko"],
 		["etuterassi", "kaide"], ["kaide", "itaterassi"], ["itaterassi", "huussi"], ["etuterassi", "laituri_alku"],
 		["laituri_alku", "laituri_paa"], ["laituri_paa", "uinti1"], ["uinti1", "uinti2"], ["uinti1", "uinti3"],
 		["uinti3", "ranta_vesi"], ["uinti1", "ranta_vesi"], ["ranta_vesi", "ranta"], ["ranta", "rantaportaat"],

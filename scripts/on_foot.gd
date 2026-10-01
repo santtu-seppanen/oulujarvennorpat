@@ -21,6 +21,12 @@ const SWIM_DRAIN := 3.0
 ## Uidaan, kun vettä on yli tämän verran (m): silloin pelaaja kelluu niin, että pää on pinnalla.
 const SWIM_DEPTH := 1.35
 const FLOAT_Y := -1.25  # vartalon juuren korkeus vedenpinnasta uidessa
+## Humala (promilleina): ohjaus heittelee, raskaassa humalassa ohjaus välillä kääntyy, CRAWL:sta ylöspäin
+## kävely ei onnistu vaan konttaillaan, ja OUT:sta ylöspäin sammutaan, kunnes humala laskee alle CRAWL:n.
+const CRAWL := 3.0
+const OUT := 3.6
+const SOBER_RATE := 0.004  # promillea sekunnissa (1 ‰ haihtuu noin neljässä minuutissa)
+const CRAWL_SPEED := 0.45
 
 var controls_enabled := true
 var world: Node3D
@@ -42,6 +48,10 @@ var swimming := false
 ## Veden syvyys pelaajan kohdalla (0 = kuivalla tai laiturilla).
 var water_depth := 0.0
 var on_wood := false
+var promille := 0.0
+var drinks := 0
+var _drunk_t := 0.0
+var _drink_t := 0.0
 
 var _body: Node3D
 var _cam: Camera3D
@@ -149,13 +159,16 @@ func sit_at(seat: Vector3, face: Vector3) -> void:
 	global_position = seat - Vector3(d.x, 0, d.z).normalized() * 0.08
 	velocity = Vector3.ZERO
 	pose = "Sitting_Idle"
+	_shape.disabled = true  # penkki ja lauteet saavat olla kapselin sisällä
 
 
-func stand_up() -> void:
+## Nousee seisomaan: penkiltä askel taaksepäin pöydästä, lauteilta (forward) eteenpäin alas.
+func stand_up(forward := false) -> void:
 	var fwd := -global_transform.basis.z
-	global_position -= fwd * 0.45
+	global_position += fwd * (0.45 if forward else -0.45)
 	global_position.y += 0.05
 	pose = ""
+	_shape.disabled = hidden_inside
 
 
 ## Saunassa tai mökissä: näkymätön eikä törmää.
@@ -237,6 +250,12 @@ func _physics_process(delta: float) -> void:
 	if remote:
 		_puppet(delta)
 		return
+	_drunk_t += delta
+	promille = maxf(0.0, promille - SOBER_RATE * delta)
+	if _drink_t > 0.0:
+		_drink_t -= delta
+		if _drink_t <= 0.0 and pose == "Interact":
+			pose = ""
 	if brain != null and controls_enabled:
 		brain.think(delta)
 	if boat != null:
@@ -244,6 +263,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if hidden_inside:
 		return
+	# Istuessa törmäys on pois (sit_at); kun asento vaihtuu muuten kuin stand_up:lla, se palautetaan.
+	if _shape.disabled and not pose.begins_with("Sitting"):
+		_shape.disabled = false
 	var p := global_position
 	surface = Terrain.surface(p.x, p.z)
 	var level: float = world.water_level_at(p.x, p.z) if world != null else 0.0
@@ -254,15 +276,31 @@ func _physics_process(delta: float) -> void:
 	water_depth = maxf(0.0, level - ground) if not is_nan(level) else 0.0
 	swimming = water_depth > SWIM_DEPTH
 
+	_drunk_pose()
 	var throttle := 0.0
 	var steer := 0.0
 	var fast := false
 	var jump_pressed := false
-	if controls_enabled:
+	if controls_enabled and pose != "Sammunut":
 		throttle = input_throttle()
 		steer = input_steer()
 		fast = _input_fast() and throttle > 0.0 and not exhausted
 		jump_pressed = _input_jump() and not swimming
+		if brain == null and promille > 0.3:
+			var d := drunk()
+			# Ohjaus heittelee ja pyörii omia aikojaan; raskaassa humalassa välillä väärään suuntaan.
+			steer += (sin(_drunk_t * 1.3) * 0.6 + sin(_drunk_t * 2.9 + 1.0) * 0.4) * d * 1.3
+			if absf(throttle) > 0.1:
+				steer += sin(_drunk_t * 0.5 + 2.0) * d * 0.8
+			if d > 0.6 and sin(_drunk_t * 0.37) > 0.8:
+				steer = -steer
+			throttle *= 1.0 - 0.45 * d * absf(sin(_drunk_t * 0.7))
+			fast = fast and d < 0.6  # kännissä ei juosta
+			jump_pressed = jump_pressed and d < 0.75
+	if pose == "Ryomii":
+		throttle = clampf(throttle, -0.3, 1.0)
+		fast = false
+		jump_pressed = false
 	if pose.begins_with("Sitting"):
 		throttle = 0.0
 		steer = 0.0
@@ -298,9 +336,19 @@ func _physics_process(delta: float) -> void:
 	var want := throttle * (RUN if running else WALK) * gmul
 	if throttle < 0.0:
 		want *= 0.6
+	if pose == "Ryomii":
+		want = throttle * CRAWL_SPEED
 	speed = move_toward(speed, want, 12.0 * delta)
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
+	# Humalassa horjutaan sivuttain.
+	if brain == null and controls_enabled and promille > 0.3 and pose != "Ryomii":
+		var side := Vector3(-fwd.z, 0, fwd.x)
+		var lurch := sin(_drunk_t * 0.9) * 0.7 + sin(_drunk_t * 2.3 + 0.5) * 0.3
+		velocity += side * lurch * drunk() * (0.6 + absf(speed) * 0.35)
+	if pose == "Sammunut":
+		velocity.x = 0.0
+		velocity.z = 0.0
 	if pose.begins_with("Sitting"):
 		velocity = Vector3.ZERO
 	elif is_on_floor():
@@ -321,15 +369,63 @@ func _physics_process(delta: float) -> void:
 	_update_camera(delta)
 
 
+## Humala 0..1 (1 = konttausraja).
+func drunk() -> float:
+	return clampf(promille / CRAWL, 0.0, 1.0)
+
+
+## Olut tai viina: promille kasvaa, hahmo ottaa huikan.
+func drink(amount: float) -> void:
+	promille += amount
+	drinks += 1
+	if pose == "" or pose == "Interact":
+		pose = "Interact"
+		_drink_t = 1.1
+	_sound("glass", -8.0, randf_range(0.9, 1.15))
+
+
+## Humalan asento: konttaus ja sammuminen (eivät koske istumista tai tekoälyn asentoja).
+func _drunk_pose() -> void:
+	if pose != "" and pose != "Ryomii" and pose != "Sammunut" and pose != "Interact":
+		return
+	if promille >= OUT:
+		if pose != "Sammunut":
+			_sound("body_fall", -4.0, 1.0)
+		pose = "Sammunut"
+	elif pose == "Sammunut" and promille >= CRAWL:
+		pass  # herätään vasta, kun humala on laskenut konttausrajan alle
+	elif promille >= CRAWL:
+		pose = "Ryomii"
+	elif pose == "Ryomii" or pose == "Sammunut":
+		pose = ""
+
+
+## Kameran heilunta humalassa.
+func drunk_shake() -> Vector3:
+	var d := drunk()
+	if d < 0.05 or brain != null:
+		return Vector3.ZERO
+	return Vector3(sin(_drunk_t * 0.8), sin(_drunk_t * 1.1) * 0.5, cos(_drunk_t * 0.7)) * 0.35 * d
+
+
 ## Animaatio ja askeläänet nopeuden, asennon ja pinnan mukaan: sama omalle, tekoälyn ja verkon hahmolle.
 func _animate(delta: float) -> void:
 	var s := absf(speed)
+	var lying := pose == "Sammunut" and not swimming
+	_body.rotation.x = -PI * 0.5 if lying else 0.0
+	_body.position.y = 0.16 if lying else 0.0
 	if swimming:
 		_body.play("Swim_Fwd" if s > 0.2 else "Swim_Idle", 0.3, maxf(0.6, s / SWIM))
 		_step_t += delta
 		if _step_t > (0.9 if s > 0.2 else 2.2):
 			_step_t = 0.0
 			_sound("water", -12.0 if s > 0.2 else -18.0, randf_range(1.1, 1.4))
+		return
+	if pose == "Sammunut":
+		_body.play("Idle", 0.5, 0.3)
+		return
+	if pose == "Ryomii":
+		_body.play("Crouch_Fwd" if s > 0.08 else "Crouch_Idle", 0.3, maxf(0.5, s / CRAWL_SPEED))
 		return
 	if pose != "" and s < 0.2:
 		_body.play(pose, 0.35)
@@ -415,5 +511,5 @@ func _update_camera(delta: float) -> void:
 	if not is_player:
 		return
 	var eye: Vector3 = _body.to_global(_body.bone_position("Head")) + Vector3.UP * 0.08
-	CamCtl.update_camera(_cam, self, eye, 4.2, 2.6, absf(speed) > 0.5, delta, not _cam_ready)
+	CamCtl.update_camera(_cam, self, eye, 4.2, 2.6, absf(speed) > 0.5, delta, not _cam_ready, drunk_shake())
 	_cam_ready = true
