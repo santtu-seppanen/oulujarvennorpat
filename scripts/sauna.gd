@@ -103,7 +103,8 @@ func _build_ui() -> void:
 
 func start() -> bool:
 	var m: Node3D = game.world.mokki
-	var i: int = m.free_seat(m.sauna_seats, game.player)
+	# Lähimmälle vapaalle paikalle: jos joku jo saunoo, istutaan hänen viereensä.
+	var i: int = m.free_seat(m.sauna_seats, game.player, game.player.global_position)
 	if i < 0:
 		game.toast("Lauteet ovat täynnä")
 		return false

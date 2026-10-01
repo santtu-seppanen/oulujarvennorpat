@@ -20,7 +20,9 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
 | E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista lettuja, istu pöytään |
-| Q | kätköllä saunan takana huikka viinaa (E = olut) |
+| A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
+| Q | kätköllä saunan kupeessa huikka viinaa (E = olut) |
+| Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
@@ -32,30 +34,37 @@ sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä s
 
 ## Alamökki: sauna, keittiö ja kätkö
 
-Alamökin ovet ovat terassin puoleisella pitkällä sivulla katon alla (valokuva `20210709_171210.jpg`):
+Alamökin ovet ovat terassin puoleisella pitkällä sivulla katon alla (valokuva `20210709_171210.jpg`). Pelissä
+alamökki on pidennetty törmään päin (8,1 m), jotta koko porukka mahtuu sisälle.
 
-- **Vasen ovi, keittiö:** pieni keittiö oikealla ja pöytä neljälle järven puoleisen ikkunan edessä.
+- **Vasen ovi, keittiö:** keittiö oikealla ja pöytä neljälle järven puoleisen ikkunan edessä.
   - Vain Marko osaa kokata: hellalla paistetaan lettuja. Kaada taikina, käännä kullanruskeana ja nosta lautaselle; liian kauan pannulla ja lettu palaa.
   - Pöytään istuva syö letun, jolloin kunto palaa täyteen.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
+  - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
   - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
-- **Oikea ovi, sauna:** pukuhuone ja löylyhuone, jossa lauteet ja kiuas.
+- **Oikea ovi, sauna:** pelkkä löylyhuone. Lauteet ovat perällä, ja niille mahtuu juuri neljä; kiuas on ovesta katsoen vasemmalla.
+  - Lauteille istutaan lähimmälle vapaalle paikalle, joten jos joku jo saunoo, viereen voi istua.
   - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
   - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
   - Moninpelissä löyly tuntuu kaikilla lauteilla istujilla.
-- **Kätkö saunan takana:** törmässä on ehtymätön olut- ja viinakätkö (E olut, Q viina).
+- **Kätkö saunan kupeessa:** terassin takakulman törmässä on ehtymätön olut- ja viinakätkö (E olut, Q viina).
   - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
   - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
   - Humala haihtuu noin promillen neljässä minuutissa.
 
-Testit: `tools/testit/alamokkitesti.gd` ja `tools/testit/ristiseiskatesti.gd`.
+Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydästä tai lauteilta noustaan vapaaseen
+kohtaan.
+
+Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd` ja `tools/testit/ristiseiskatesti.gd`.
 
 ## Moninpeli
 
 Valikosta **Moninpeli → Luo uusi peli** avaa huoneen ja näyttää sen nelikirjaimisen koodin; kaverit liittyvät
 koodilla (**Liity peliin**), selaimessa tai työpöytäversiossa. Kukin valitsee oman mökkiläisensä, ja vapaita
 hahmoja ohjaa huoneen luojan (hostin) tietokone. Host pitää myös kelloa; T kelaa aikaa kaikilta. Jos host
-lähtee, seuraava pelaaja jatkaa hostina.
+lähtee, seuraava pelaaja jatkaa hostina. Keskusteluviestit (Enter) näkyvät kaikille puhekuplina ja
+keskusteluhistoriassa.
 
 Välityspalvelin on `server/`-hakemistossa: Cloudflare Worker ja yksi Durable Object per huone
 (`wss://norpat.santtu-seppane.workers.dev/huone/<KOODI>`). Pelaajat lähettävät ohjaamiensa hahmojen ja

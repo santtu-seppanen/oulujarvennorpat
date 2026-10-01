@@ -21,6 +21,7 @@ const Moninpeli := preload("res://scripts/moninpeli.gd")
 const Sauna := preload("res://scripts/sauna.gd")
 const Kokkaus := preload("res://scripts/kokkaus.gd")
 const Korttipeli := preload("res://scripts/korttipeli.gd")
+const Chat := preload("res://scripts/chat.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-5.6, 0.6), Vector2(-3.7, -1.0), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -57,6 +58,7 @@ var activity := ""
 var sauna: Node
 var kokkaus: Node
 var kortit: Node
+var chat: Node
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -64,7 +66,8 @@ var _drunk_label: Label
 var _drunk_fx: ColorRect
 var _was_out := false
 ## Minipeleissä katsotaan silmistä: lauteilta kiukaalle, hellalla pannuun, pöydässä kortteihin (kallistus).
-const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kortit": -0.4}
+const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kortit": -0.42}
+const LOOK_YAW := 1.9  # pöydässä ja lauteilla katse kääntyy näin paljon sivulle (A/D, hiiren oikea nappi)
 var boat: CharacterBody3D
 var _amb: Node
 var _mm: Control
@@ -113,6 +116,9 @@ func _ready() -> void:
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
+	chat = Chat.new()
+	chat.game = self
+	add_child(chat)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -200,9 +206,14 @@ func set_player(i: int) -> void:
 	player.activate_camera()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if state == "menu" and not _menu.visible:
 		_start_play()
+	# Minipelissä A/D kääntää katsetta (hahmo istuu paikallaan), esim. pöydässä muita pelaajia kohti.
+	if activity != "" and not Chat.typing and not get_tree().paused:
+		var turn := Input.get_axis("right", "left")
+		if turn != 0.0:
+			CamCtl.yaw = clampf(CamCtl.yaw + turn * 1.6 * delta, -LOOK_YAW, LOOK_YAW)
 	var cam := get_viewport().get_camera_3d()
 	if cam != null:
 		RenderingServer.global_shader_parameter_set("lod_eye", cam.global_position)
@@ -232,6 +243,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				it.cb.call()
 	elif activity != "" and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
 		end_activity()
+	elif activity != "" and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_RIGHT \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		# Vapaalla kursorilla (korttipöytä) hiiren oikea nappi pohjassa katsellaan ympärille.
+		CamCtl.yaw = clampf(CamCtl.yaw - event.relative.x * 0.005, -LOOK_YAW, LOOK_YAW)
+		CamCtl.pitch = clampf(CamCtl.pitch - event.relative.y * 0.005, -1.1, 0.5)
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
 		_booze()
 

@@ -1,7 +1,10 @@
 extends Node
-## Ristiseiska alamökin keittiön pöydässä (säännöt ristiseiska.gd). Pöytään istuva pelaaja näkee pelin ja
-## kätensä; kortteja pelataan klikkaamalla. Mukana ovat aina kaikki neljä mökkiläistä: pöydässä istuvat
-## ihmiset pelaavat itse, muiden puolesta pelaa tietokone, ja tietokoneen ohjaamat hahmot kävelevät pöytään.
+## Ristiseiska alamökin keittiön pöydässä (säännöt ristiseiska.gd). Kortit pelataan pöydälle: rivit näkyvät
+## pöydän keskellä ja kunkin pelaajan käsi kuvapuoli alaspäin hänen edessään, joten pöydän ääressä näkee, kuka
+## pelaa ja paljonko kortteja muilla on. Istuva pelaaja näkee oman kätensä ruudun alareunassa ja pelaa
+## klikkaamalla; A/D tai hiiren oikea nappi pohjassa kääntää katsetta pöydän ympäri. Mukana ovat aina kaikki
+## neljä mökkiläistä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta pelaa tietokone, ja tietokoneen
+## ohjaamat hahmot kävelevät pöytään.
 ##
 ## Moninpelissä pelitilaa pitää host: muut lähettävät siirtonsa ("rs") ja host jakaa tilan ("rs_tila").
 
@@ -21,11 +24,25 @@ var _seen_moves := -1
 var _seen_phase := ""
 
 var _ui: CanvasLayer
-var _rows: Array = []  # maa -> HBoxContainer
 var _hand: HBoxContainer
 var _status: Label
 var _players: Label
 var _deal_btn: Button
+
+## Pöydän kortit 3D:nä: kortin koko (leveys pitkin pöytää, korkeus pöydän poikki), rivien väli ja kortit
+## yhdestä tekstuurikartasta (13 x 5 ruutua, viimeisellä rivillä selkäpuoli).
+const CARD_W := 0.058
+const CARD_H := 0.082
+const PITCH_V := 0.062
+const PITCH_U := 0.098
+const CELL := Vector2i(96, 134)
+var _table: Node3D
+var _marker: MeshInstance3D
+var _card_mat: StandardMaterial3D
+var _meshes := {}  # kortti (52 = selkä) -> ArrayMesh
+var _atlas: SubViewport
+var _atlas_wait := 0
+var _anim := {}  # kortti -> [alku, loppu, aika] viimeisimmän siirron liukuma
 
 
 func _ready() -> void:
@@ -45,6 +62,7 @@ func _ready() -> void:
 		if game.mp.net.is_host():
 			_broadcast())
 	_build_ui()
+	_build_table()
 
 
 func _authority() -> bool:
@@ -79,8 +97,8 @@ func stop(_why := "") -> void:
 
 func prompt() -> String:
 	if logic.phase == "idle" or logic.phase == "over":
-		return "E: jaa kortit (ristiseiska) · W: nouse pöydästä"
-	return "Ristiseiska: klikkaa korttia · W: nouse pöydästä"
+		return "E: jaa kortit (ristiseiska) · A/D: katso ympärille · W: nouse pöydästä"
+	return "Klikkaa korttia · A/D: katso ympärille · W: nouse pöydästä"
 
 
 # --- Pelitila (host) ------------------------------------------------------------------------------------------
@@ -127,6 +145,8 @@ func _broadcast() -> void:
 
 
 func _process(delta: float) -> void:
+	_atlas_ready()
+	_animate(delta)
 	if not _authority():
 		return
 	# Pöydästä poistuneet ihmiset (yhteys katkesi tai hahmo vaihtui) korvautuvat tietokoneella.
@@ -158,13 +178,12 @@ func _process(delta: float) -> void:
 
 ## Tietokoneen ohjaamat mökkiläiset pöytään pelin ajaksi.
 func _gather_ai(on: bool) -> void:
-	var m: Node3D = game.world.mokki
 	for j in game.crew.size():
 		var b: CharacterBody3D = game.crew[j]
 		if game.crew_modes[j] != "ai" or b.brain == null:
 			continue
 		if on:
-			b.brain.cards(m.table_seats[j])
+			b.brain.cards(j)
 		else:
 			b.brain.cards_end()
 
@@ -175,9 +194,10 @@ func _name(i: int) -> String:
 	return game.Porukka.CREW[i].name
 
 
-## Tilan muutos: äänet ja tapahtumat, sitten näkymä.
+## Tilan muutos: äänet, pöydän kortit ja viimeisimmän siirron liukuma, sitten näkymä.
 func _changed() -> void:
-	if logic.moves != _seen_moves and not logic.last.is_empty() and game.activity == "kortit":
+	var new_move := logic.moves != _seen_moves and not logic.last.is_empty()
+	if new_move and game.activity == "kortit":
 		var l: Dictionary = logic.last
 		Sfx.play("cloth" if l.a == "pelasi" else "pickup", -10.0, randf_range(0.9, 1.2))
 	if logic.phase == "over" and _seen_phase != "over" and _seen_phase != "":
@@ -187,8 +207,13 @@ func _changed() -> void:
 		if game.activity == "kortit":
 			game.toast("%s voitti ristiseiskan! %s jäi viimeiseksi." % [_name(w), _name(loser)], 6.0)
 			Sfx.play("win" if w == me else ("lose" if loser == me else "win_small"), -6.0)
+	_anim.clear()
+	if new_move and logic.moves == _seen_moves + 1 and logic.last.a == "pelasi":
+		var l: Dictionary = logic.last
+		_anim[int(l.c)] = [_hand_pos(int(l.p), 0, 1), _slot_pos(int(l.c)), 0.0]
 	_seen_moves = logic.moves
 	_seen_phase = logic.phase
+	_layout_table()
 	_refresh()
 
 
@@ -197,31 +222,25 @@ func _build_ui() -> void:
 	_ui.layer = 20
 	_ui.visible = false
 	add_child(_ui)
-	var top := Ui.panel(_ui, "top", 840)
-	Ui.label(top, "RISTISEISKA", 24, Ui.YELLOW)
-	var mid := HBoxContainer.new()
-	mid.add_theme_constant_override("separation", 18)
-	top.add_child(mid)
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 4)
-	mid.add_child(rows)
-	for s in 4:
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 3)
-		rows.add_child(h)
-		_rows.append(h)
-	_players = Ui.label(mid, "", 16)
+	# Pieni paneeli vasemmassa yläkulmassa, jotta pöytä ja muut pelaajat näkyvät.
+	var top := Ui.panel(_ui, "top", 400)
+	var pc: Control = top.get_parent()
+	pc.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	pc.offset_left = 16
+	pc.offset_right = 416
+	pc.offset_top = 140
+	top.add_theme_constant_override("separation", 4)
+	Ui.label(top, "RISTISEISKA", 18, Ui.YELLOW)
+	_players = Ui.label(top, "", 16)
 	_players.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_players.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_players.custom_minimum_size = Vector2(250, 0)
-	_status = Ui.label(top, "", 17)
+	_status = Ui.label(top, "", 16, Ui.YELLOW)
 	var bottom := Control.new()
 	bottom.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	bottom.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	bottom.offset_left = -560
 	bottom.offset_right = 560
-	bottom.offset_top = -190
+	bottom.offset_top = -180
 	bottom.offset_bottom = -100
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui.add_child(bottom)
@@ -244,37 +263,24 @@ func _refresh() -> void:
 	var me: int = game.player_index
 	var playing := logic.phase == "play" or logic.phase == "give"
 	_deal_btn.visible = not playing
-	# Pöydän rivit: A..K, pelatut kortit näkyvissä, muut himmeinä paikkoina.
-	for s in 4:
-		var h: HBoxContainer = _rows[s]
-		for ch in h.get_children():
-			ch.queue_free()
-		for r in range(1, 14):
-			var cv := CardView.new()
-			cv.card = s * 13 + r - 1
-			cv.custom_minimum_size = Vector2(38, 52)
-			cv.ghost = logic.low[s] == 0 or r < logic.low[s] or r > logic.high[s]
-			h.add_child(cv)
-	# Pelaajat: korttien määrä, vuoro ja sijoitus.
-	var lines := []
+	# Pelaajat: vuoro, korttien määrä ja sijoitus.
+	var parts := []
 	for p in 4:
-		var mark := "▶ " if playing and logic.actor() == p else "   "
-		var who := _name(p) + (" (sinä)" if p == me else ("" if humans.has(p) else " (tietokone)"))
+		var who := _name(p) + (" (sinä)" if p == me else ("" if humans.has(p) else " (kone)"))
 		var info := ""
 		if logic.finished.has(p):
 			info = "%d." % (logic.finished.find(p) + 1)
 		elif logic.hands.size() == 4:
 			info = "%d korttia" % logic.hands[p].size()
-		lines.append("%s%s  %s" % [mark, who, info])
-	_players.text = "\n".join(lines)
-	# Tilanne.
+		parts.append(("▶ " if playing and logic.actor() == p else "    ") + who + ("  " + info if info != "" else ""))
+	_players.text = "\n".join(parts)
 	var st := ""
 	match logic.phase:
 		"idle":
-			st = "Jaa kortit aloittaaksesi. Ristiseiskan saanut aloittaa."
+			st = "Jaa kortit (E). Ristiseiskan saanut aloittaa."
 		"over":
 			st = "Peli päättyi: " + ", ".join(logic.finished.map(func(p: int) -> String:
-				return "%d. %s" % [logic.finished.find(p) + 1, _name(p)])) + ". Jaa uudet kortit (E)."
+				return "%d. %s" % [logic.finished.find(p) + 1, _name(p)])) + ". Jaa uudet (E)."
 		"play":
 			st = "Sinun vuorosi: pelaa korostettu kortti" if logic.turn == me else "Vuorossa: %s" % _name(logic.turn)
 		"give":
@@ -298,7 +304,7 @@ func _refresh() -> void:
 		for c in hand:
 			var cv := CardView.new()
 			cv.card = c
-			cv.custom_minimum_size = Vector2(60, 86)
+			cv.custom_minimum_size = Vector2(50, 72)
 			if logic.phase == "play" and logic.turn == me:
 				cv.active = logic.can_play(c)
 			elif logic.phase == "give" and logic.giver == me:
@@ -316,12 +322,186 @@ func _on_card(c: int) -> void:
 		_request("anna", c)
 
 
+# --- Kortit pöydällä ------------------------------------------------------------------------------------------
+# Pöydän kehys (mokki.card_frame): x pitkin pöydän poikki itään, z = -v (pois järveltä). Pelaajat istuvat
+# pöydän länsi- ja itäpuolella, rivit kulkevat pöydän pituussuunnassa niin, että ässä on länsipuolelta katsoen
+# vasemmalla.
+
+func _build_table() -> void:
+	var m: Node3D = game.world.mokki
+	_table = Node3D.new()
+	game.add_child(_table)
+	_table.global_transform = m.card_frame
+	_card_mat = StandardMaterial3D.new()
+	_card_mat.roughness = 0.6
+	_card_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_card_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_card_mat.emission_enabled = true  # hämärässä keittiössäkin kortit erottuvat
+	_card_mat.emission_energy_multiplier = 0.35
+	_marker = MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.09
+	disc.bottom_radius = 0.09
+	disc.height = 0.002
+	_marker.mesh = disc
+	var mm := StandardMaterial3D.new()
+	mm.albedo_color = Color(1.0, 0.8, 0.1, 0.55)
+	mm.emission_enabled = true
+	mm.emission = Color(1.0, 0.7, 0.1)
+	mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_marker.material_override = mm
+	_marker.visible = false
+	_table.add_child(_marker)
+	# Korttikartta piirretään kerran omassa näkymässään samalla piirrolla kuin käsi (CardView).
+	_atlas = SubViewport.new()
+	_atlas.size = Vector2i(CELL.x * 13, CELL.y * 5)
+	_atlas.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_atlas.transparent_bg = false
+	var bg := ColorRect.new()
+	bg.color = Color(0.2, 0.2, 0.2)
+	bg.size = Vector2(_atlas.size)
+	_atlas.add_child(bg)
+	for c in 53:
+		var cv := CardView.new()
+		cv.card = c if c < 52 else 0
+		cv.back = c == 52
+		cv.position = Vector2((c % 13) * CELL.x, (c / 13) * CELL.y) + Vector2(2, 2)
+		cv.size = Vector2(CELL) - Vector2(4, 4)
+		_atlas.add_child(cv)
+	add_child(_atlas)
+	_set_texture(_atlas.get_texture())
+
+
+## Kartta valmis: kopio kuvaksi mipmappeineen (kaukaa katsottuna terävämpi), ja näkymä pois.
+func _atlas_ready() -> void:
+	if _atlas == null:
+		return
+	if DisplayServer.get_name() == "headless":
+		_atlas = null  # ilman näyttöä jätetään näkymän tekstuuri
+		return
+	_atlas_wait += 1
+	if _atlas_wait < 3:
+		return
+	var img := _atlas.get_texture().get_image()
+	if img != null and not img.is_empty():
+		img.generate_mipmaps()
+		_set_texture(ImageTexture.create_from_image(img))
+		_atlas.queue_free()
+	_atlas = null
+
+
+func _set_texture(t: Texture2D) -> void:
+	_card_mat.albedo_texture = t
+	_card_mat.emission_texture = t
+
+
+## Kortin mesh: suorakaide pöydän tasossa, kuvan yläreuna +x-suuntaan (poispäin länsipuolen pelaajasta).
+func _mesh(c: int) -> ArrayMesh:
+	if _meshes.has(c):
+		return _meshes[c]
+	var col := c % 13 if c < 52 else 0
+	var row := c / 13 if c < 52 else 4
+	var u0 := float(col * CELL.x + 2) / (CELL.x * 13)
+	var u1 := float(col * CELL.x + CELL.x - 2) / (CELL.x * 13)
+	var v0 := float(row * CELL.y + 2) / (CELL.y * 5)
+	var v1 := float(row * CELL.y + CELL.y - 2) / (CELL.y * 5)
+	var h := CARD_H * 0.5
+	var w := CARD_W * 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts := [Vector3(h, 0, -w), Vector3(h, 0, w), Vector3(-h, 0, w), Vector3(-h, 0, -w)]
+	var uvs := [Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)]
+	for k: int in [0, 2, 1, 0, 3, 2]:
+		st.set_normal(Vector3.UP)
+		st.set_uv(uvs[k])
+		st.add_vertex(pts[k])
+	var mesh := st.commit()
+	_meshes[c] = mesh
+	return mesh
+
+
+## Pelatun kortin paikka rivissään.
+func _slot_pos(c: int) -> Vector3:
+	var s := R.suit(c)
+	var r := R.rank(c)
+	return Vector3((s - 1.5) * PITCH_U, 0.001, (r - 7) * PITCH_V)
+
+
+## Pelaajan p käden k:s kortti n:stä kuvapuoli alaspäin hänen edessään (viuhkana).
+func _hand_pos(p: int, k: int, n: int) -> Vector3:
+	var m: Node3D = game.world.mokki
+	var seat: Vector3 = m.table_seats[p][0]
+	var local := _table.global_transform.affine_inverse() * seat
+	var west := local.x < 0.0
+	var t := (k - (n - 1) * 0.5) * 0.011
+	return Vector3((-0.36 if west else 0.36) + absf(t) * 0.15 * (1.0 if west else -1.0), 0.0015 + k * 0.0004,
+		local.z + t)
+
+
+func _card(c: int, pos: Vector3, yaw: float, face_up: bool) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _mesh(c if face_up else 52)
+	mi.material_override = _card_mat
+	mi.position = pos
+	mi.rotation.y = yaw
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.set_meta("card", c)
+	_table.add_child(mi)
+	return mi
+
+
+## Pöydän kortit tilasta: pelatut rivit, kädet pelaajien edessä ja vuorossa olevan merkki.
+func _layout_table() -> void:
+	for ch in _table.get_children():
+		if ch != _marker:
+			ch.queue_free()
+	var playing := logic.phase == "play" or logic.phase == "give"
+	if logic.hands.size() != 4:
+		_marker.visible = false
+		return
+	for s in 4:
+		if logic.low[s] == 0:
+			continue
+		for r in range(logic.low[s], logic.high[s] + 1):
+			var c: int = s * 13 + r - 1
+			var mi := _card(c, _slot_pos(c), 0.0, true)
+			if _anim.has(c):
+				_anim[c].append(mi)
+				mi.position = _anim[c][0]
+	for p in 4:
+		var hand: Array = logic.hands[p]
+		var west := _hand_pos(p, 0, 1).x < 0.0
+		for k in hand.size():
+			var t := (k - (hand.size() - 1) * 0.5) * 0.06
+			_card(hand[k], _hand_pos(p, k, hand.size()), (0.0 if west else PI) + t, false)
+	_marker.visible = playing
+	if playing:
+		var hp := _hand_pos(logic.actor(), 0, 1)
+		_marker.position = Vector3(hp.x, 0.0005, hp.z)
+
+
+## Viimeisin pelattu kortti liukuu pelaajan kädestä paikalleen.
+func _animate(delta: float) -> void:
+	for c in _anim.keys():
+		var a: Array = _anim[c]
+		if a.size() < 4 or not is_instance_valid(a[3]):
+			continue
+		a[2] = minf(1.0, a[2] + delta / 0.4)
+		var k: float = ease(a[2], -2.0)
+		var mi: MeshInstance3D = a[3]
+		mi.position = (a[0] as Vector3).lerp(a[1], k) + Vector3.UP * sin(k * PI) * 0.06
+		if a[2] >= 1.0:
+			_anim.erase(c)
+
+
 ## Pelikortti piirrettynä: arvo kulmissa ja maa keskellä. Maat piirretään kuvioina (fontista riippumatta).
 class CardView:
 	extends Control
 	signal clicked(card: int)
 	var card := 0
-	var ghost := false  # tyhjä paikka pöydän rivissä
+	var back := false  # selkäpuoli (pöydällä kuvapuoli alaspäin)
+	var ghost := false  # tyhjä paikka
 	var active := false  # voi pelata / antaa
 	var dim := false
 
@@ -343,6 +523,15 @@ class CardView:
 		if ghost:
 			draw_rect(r, Color(1, 1, 1, 0.06))
 			draw_rect(r, Color(1, 1, 1, 0.12), false, 1.0)
+			return
+		if back:
+			draw_rect(r, Color(0.98, 0.97, 0.94))
+			var inner := r.grow(-size.x * 0.08)
+			draw_rect(inner, Color(0.62, 0.08, 0.12))
+			for k in 9:
+				var y := inner.position.y + inner.size.y * (k + 0.5) / 9.0
+				draw_line(Vector2(inner.position.x, y), Vector2(inner.end.x, y), Color(0.8, 0.25, 0.3), 2.0)
+			draw_rect(inner, Color(0.3, 0.03, 0.05), false, 2.0)
 			return
 		var up := Vector2(0, -8) if active else Vector2.ZERO
 		r.position += up

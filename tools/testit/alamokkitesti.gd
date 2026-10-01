@@ -74,20 +74,17 @@ func _process(_delta: float) -> bool:
 			if t > 2.5:
 				p.brain = null
 				check(Mokki.room_at(p.global_position) == "keittio", "kävellen ovesta keittiöön (%s)" % Mokki.room_at(p.global_position))
-				# Saunan ovesta pukuhuoneeseen ja sieltä löylyhuoneeseen.
-				_put(p, "sauna_ovi", "pukuhuone")
+				# Saunan ovesta suoraan löylyhuoneeseen.
+				_put(p, "sauna_ovi", "loylyhuone")
 				p.brain = Push.new()
 				next()
 		2:
 			if t > 1.2:
-				var r: String = Mokki.room_at(p.global_position)
-				check(r == "pukuhuone" or r == "loylyhuone", "saunan ovesta sisään (%s)" % r)
-				_put(p, "pukuhuone", "loylyhuone")
+				check(Mokki.room_at(p.global_position) == "loylyhuone", "saunan ovesta löylyhuoneeseen (%s)" % Mokki.room_at(p.global_position))
 				next()
 		3:
-			if t > 1.6:
+			if t > 0.2:
 				p.brain = null
-				check(Mokki.room_at(p.global_position) == "loylyhuone", "pukuhuoneesta löylyhuoneeseen (%s)" % Mokki.room_at(p.global_position))
 				check(main._interaction().get("text", "") == "E: istu lauteille", "löylyhuoneessa voi istua lauteille")
 				# Tietokoneen hahmot: Jaakko saunaan, Marko hellalle.
 				main.crew[2].brain._start("sauna")

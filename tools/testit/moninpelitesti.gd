@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --path . -s tools/testit/moninpelitesti.gd -- --rooli=host --huone=TESTI --palvelin=ws://localhost:8787
 ##   godot --headless --path . -s tools/testit/moninpelitesti.gd -- --rooli=vieras --huone=TESTI --palvelin=ws://localhost:8787
 ## Host on Santtu ja kävelee, vieras on Marko ja soutaa kumivenettä. Kumpikin tarkistaa näkevänsä toisen liikkeet,
-## vieras lisäksi, että hostin tekoälyhahmot liikkuvat ja kello on sama.
+## vieras lisäksi, että hostin tekoälyhahmot liikkuvat, kello on sama ja hostin keskusteluviesti tuli perille.
 
 class Push:
 	extends RefCounted
@@ -74,6 +74,7 @@ func _process(_delta: float) -> bool:
 				if role == "host":
 					p.brain = Push.new()
 					p.brain.steer = 0.0
+					main.chat.say("Moro vieras!")
 				else:
 					p.global_position = main.boat.global_position + Vector3(0.5, 0.5, 0)
 					p.enter_boat(main.boat)
@@ -119,6 +120,11 @@ func _verify() -> void:
 			if main.crew_modes[j] == "remote" and b.brain == null:
 				n += 1
 		check(n == 2, "vapaat hahmot hostin tekoälyltä")
+		var heard := false
+		for e in main.chat._lines:
+			if e[0].text == "Santtu: Moro vieras!":
+				heard = true
+		check(heard, "hostin viesti tuli perille")
 	print("[%s] kello %s, t_utc %d" % [role, main.sun.clock_text(), int(main.sun.t_utc)])
 
 

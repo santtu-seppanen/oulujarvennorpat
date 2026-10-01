@@ -7,6 +7,7 @@ extends CharacterBody3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const Chat := preload("res://scripts/chat.gd")
 
 const WALK := 2.3
 const RUN := 5.4
@@ -40,6 +41,8 @@ var pose := ""  # tekoälyn asento paikallaan (Sitting_Idle, Idle_Talking, ...)
 var airborne := false
 var boat: CharacterBody3D = null
 var hidden_inside := false
+## Tekoäly on menossa istumaan tähän paikkaan (mokki.gd free_seat: muut eivät valitse sitä).
+var claimed_seat := Vector3.INF
 var surface := Terrain.FOREST
 var speed := 0.0
 var stamina := 100.0
@@ -59,6 +62,8 @@ var _cam_ready := false
 var _step_t := 0.0
 var _breath_t := 0.0
 var _shape: CollisionShape3D
+var _mask := 0  # törmäysmaski seistessä (istuessa 0)
+var _slide := Vector3.ZERO  # vartalon liukuma paikalleen istuttaessa ja noustessa (paikallinen siirtymä)
 var _label: Label3D
 var _net_pos := Vector3.ZERO
 var _net_rot := 0.0
@@ -70,6 +75,7 @@ func _ready() -> void:
 	collision_mask |= Terrain.COLLISION_LAYER
 	floor_max_angle = deg_to_rad(50.0)
 	floor_snap_length = 0.35
+	_mask = collision_mask
 	_shape = B.capsule_shape(0.3, 1.8)
 	add_child(_shape)
 	_body = Looks.make(self, look)
@@ -98,6 +104,8 @@ func input_throttle() -> float:
 		return _net_throttle
 	if brain != null:
 		return brain.throttle
+	if Chat.typing:
+		return 0.0
 	return Input.get_axis("back", "forward")
 
 
@@ -106,19 +114,21 @@ func input_steer() -> float:
 		return _net_steer
 	if brain != null:
 		return brain.steer
+	if Chat.typing:
+		return 0.0
 	return Input.get_axis("right", "left")
 
 
 func _input_fast() -> bool:
 	if brain != null:
 		return brain.fast
-	return Input.is_key_pressed(KEY_SHIFT)
+	return Input.is_key_pressed(KEY_SHIFT) and not Chat.typing
 
 
 func _input_jump() -> bool:
 	if brain != null:
 		return brain.jump
-	return Input.is_action_just_pressed("jump")
+	return Input.is_action_just_pressed("jump") and not Chat.typing
 
 
 ## Kunnon kulutus ja palautuminen.
@@ -155,20 +165,70 @@ func _cam_dist() -> float:
 ## Istuu penkille kohdassa seat (penkin keskikohta lattiatasolla), kasvot kohti pistettä face.
 func sit_at(seat: Vector3, face: Vector3) -> void:
 	var d := face - seat
+	var from := global_position
 	rotation.y = atan2(-d.x, -d.z)
 	global_position = seat - Vector3(d.x, 0, d.z).normalized() * 0.08
+	_slide_from(from)
 	velocity = Vector3.ZERO
+	speed = 0.0
 	pose = "Sitting_Idle"
-	_shape.disabled = true  # penkki ja lauteet saavat olla kapselin sisällä
+	claimed_seat = Vector3.INF
+	_seated(true)
 
 
-## Nousee seisomaan: penkiltä askel taaksepäin pöydästä, lauteilta (forward) eteenpäin alas.
+## Istuva ei itse törmää mihinkään (penkki ja lauteet saavat olla kapselin sisällä), mutta muut törmäävät
+## häneen: kukaan ei kävele istuvan läpi.
+func _seated(on: bool) -> void:
+	if on and collision_mask != 0:
+		_mask = collision_mask
+		collision_mask = 0
+	elif not on and collision_mask == 0:
+		collision_mask = _mask
+
+
+## Nousee seisomaan: penkiltä askel taaksepäin pöydästä, lauteilta (forward) eteenpäin alas. Jos siinä on joku
+## tai jotain, noustaan sivulle tai pidemmälle.
 func stand_up(forward := false) -> void:
 	var fwd := -global_transform.basis.z
-	global_position += fwd * (0.45 if forward else -0.45)
-	global_position.y += 0.05
+	var side := global_transform.basis.x
+	var first := fwd if forward else -fwd
+	var to := global_position + first * 0.45
+	var found := false
+	for d: Vector3 in [first, side, -side, -first]:
+		for dist: float in [0.45, 0.7]:
+			var q := global_position + d * dist
+			if _free_at(q + Vector3.UP * 0.05):
+				to = q
+				found = true
+				break
+		if found:
+			break
+	var from := global_position
+	global_position = to + Vector3.UP * 0.05
+	_slide_from(from)
+	velocity = Vector3.ZERO
 	pose = ""
+	_seated(false)
 	_shape.disabled = hidden_inside
+
+
+## Paikka vaihtui suoraan (istuminen, nousu): vartalo liukuu vanhasta paikasta uuteen eikä hyppää.
+func _slide_from(from: Vector3) -> void:
+	var off := global_transform.basis.inverse() * (from - global_position)
+	_slide = off if off.length() < 2.5 else Vector3.ZERO
+
+
+## Mahtuuko hahmo seisomaan kohtaan p (jalat): ei seinää, kalustetta eikä toista hahmoa.
+func _free_at(p: Vector3) -> bool:
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.27
+	cap.height = 1.4
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = cap
+	q.transform = Transform3D(Basis(), p + Vector3.UP * 0.85)
+	q.collision_mask = _mask
+	q.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
 
 
 ## Saunassa tai mökissä: näkymätön eikä törmää.
@@ -263,8 +323,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if hidden_inside:
 		return
-	# Istuessa törmäys on pois (sit_at); kun asento vaihtuu muuten kuin stand_up:lla, se palautetaan.
-	if _shape.disabled and not pose.begins_with("Sitting"):
+	# Istuessa oma törmäys on pois (sit_at); kun asento vaihtuu muuten kuin stand_up:lla, se palautetaan.
+	if not pose.begins_with("Sitting"):
+		_seated(false)
 		_shape.disabled = false
 	var p := global_position
 	surface = Terrain.surface(p.x, p.z)
@@ -413,7 +474,8 @@ func _animate(delta: float) -> void:
 	var s := absf(speed)
 	var lying := pose == "Sammunut" and not swimming
 	_body.rotation.x = -PI * 0.5 if lying else 0.0
-	_body.position.y = 0.16 if lying else 0.0
+	_slide = _slide.move_toward(Vector3.ZERO, delta * 3.0)
+	_body.position = _slide + Vector3.UP * (0.16 if lying else 0.0)
 	if swimming:
 		_body.play("Swim_Fwd" if s > 0.2 else "Swim_Idle", 0.3, maxf(0.6, s / SWIM))
 		_step_t += delta
@@ -452,6 +514,7 @@ func _animate(delta: float) -> void:
 
 func set_remote(on: bool) -> void:
 	remote = on
+	_seated(false)
 	_net_pos = global_position
 	_net_rot = rotation.y
 	_net_throttle = 0.0

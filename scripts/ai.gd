@@ -79,8 +79,8 @@ func think(delta: float) -> void:
 				_done()
 
 
-## Korttipeli alkoi: pöytään omalle paikalle (seat = [paikka, katse]) pelin ajaksi.
-func cards(seat: Array) -> void:
+## Korttipeli alkoi: pöytään omalle paikalle i (mokki.table_seats) pelin ajaksi.
+func cards(i: int) -> void:
 	if activity == "kortit":
 		return
 	if body.pose.begins_with("Sitting"):
@@ -91,9 +91,9 @@ func cards(seat: Array) -> void:
 	_next = ""
 	activity = "kortit"
 	_state = "walk"
-	_card_seat = seat
+	_card_seat = mokki.table_seats[i]
 	_path = mokki.route(body.global_position, "keittio")
-	_path.append(seat[0])
+	_path.append_array(mokki.table_paths[i])
 
 
 func cards_end() -> void:
@@ -143,6 +143,8 @@ func _start(a: String) -> void:
 		"sauna":
 			goal = "loylyhuone"
 			_seat_s = mokki.free_seat(mokki.sauna_seats, body)
+			if _seat_s >= 0:
+				body.claimed_seat = mokki.sauna_seats[_seat_s][0]
 		"kokkaus":
 			goal = "hella"
 		"kalja":
@@ -182,6 +184,7 @@ func _leave_seat() -> void:
 	if _seat >= 0 and _taken.get(_seat, "") == name:
 		_taken.erase(_seat)
 	_seat = -1
+	body.claimed_seat = Vector3.INF
 
 
 func _walk(delta: float) -> void:
@@ -252,9 +255,10 @@ func _arrive() -> void:
 		"uinti":
 			_stay_for(rng.randf_range(10.0, 25.0), "")
 		"sauna":
+			body.claimed_seat = Vector3.INF
 			var i: int = _seat_s if _seat_s >= 0 else mokki.free_seat(mokki.sauna_seats, body)
 			if i >= 0 and mokki.free_seat([mokki.sauna_seats[i]], body) < 0:
-				i = mokki.free_seat(mokki.sauna_seats, body)  # joku ehti ensin
+				i = mokki.free_seat(mokki.sauna_seats, body, body.global_position)  # joku ehti ensin
 			if i >= 0:
 				body.sit_at(mokki.sauna_seats[i][0], mokki.sauna_seats[i][1])
 			_loyly_t = rng.randf_range(4.0, 10.0)
