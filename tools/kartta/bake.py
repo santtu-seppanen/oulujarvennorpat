@@ -1,6 +1,6 @@
 """Oulujärven norppien kartta: oikeasta aineistosta pelin datatiedostoiksi (assets/map/).
 
-Aloituspaikka 64.432089 N, 26.886448 E (Äpätinniemi, Vaala, Oulujärven etelärannalla).
+Aloituspaikka 64.432089 N, 26.886448 E (Äpätti, Vaala, Oulujärven etelärannalla).
 Paikallinen kehys: origo ETRS-TM35FIN E 494531, N 7145169 (MML:n 2 m korkeusmallin pikselin keskipiste,
 alle metrin päässä aloituspisteestä), x itään, z etelään, y ylös metreinä Oulujärven pinnasta.
 
@@ -711,7 +711,11 @@ def main():
             e, n = rings[0][0]
             if name and within(e, n) and luokka not in (36291, 42102, 45402, 52192, 52193) and not name[0].isdigit() \
                     and not name.startswith("("):
-                feats["names"].append({"name": name, "class": luokka, "p": pt(e, n)})
+                q = pt(e, n)
+                # Mökin niemestä puhutaan Äpättinä (MTK: Saunaniemi).
+                if name == "Saunaniemi" and math.hypot(q[0], q[1]) < 1000:
+                    name = "Äpätti"
+                feats["names"].append({"name": name, "class": luokka, "p": q})
 
     # OSM: veneenlaskupaikat ja tiennimet (MTK:ssa nimettömille).
     osm_path = a.osm or os.path.join(a.cache, "area.osm")

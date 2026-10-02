@@ -27,15 +27,15 @@ func _initialize() -> void:
 	var fy: float = Mokki.floor_y()
 	# [nimi, kameran paikka, katsepiste, kuukausi, päivä, tunti, minuutti]
 	shots = [
-		["porukka", _y(-6.0, 2.4, Mokki.DY + 1.7), _y(-3.7, 0.0, Mokki.DY + 0.6), 7, 7, 18, 0],
+		["porukka", _y(-6.0, 2.4, Mokki.DY + 1.7), _y(-4.9, 0.25, Mokki.DY + 0.6), 7, 7, 18, 0],
 		["panoraama_ilta", Vector3(top.x + 0.3, fy + 1.6, top.y + 0.5), Vector3(-9, 0, -30), 7, 7, 23, 15],
-		["portaat_teltasta", _y(-3.7, 0.9, 1.6 + Mokki.DY), _y(-7.0, -6.0, 3.5), 7, 7, 20, 34],
+		["portaat_teltasta", _y(-4.9, 1.2, 1.6 + Mokki.DY), _y(-7.0, -6.0, 3.5), 7, 7, 20, 34],
 		["sauna_ylhaalta", Vector3(cab.x, fy + 1.7, cab.y), Vector3(-1.5, 1.0, -9.0), 7, 9, 3, 8],
 		["jarvelta", _y(-3.0, 30.0, 1.2), _y(-3.0, 0.0, 3.0), 8, 4, 18, 27],
 		["tormasta_ylos", _y(-5.0, 1.5, Mokki.DY + 1.5), Vector3(-6, 9.5, 6), 10, 1, 17, 51],
 		["ilmasta", _y(-14.0, 18.0, 16.0), _y(-3.0, -2.0, 2.0), 7, 7, 15, 0],
 		["laiturilta", _y(-2.2, 13.0, 2.1), Vector3(-200, 0, -380), 7, 7, 23, 22],
-		["porukka", _y(-6.5, 2.6, Mokki.DY + 1.7), _y(-3.7, -0.3, Mokki.DY + 0.7), 7, 7, 18, 0],
+		["porukka", _y(-6.5, 2.6, Mokki.DY + 1.7), _y(-4.9, 0.0, Mokki.DY + 0.7), 7, 7, 18, 0],
 		["porukka2", _y(-2.0, 1.2, Mokki.DY + 1.5), _y(-5.5, -0.5, Mokki.DY + 0.9), 7, 7, 18, 0],
 		["vene", null, null, 7, 7, 19, 0],
 		["valikko", Vector3(30, 20, 30), Vector3(0, 2, 0), 7, 7, 21, 30],

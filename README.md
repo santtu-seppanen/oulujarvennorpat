@@ -1,12 +1,12 @@
 # Oulujärven norpat
 
-3D-peli Oulujärven rannalla Äpätinniemessä (Vaala). Maailma on tehty oikeasta kartta-aineistosta: maaston
+3D-peli Oulujärven rannalla Äpätissä (Vaala). Maailma on tehty oikeasta kartta-aineistosta: maaston
 muodot, rantaviiva, lammet, suot, hiekkarannat, tiet ja polut, rakennukset ja noin 700 000 puuta ovat oikeilla
 paikoillaan. Pelin perusmekaniikka (hahmo, kävely, juoksu, kamera, kosketusohjaimet, äänet, asetukset ja valikot)
 on otettu Normipäivä Saloisissa -pelistä.
 
-Aloituspaikka: **64.432089 N, 26.886448 E** (ETRS-TM35FIN E 494 532, N 7 145 169), mökkitontti Saunaniemen
-rannassa Äpätinniemen kärjessä.
+Aloituspaikka: **64.432089 N, 26.886448 E** (ETRS-TM35FIN E 494 532, N 7 145 169), mökkitontti Äpätin
+rannassa. Pelissä paikasta puhutaan kaikkialla Äpättinä (maastotietokannassa niemen nimi on Saunaniemi).
 
 ## Pelaaminen
 
@@ -35,20 +35,24 @@ sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä s
 ## Alamökki: sauna, keittiö ja kätkö
 
 Alamökin ovet ovat terassin puoleisella pitkällä sivulla katon alla (valokuva `20210709_171210.jpg`). Pelissä
-alamökki on pidennetty törmään päin (8,1 m), jotta koko porukka mahtuu sisälle.
+alamökki on pidennetty törmään päin (9,1 m), jotta koko porukka mahtuu sisälle.
 
-- **Vasen ovi, keittiö:** keittiö oikealla ja pöytä neljälle järven puoleisen ikkunan edessä.
+Sisällä on oma näkymänsä: kamera siirtyy huoneen yläkulmaan vastakkaiselle puolelle kuin pelaaja ja seuraa
+pelaajaa sieltä, joten koko huone näkyy eikä kamera painu ahtaassa huoneessa pelaajan selkään. Ulos
+tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
+
+- **Vasen ovi, keittiö:** keittiö oikealla, jääkaappi takanurkassa ja terassin pöydän kokoinen pöytä (1,5 × 0,8 m) penkkeineen järven puoleisen ikkunan edessä.
   - Vain Marko osaa kokata: hellalla paistetaan lettuja. Kaada taikina, käännä kullanruskeana ja nosta lautaselle; liian kauan pannulla ja lettu palaa.
   - Pöytään istuva syö letun, jolloin kunto palaa täyteen.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
   - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
   - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
-- **Oikea ovi, sauna:** pelkkä löylyhuone. Lauteet ovat perällä, ja niille mahtuu juuri neljä; kiuas on ovesta katsoen vasemmalla.
+- **Oikea ovi, sauna:** pelkkä löylyhuone. Ovi on sisältä katsoen vasemmassa nurkassa ja kiuas heti oven oikealla puolella. Lauteet ovat perällä, ja niille mahtuu juuri neljä. Saunan ovelle kuljetaan katon alle jatketulla terassilla.
   - Lauteille istutaan lähimmälle vapaalle paikalle, joten jos joku jo saunoo, viereen voi istua.
   - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
   - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
   - Moninpelissä löyly tuntuu kaikilla lauteilla istujilla.
-- **Kätkö saunan kupeessa:** terassin takakulman törmässä on ehtymätön olut- ja viinakätkö (E olut, Q viina).
+- **Kätkö saunan kupeessa:** terassin takakulman törmässä saunan oven edustan vieressä on ehtymätön olut- ja viinakätkö (E olut, Q viina).
   - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
   - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
   - Humala haihtuu noin promillen neljässä minuutissa.
@@ -83,7 +87,8 @@ Kahden koneen testi: `tools/testit/moninpelitesti.gd` (ohjeet tiedoston alussa).
 ## Mökki
 
 Aloituspaikan mökkipiha on mallinnettu valokuvista ja maastotietokannan pohjapiirroksista (`scripts/mokki.gd`):
-rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grillikatoksineen ja telttoineen,
+rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grillikatoksineen ja telttoineen (pöytä
+penkkeineen teltan keskellä, teltta saunan katon ulkopuolella),
 etuterassi, kelluva laituri tikkaineen, huussi, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
 terassi) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen

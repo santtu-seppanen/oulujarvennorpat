@@ -38,6 +38,8 @@ var _avoid_dir := 1.0
 var _loyly_t := 0.0
 var _card_seat: Array = []
 var _seat_s := -1  # lauteiden paikka, jolle ollaan menossa
+var _prev := Vector3.INF  # viimeksi saavutettu reittipiste (jumista sinne takaisin)
+var _back_to := Vector3.INF  # piste, jonne jumista palattiin (kerran per reittiväli)
 
 
 func _init(b: CharacterBody3D, m: Node3D, s: Node, n: String) -> void:
@@ -51,7 +53,7 @@ func _init(b: CharacterBody3D, m: Node3D, s: Node, n: String) -> void:
 func reset() -> void:
 	_leave_seat()
 	activity = ""
-	_path.clear()
+	_set_path([])
 	_state = "walk"
 	body.pose = ""
 	body.set_hidden_inside(false)
@@ -92,7 +94,7 @@ func cards(i: int) -> void:
 	activity = "kortit"
 	_state = "walk"
 	_card_seat = mokki.table_seats[i]
-	_path = mokki.route(body.global_position, "keittio")
+	_set_path(mokki.route(body.global_position, "keittio"))
 	_path.append_array(mokki.table_paths[i])
 
 
@@ -137,7 +139,13 @@ func _start(a: String) -> void:
 	var goal := ""
 	match a:
 		"poyta":
+			# Teltan pöydän takapenkille takaa, etupenkille edestä.
 			goal = "poyta"
+			_seat = _free_seat()
+			if _seat >= 0:
+				var s0: Vector3 = mokki.seats[_seat][0]
+				if s0.distance_to(mokki.points.poyta_etu) < s0.distance_to(mokki.points.poyta):
+					goal = "poyta_etu"
 		"grilli":
 			goal = "grilli"
 		"sauna":
@@ -159,12 +167,11 @@ func _start(a: String) -> void:
 			goal = "kaide"
 		"aurinko":
 			goal = "laituri_paa" if rng.randf() < 0.6 else "etuterassi"
-	_path = mokki.route(body.global_position, goal)
+	_set_path(mokki.route(body.global_position, goal))
 	if a == "aurinko":
 		var v: Vector3 = mokki.views[rng.randi() % mokki.views.size()]
 		_path.append(v + Vector3(rng.randf_range(-0.4, 0.4), 0, rng.randf_range(-0.4, 0.4)))
 	elif a == "poyta":
-		_seat = _free_seat()
 		if _seat >= 0:
 			_taken[_seat] = name
 			var s: Array = mokki.seats[_seat]
@@ -207,10 +214,10 @@ func _walk(delta: float) -> void:
 		_avoid = 0.7
 		var bt := blocker.global_position
 		if Vector2(bt.x - t.x, bt.z - t.z).length() < 1.0 and d.length() < 1.8:
-			_path.pop_front()
+			_reached()
 			return
 	if d.length() < radius:
-		_path.pop_front()
+		_reached()
 		_stuck = 0.0
 		return
 	var want := atan2(-d.x, -d.y)
@@ -221,18 +228,37 @@ func _walk(delta: float) -> void:
 	steer = clampf(diff * 2.5, -1.0, 1.0)
 	throttle = 1.0 if absf(diff) < 0.7 else 0.25
 	fast = d.length() > 12.0 and not body.exhausted and not body.swimming and activity == "aurinko"
-	# Jumissa: ensin hyppy, sitten siirto seuraavaan pisteeseen.
 	if Vector2(p.x - _last.x, p.z - _last.z).length() < 0.25 * delta and throttle > 0.5:
 		_stuck += delta
 	else:
 		_stuck = maxf(0.0, _stuck - delta)
 	_last = p
+	# Jumissa (esim. tönäisty oven vierestä seinää vasten): ensin takaisin edelliseen reittipisteeseen, sitten
+	# hyppy ja lopulta siirto seuraavaan pisteeseen.
+	if _stuck > 1.5 and _back_to == Vector3.INF and _prev != Vector3.INF:
+		_back_to = _prev
+		_path.push_front(_prev)
+		_stuck = 0.0
+		return
 	if _stuck > 2.5:
 		jump = true
 	if _stuck > 7.0:
 		body.global_position = t + Vector3.UP * 0.3
 		body.velocity = Vector3.ZERO
 		_stuck = 0.0
+
+
+func _reached() -> void:
+	_prev = _path.pop_front()
+	if _prev != _back_to:
+		_back_to = Vector3.INF
+
+
+## Uusi reitti: vanhat jumitiedot pois.
+func _set_path(path: Array) -> void:
+	_path = path
+	_prev = Vector3.INF
+	_back_to = Vector3.INF
 
 
 func _arrive() -> void:
@@ -341,6 +367,6 @@ func _done() -> void:
 		_next = "kaide" if rng.randf() < 0.5 else "poyta"
 		activity = "kuivalle"
 		_state = "walk"
-		_path = mokki.route(body.global_position, "rantaportaat")
+		_set_path(mokki.route(body.global_position, "rantaportaat"))
 		return
 	activity = ""

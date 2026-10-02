@@ -1,7 +1,7 @@
 extends Node3D
 ## Oulujärven norpat: pelin juuri. Rakentaa ympäristön (taivas, aurinko), maailman (world.gd), pelaajan
 ## (on_foot.gd), HUD:n (kompassi, tutka, sijainti ja kunto), kartan (M) ja valikot. Aloituspaikka
-## 64.432089 N, 26.886448 E, Äpätinniemi, Vaala.
+## 64.432089 N, 26.886448 E, Äpätti, Vaala.
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -24,7 +24,7 @@ const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Chat := preload("res://scripts/chat.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
-const SPAWNS := [Vector2(-5.6, 0.6), Vector2(-3.7, -1.0), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
+const SPAWNS := [Vector2(-6.9, 1.2), Vector2(-4.9, -1.05), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
 
 ## Aloituspisteen maantieteelliset koordinaatit ja metrit astetta kohden (GRS80, 64,43° N): HUD:n sijainti.
 const START_LAT := 64.432089
@@ -217,6 +217,8 @@ func _process(delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam != null:
 		RenderingServer.global_shader_parameter_set("lod_eye", cam.global_position)
+		if world.mokki != null:
+			world.mokki.update_roofs(cam.global_position, player.global_position + Vector3.UP * 1.5)
 	if world.trees != null:
 		world.trees.update_around(player.global_position)
 	if world.mokki != null:
@@ -542,7 +544,7 @@ func _update_hud() -> void:
 		return
 	var p := player.global_position
 	var near: Dictionary = world.nearest_name(Vector2(p.x, p.z))
-	var where: String = near.name if near.dist < 450.0 else "Äpätinniemi"
+	var where: String = near.name if near.dist < 450.0 else "Äpätti"
 	if player.boat != null:
 		where += " · soutamassa"
 	elif player.swimming:

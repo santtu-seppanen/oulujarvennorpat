@@ -91,7 +91,7 @@ func open_main() -> void:
 func open_pause() -> void:
 	_mode = "pause"
 	_show()
-	_title("TAUKO", "Oulujärvi, Äpätinniemi")
+	_title("TAUKO", "Oulujärvi, Äpätti")
 	_button("Jatka", close)
 	_button("Asetukset", func() -> void: _settings("sub_pause"))
 	_button("Ohjaimet", func() -> void: _controls("sub_pause"))
@@ -259,7 +259,7 @@ func _credits(from: String) -> void:
 	_clear()
 	_title("TEKIJÄT", "")
 	var lines := ["Oulujärven norpat – tehty Godot 4 -pelimoottorilla",
-		"Kartta: Äpätinniemi, Vaala (64.432089 N, 26.886448 E)"]
+		"Kartta: Äpätti, Vaala (64.432089 N, 26.886448 E)"]
 	lines.append_array(game.map_sources())
 	lines.append_array(["Hahmot ja animaatiot: Quaternius (CC0)", "Äänet: OpenGameArt ja Kenney (CC0)"])
 	for t in lines:

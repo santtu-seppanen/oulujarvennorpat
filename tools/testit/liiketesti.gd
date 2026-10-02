@@ -105,7 +105,8 @@ func _process(_delta: float) -> bool:
 				# Kaikki keittiöön: ristiseiska.
 				for i in [1, 2, 3]:
 					crew(i).brain.reset()
-					crew(i).global_position = m.points.piha + Vector3(i * 0.8, 0.1, 0)
+					var w: Vector2 = Mokki.yw(-6.9 + i * 0.8, 1.5)  # rivissä teltan edessä
+					crew(i).global_position = Vector3(w.x, Mokki.DY + 0.1, w.y)
 				p.global_position = m.points.keittio + Vector3.UP * 0.05
 				next()
 		5:

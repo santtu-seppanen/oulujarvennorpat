@@ -2,7 +2,7 @@ extends RefCounted
 ## Maasto: Maanmittauslaitoksen 2 m korkeusmalli ja maastotietokannan pinnat (tools/kartta/bake.py ->
 ## assets/map/maasto.bin). Kaksi ruudukkoa: tarkka 2 x 2 km (2 m ruutu = korkeusmallin pikselit) ja kauko
 ## 10 x 10 km (16 m). Korkeudet metreinä Oulujärven pinnasta (122,81 m N2000), järvien pohja arvioitu.
-## Kehys: x itään, z etelään, origo aloituspaikalla (Äpätinniemi). h(x, z) kolmioi kuten maastoverkko ja
+## Kehys: x itään, z etelään, origo aloituspaikalla (Äpätti). h(x, z) kolmioi kuten maastoverkko ja
 ## törmäysmuoto (HeightMapShape3D), joten maahan nostetut asiat ovat täsmälleen pinnalla.
 
 const BIN := "res://assets/map/maasto.bin"

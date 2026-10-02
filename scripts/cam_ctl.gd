@@ -9,6 +9,7 @@ extends Node
 const SENS := 0.0032
 const HIDE_LAYER := 2  # pelaajan oma vartalo (bitti 2)
 const RECENTER_AFTER := 1.8
+const INDOOR_PITCH := -0.95  # sisätilassa katse vähintään näin jyrkästi alas
 
 var fps := false
 var yaw := 0.0  # poikkeama suunnasta, jonne pelaaja katsoo
@@ -68,8 +69,9 @@ func mark_own_body(node: Node) -> void:
 
 
 ## Päivittää kameran. target = pelaajan juuri, eye = silmien paikka maailmassa, dist/height = 3. persoonan etäisyys.
+## indoor: sisätilassa kamera katsoo jyrkästi ylhäältä katon läpi (katto piilotetaan), eikä sitä estetä seiniin.
 func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, height: float, moving: bool,
-		delta: float, snap := false, shake := Vector3.ZERO) -> void:
+		delta: float, snap := false, shake := Vector3.ZERO, indoor := false) -> void:
 	var heading := target.global_rotation.y
 	cam.fov = Settings.get_v("fov")
 	if not Settings.get_v("mouse_look") and not Touch.active:
@@ -89,13 +91,13 @@ func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, hei
 	cam.cull_mask = full_mask
 	cam.near = 0.1
 	var look_at_pt := target.global_position + Vector3.UP * (height * 0.5)
-	var orbit := Basis(Vector3.UP, heading + yaw) * Basis(Vector3.RIGHT, pitch)
+	var orbit := Basis(Vector3.UP, heading + yaw) * Basis(Vector3.RIGHT, minf(pitch, INDOOR_PITCH) if indoor else pitch)
 	var want := look_at_pt + orbit * Vector3(0, height * 0.35, dist)
 	# Estä kameraa menemästä seinän tai puun sisään.
 	var q := PhysicsRayQueryParameters3D.create(look_at_pt, want)
 	if target is CollisionObject3D:
 		q.exclude = [target.get_rid()]
-	var hit := target.get_world_3d().direct_space_state.intersect_ray(q)
+	var hit := {} if indoor else target.get_world_3d().direct_space_state.intersect_ray(q)
 	if not hit.is_empty():
 		want = hit.position + (look_at_pt - want).normalized() * 0.3
 	if snap:

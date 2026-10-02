@@ -1,5 +1,5 @@
 extends Node3D
-## Maailma oikean kartan mukaan: Äpätinniemi Oulujärven etelärannalla, Vaala (aloituspaikka 64.432089 N,
+## Maailma oikean kartan mukaan: Äpätti Oulujärven etelärannalla, Vaala (aloituspaikka 64.432089 N,
 ## 26.886448 E). Kaikki data tools/kartta/bake.py:stä (assets/map/): maasto (MML 2 m korkeusmalli + arvioitu
 ## järven pohja), pinnat ja kohteet maastotietokannasta (rakennukset tyyppeineen ja laserista mitattuine
 ## korkeuksineen, tiet, polut, kivet, vesikivet, tervahaudat, linjataulut, veneenlaskupaikat, lammet,

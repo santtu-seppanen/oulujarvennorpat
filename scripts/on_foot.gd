@@ -8,6 +8,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Chat := preload("res://scripts/chat.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const WALK := 2.3
 const RUN := 5.4
@@ -41,6 +42,8 @@ var pose := ""  # tekoälyn asento paikallaan (Sitting_Idle, Idle_Talking, ...)
 var airborne := false
 var boat: CharacterBody3D = null
 var hidden_inside := false
+var view_override_on := false  # minipelin kuvakulma (view_override) kameran tilalle
+var view_override := Transform3D()
 ## Tekoäly on menossa istumaan tähän paikkaan (mokki.gd free_seat: muut eivät valitse sitä).
 var claimed_seat := Vector3.INF
 var surface := Terrain.FOREST
@@ -574,5 +577,17 @@ func _update_camera(delta: float) -> void:
 	if not is_player:
 		return
 	var eye: Vector3 = _body.to_global(_body.bone_position("Head")) + Vector3.UP * 0.08
-	CamCtl.update_camera(_cam, self, eye, 4.2, 2.6, absf(speed) > 0.5, delta, not _cam_ready, drunk_shake())
+	# Minipelin oma kuvakulma (esim. korttipöytä ylhäältä): liukuu paikalleen.
+	if view_override_on:
+		_cam.cull_mask = 0xFFFFF
+		_cam.near = 0.05
+		_cam.global_transform = _cam.global_transform.interpolate_with(view_override, 1.0 - exp(-6.0 * delta))
+		_cam_ready = true
+		return
+	# Alamökin sisällä kamera katsoo jyrkästi ylhäältä katon läpi (katto piiloutuu, mokki.update_roofs);
+	# ahtaassa huoneessa takaa seuraava kamera painuisi pelaajan selkään.
+	var inside := Mokki.room_at(global_position) != "" and boat == null
+	CamCtl.update_camera(_cam, self, eye, 4.2 if not inside else 3.6, 2.6, absf(speed) > 0.5, delta, not _cam_ready,
+		drunk_shake(), inside)
 	_cam_ready = true
+	return

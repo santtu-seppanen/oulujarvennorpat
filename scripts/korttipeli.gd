@@ -435,7 +435,7 @@ func _hand_pos(p: int, k: int, n: int) -> Vector3:
 	var local := _table.global_transform.affine_inverse() * seat
 	var west := local.x < 0.0
 	var t := (k - (n - 1) * 0.5) * 0.011
-	return Vector3((-0.36 if west else 0.36) + absf(t) * 0.15 * (1.0 if west else -1.0), 0.0015 + k * 0.0004,
+	return Vector3((-0.3 if west else 0.3) + absf(t) * 0.15 * (1.0 if west else -1.0), 0.0015 + k * 0.0004,
 		local.z + t)
 
 
