@@ -22,6 +22,8 @@ const Sauna := preload("res://scripts/sauna.gd")
 const Kokkaus := preload("res://scripts/kokkaus.gd")
 const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Chat := preload("res://scripts/chat.gd")
+const WcGame := preload("res://scripts/wc_game.gd")
+const Rinnepissa := preload("res://scripts/rinnepissa.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-6.9, 1.2), Vector2(-4.9, -1.05), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -59,6 +61,8 @@ var sauna: Node
 var kokkaus: Node
 var kortit: Node
 var chat: Node
+var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
+var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -116,6 +120,9 @@ func _ready() -> void:
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
+	pissa = Rinnepissa.new()
+	pissa.game = self
+	add_child(pissa)
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
@@ -197,6 +204,8 @@ func set_crew_mode(j: int, mode: String) -> void:
 ## Kamera, HUD ja äänet seuraamaan hahmoa i.
 func set_player(i: int) -> void:
 	end_activity()
+	if pissa != null and pissa.active:
+		pissa.stop()
 	player_index = i
 	player = crew[i]
 	_amb.player = player
@@ -227,7 +236,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if state != "play" or get_tree().paused:
+	if state != "play" or get_tree().paused or wc != null or pissa.active:
 		return
 	if event.is_action_pressed("map"):
 		_map.open()
@@ -252,6 +261,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		CamCtl.pitch = clampf(CamCtl.pitch - event.relative.y * 0.005, -1.1, 0.5)
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
 		_booze()
+	elif event.is_action_pressed("drink") and activity == "" and _can_act() and Mokki.at_outhouse(player.global_position):
+		_start_wc("kakkonen")
 
 
 # --- Kätköt: saunan takana ja rannan rinteessä (ranta.gd) ----------------------------------------------------
@@ -297,6 +308,63 @@ static func drunk_text(pm: float) -> String:
 	if pm < 3.6:
 		return "tolkuttomassa humalassa – kävely ei onnistu"
 	return "sammunut"
+
+
+# --- Huussi ja rinne ---------------------------------------------------------------------------------------------
+
+func _can_act() -> bool:
+	return player.boat == null and not player.hidden_inside and not player.swimming \
+		and player.pose != "Sammunut" and player.pose != "Ryomii"
+
+
+## Huussiin: hahmo piiloon huussin sisään ja minipeli ruudulle (ykkönen tai kakkonen).
+func _start_wc(mode: String) -> void:
+	end_activity()
+	player.controls_enabled = false
+	player.set_hidden_inside(true)
+	_hud.visible = false
+	Sfx.play("door", -6.0)
+	wc = WcGame.new()
+	wc.mode = mode
+	wc.drunk = player.drunk()
+	wc.finished.connect(_wc_result)
+	add_child(wc)
+
+
+## Huussista ulos oven eteen pitkospuille, ja tulos: sotkusta Santtu huomauttaa.
+func _wc_result(mode: String, r: Dictionary) -> void:
+	wc = null
+	_hud.visible = true
+	var d := Mokki.outhouse_door()
+	player.global_position = d + Vector3.UP * 0.05
+	var out := Mokki.yw(Mokki.DUCKBOARDS[1].x, Mokki.DUCKBOARDS[1].y) - Vector2(d.x, d.z)
+	player.rotation.y = atan2(-out.x, -out.y)
+	player.set_hidden_inside(false)
+	player.controls_enabled = true
+	var santtu: bool = Porukka.CREW[player_index].name == "Santtu"
+	if mode == "ykkonen":
+		if not r.done:
+			toast("Jäi kesken. Hätä palaa kyllä.", 2.5)
+		elif r.accuracy >= 0.85:
+			toast("Napakymppi! Ei tippaakaan ohi.", 3.0)
+		elif r.accuracy >= 0.6:
+			toast("Melkein kaikki reikään. Pari tippaa penkille.", 3.0)
+		elif santtu:
+			toast("Penkki lainehtii! Pyyhitään äkkiä, ennen kuin vieraat huomaa.", 4.0)
+		else:
+			toast("Penkki lainehtii! Santtu: \"Superhost huomaa kaiken. Penkki pyyhitään!\"", 4.0)
+		return
+	if not r.done:
+		toast("Jäi kesken. Tuntuu vielä.", 2.5)
+		return
+	var lines: Array[String] = []
+	if r.hard > 0:
+		lines.append("Liian kovaa ponnistettu, peräpukamat muistuttaa.")
+	if r.sheets < WcGame.PAPER_OK.x:
+		lines.append("Säästeliäs paperinkäyttö. Toivottavasti riitti.")
+	else:
+		lines.append("Siistiä työtä. Huussin luukku kiinni.")
+	toast(" ".join(lines), 3.5)
 
 
 # --- Alamökin minipelit ---------------------------------------------------------------------------------------
@@ -347,6 +415,13 @@ func _interaction() -> Dictionary:
 		return {"text": "E: kylmä olut · Q: huikka viinaa (ehtymätön kätkö)", "cb": _beer}
 	if player.pose == "Ryomii":
 		return {}
+	if Mokki.at_outhouse(player.global_position):
+		return {"text": "E: huussiin, ykkönen · Q: kakkonen", "cb": func() -> void: _start_wc("ykkonen")}
+	if Mokki.at_pee_spot(player.global_position):
+		var t := "E: virtsaa rinteeseen"
+		if Porukka.CREW[player_index].name == "Marko":
+			t += " (erikoiskyky: suuri kaari 5 m)"
+		return {"text": t, "cb": pissa.start}
 	var m: Node3D = world.mokki
 	match Mokki.room_at(player.global_position):
 		"loylyhuone":
@@ -354,11 +429,11 @@ func _interaction() -> Dictionary:
 		"keittio":
 			if player.global_position.distance_to(m.cook_spot) < 0.75:
 				if Porukka.CREW[player_index].name == "Marko":
-					return {"text": "E: paista lettuja", "cb": func() -> void: start_activity("kokkaus")}
-				return {"text": "Vain Marko osaa paistaa lettuja"}
+					return {"text": "E: paista pyttipannua", "cb": func() -> void: start_activity("kokkaus")}
+				return {"text": "Vain Marko osaa tehdä pyttipannua"}
 			var t := "E: istu pöytään (ristiseiska)"
-			if kokkaus.letut > 0:
-				t += " · pöydässä %d lettua" % kokkaus.letut
+			if kokkaus.annokset > 0:
+				t += " · pöydässä %d annosta pyttipannua" % kokkaus.annokset
 			return {"text": t, "cb": func() -> void: start_activity("kortit")}
 	return {}
 
@@ -592,7 +667,9 @@ func _update_hud() -> void:
 		day.set, day.rise, "  ▶▶ (T)" if sun.fast else ""]
 	if mp.online():
 		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
-	if activity != "":
+	if pissa.active:
+		_prompt.text = pissa.prompt()
+	elif activity != "":
 		_prompt.text = _activity_node().prompt()
 	elif player.boat != null:
 		_prompt.text = "W/S soutaa · A/D kääntää · E nouse veneestä"

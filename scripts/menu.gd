@@ -14,7 +14,7 @@ E	nouse kumiveneeseen / veneestä
 W / S, A / D	soutaa veneellä eteen / taakse, kääntää
 ALAMÖKKI
 E	istu lauteille, heitä löylyä
-E	paista lettuja (vain Marko), istu pöytään (ristiseiska)
+E	paista pyttipannua (vain Marko), istu pöytään (ristiseiska)
 W / S	nouse / lopeta
 E / Q	kätkö saunan takana: olut / huikka viinaa
 YLEISET

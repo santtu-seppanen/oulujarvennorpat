@@ -1,7 +1,7 @@
 extends SceneTree
 ## Alamökin testi (headless): godot --headless --path . -s tools/testit/alamokkitesti.gd
-## Ovista sisään keittiöön ja saunaan, tietokoneen hahmot lauteilla ja hellalla, saunominen, lettujen paisto
-## (vain Marko), letun syönti, kokonainen ristiseiskapeli pöydässä sekä kätkön olut ja viina: humala heittelee
+## Ovista sisään keittiöön ja saunaan, tietokoneen hahmot lauteilla ja hellalla, saunominen, pyttipannun paisto
+## (vain Marko), annoksen syönti, kokonainen ristiseiskapeli pöydässä sekä kätkön olut ja viina: humala heittelee
 ## ohjausta, tolkuttomana konttaillaan ja lopulta sammutaan.
 
 class Push:
@@ -20,7 +20,7 @@ var main: Node3D
 var Mokki: GDScript
 var fails := 0
 var step := 0
-var t0 := 0.0
+var clock := 0.0  # pelin aika (headless --fixed-fps ajaa seinäkelloa nopeammin)
 var ts := 0.0  # vaiheen alku
 var start_rot := 0.0
 var start_pos := Vector3.ZERO
@@ -31,7 +31,6 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 	Mokki = load("res://scripts/mokki.gd")
-	t0 = Time.get_ticks_msec() / 1000.0
 
 
 func check(ok: bool, what: String) -> void:
@@ -41,7 +40,7 @@ func check(ok: bool, what: String) -> void:
 
 
 func now() -> float:
-	return Time.get_ticks_msec() / 1000.0 - t0
+	return clock
 
 
 func next() -> void:
@@ -58,7 +57,8 @@ func _put(p: CharacterBody3D, name: String, toward: String) -> void:
 	p.velocity = Vector3.ZERO
 
 
-func _process(_delta: float) -> bool:
+func _process(delta: float) -> bool:
+	clock += delta
 	var t := now() - ts
 	var p: CharacterBody3D = main.player
 	var m: Node3D = main.world.mokki
@@ -114,7 +114,7 @@ func _process(_delta: float) -> bool:
 			if t > 1.0:
 				print("pois lauteilta: %s, y %.2f" % [Mokki.room_at(p.global_position), p.global_position.y - Mokki.DY])
 				check(Mokki.room_at(p.global_position) == "loylyhuone" and p.global_position.y < Mokki.DY + 0.7, "lauteilta lattialle")
-				# Lettuja: ensin Santtuna (ei osaa), sitten Markona.
+				# Pyttipannua: ensin Santtuna (ei osaa), sitten Markona.
 				p.global_position = m.cook_spot + Vector3.UP * 0.05
 				next()
 		7:
@@ -123,19 +123,19 @@ func _process(_delta: float) -> bool:
 			var arrived: bool = jj.pose.begins_with("Sitting") and mm.global_position.distance_to(m.cook_spot) < 0.8
 			if t > 0.3 and (arrived or t > 40.0):
 				print("tietokoneen hahmot perillä %.1f s:n jälkeen" % t)
-				check(main._interaction().get("text", "") == "Vain Marko osaa paistaa lettuja", "vain Marko osaa kokata")
+				check(main._interaction().get("text", "") == "Vain Marko osaa tehdä pyttipannua", "vain Marko osaa kokata")
 				var j: Node3D = main.crew[2]
 				print("Jaakko: %s %s, %s" % [j.brain.activity, j.pose, Mokki.room_at(j.global_position)])
 				var mk: Node3D = main.crew[1]
 				print("Marko: %s %s, hellalle %.1f m" % [mk.brain.activity, mk.pose, mk.global_position.distance_to(m.cook_spot)])
 				check(j.pose.begins_with("Sitting") and Mokki.room_at(j.global_position) == "loylyhuone", "tietokoneen Jaakko lauteilla")
 				check(mk.global_position.distance_to(m.cook_spot) < 0.8, "tietokoneen Marko hellalla")
-				mk.brain._timer = 0.0  # Marko lopettaa: lettuja lautaselle
+				mk.brain._timer = 0.0  # Marko lopettaa: annoksia lautaselle
 				next()
 		8:
 			if t > 0.5:
-				var n: int = main.kokkaus.letut
-				check(n >= 2, "tietokoneen Marko paistoi lettuja (%d)" % n)
+				var n: int = main.kokkaus.annokset
+				check(n >= 2, "tietokoneen Marko paistoi pyttipannua (%d)" % n)
 				main.kokkaus._set_count(0)
 				main.choose_character(1)
 				p = main.player
@@ -143,27 +143,27 @@ func _process(_delta: float) -> bool:
 				next()
 		9:
 			if t > 0.5:
-				check(main._interaction().get("text", "") == "E: paista lettuja", "Marko voi paistaa")
+				check(main._interaction().get("text", "") == "E: paista pyttipannua", "Marko voi paistaa")
 				main.start_activity("kokkaus")
 				check(main.activity == "kokkaus", "paisto alkaa")
-				main.kokkaus.act()  # taikina pannulle
+				main.kokkaus.act()  # perunat pannulle
 				next()
 		10:
 			if t > 3.5:
-				main.kokkaus.act()  # käännä
+				main.kokkaus.act()  # sipuli ja makkara
 				next()
 		11:
 			if t > 3.5:
 				main.kokkaus.act()  # lautaselle
-				check(main.kokkaus.letut == 1, "kullanruskea lettu lautaselle (%d)" % main.kokkaus.letut)
+				check(main.kokkaus.annokset == 1, "pyttipannu lautaselle (%d)" % main.kokkaus.annokset)
 				main.kokkaus.act()
 				next()
 		12:
 			if t > 6.5:
-				check(main.kokkaus._state == "", "liian kauan pannulla: lettu palaa")
-				check(main.kokkaus.letut == 1, "palanut ei mene lautaselle")
+				check(main.kokkaus._state == "", "liian kauan pannulla: pyttipannu palaa")
+				check(main.kokkaus.annokset == 1, "palanut ei mene lautaselle")
 				main.end_activity()
-				# Pöytään: letun syönti ja ristiseiska.
+				# Pöytään: annoksen syönti ja ristiseiska.
 				p.global_position = m.points.keittio + Vector3.UP * 0.05
 				p.stamina = 20.0
 				main.kortit.bot_delay = 0.4
@@ -172,7 +172,7 @@ func _process(_delta: float) -> bool:
 			if t > 0.5:
 				check(main._interaction().get("text", "").begins_with("E: istu pöytään"), "pöytään voi istua")
 				main.start_activity("kortit")
-				check(main.kokkaus.letut == 0 and p.stamina > 99.0, "pöydässä syötiin lettu")
+				check(main.kokkaus.annokset == 0 and p.stamina > 99.0, "pöydässä syötiin pyttipannua")
 				check(main.kortit._ui.visible, "korttinäkymä auki")
 				main.kortit.act()
 				check(main.kortit.logic.phase == "play", "kortit jaettu")

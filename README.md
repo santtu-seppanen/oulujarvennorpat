@@ -19,9 +19,10 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista lettuja, istu pöytään |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua, istu pöytään |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
-| Q | kätköllä (saunan kupeessa tai rannan rinteessä) huikka viinaa (E = olut) |
+| Q | kätköllä (saunan kupeessa tai rannan rinteessä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen) |
+| F | lopettaa huussin minipelin tai rinteeseen virtsaamisen kesken |
 | Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
@@ -42,8 +43,8 @@ pelaajaa sieltä, joten koko huone näkyy eikä kamera painu ahtaassa huoneessa 
 tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
 
 - **Vasen ovi, keittiö:** keittiö oikealla, jääkaappi takanurkassa ja terassin pöydän kokoinen pöytä (1,5 × 0,8 m) penkkeineen järven puoleisen ikkunan edessä.
-  - Vain Marko osaa kokata: hellalla paistetaan lettuja. Kaada taikina, käännä kullanruskeana ja nosta lautaselle; liian kauan pannulla ja lettu palaa.
-  - Pöytään istuva syö letun, jolloin kunto palaa täyteen.
+  - Vain Marko osaa kokata: hellalla paistetaan pyttipannua. Perunakuutiot pannulle, sipuli ja makkara joukkoon, kun perunat ovat kullanruskeita, ja annos lautaselle kananmunan ja punajuuren kanssa; liian kauan pannulla ja pyttipannu palaa.
+  - Pöytään istuva syö annoksen, jolloin kunto palaa täyteen.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
   - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
   - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
@@ -61,6 +62,24 @@ Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydä
 kohtaan.
 
 Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd` ja `tools/testit/ristiseiskatesti.gd`.
+
+## Huussi ja pitkospuut
+
+Saunan ovelta katsottuna kulku lähtee alamökin oikealta sivulta: takapäädyn seinustalle pinottujen saunapuiden
+ohi saunan taakse (itäpuolelle) terassin tasoisia pitkospuita pitkin. Itäterassilta pitkospuut jatkuvat rantaa
+pitkin huussille, joka on saunan takana veden rajassa noin 10 metrin päässä saunasta.
+
+- **Huussi** (`scripts/wc_game.gd`, Normipäivä Saloisissa -pelin vessaminipeli huussiversiona): ovella E on ykkönen ja Q kakkonen.
+  - Ykkösessä suihku pidetään reiässä (WASD tai hiiri); tähtäin vaeltaa, humalassa enemmän.
+  - Kakkosessa ponnistetaan vihreällä (E / välilyönti) kolme kertaa ja revitään paperia (E arkki, välilyönti valmis).
+  - Sotkusta Santtu huomauttaa.
+- **Rinteeseen virtsaaminen** (`scripts/rinnepissa.gd`): pitkospuiden alussa ennen huussia E aloittaa.
+  - W/S nostaa ja laskee kaarta, A/D kääntää. Suihku lentää heittoliikkeenä ja osuu maastoon, ja märät läikät jäävät maahan.
+  - Kaaren pituus ja hahmon ennätys näkyvät ruudulla.
+  - **Markon erikoiskyky:** suuri kaari 5 metrin päähän; muilta onnistuu noin 2 m. Humala heiluttaa suihkua.
+  - Moninpelissä suihku näkyy kaikilla: kulma ja lähtönopeus lähetetään muille, ja kaari lasketaan jokaisella koneella hahmon paikasta.
+
+Tietokoneen hahmot käyvät huussissa samaa reittiä saunan takaa. Testi: `tools/testit/huussitesti.gd`.
 
 ## Hiekkaranta ja viinakätkö
 
@@ -102,7 +121,7 @@ Kahden koneen testi: `tools/testit/moninpelitesti.gd` (ohjeet tiedoston alussa).
 Aloituspaikan mökkipiha on mallinnettu valokuvista ja maastotietokannan pohjapiirroksista (`scripts/mokki.gd`):
 rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grillikatoksineen ja telttoineen (pöytä
 penkkeineen teltan keskellä, teltta saunan katon ulkopuolella),
-etuterassi, kelluva laituri tikkaineen, huussi, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
+etuterassi, kelluva laituri tikkaineen, kulku saunan takaa, pitkospuut ja huussi veden rajassa, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
 terassi) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
 kumivene, jolla voi soutaa.
@@ -157,6 +176,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
 | `scripts/ranta.gd` | hiekkaranta, kätköpolku ylämökiltä ja viinakätkö rannan rinteessä |
+| `scripts/wc_game.gd`, `scripts/rinnepissa.gd` | huussin minipeli ja rinteeseen virtsaaminen |
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |
 | `tools/testit/mokkitesti.gd`, `mokki_kuvat.gd` | mökin testi (`--headless --fixed-fps 60`) ja kuvakaappaukset valokuvien kuvakulmista |
