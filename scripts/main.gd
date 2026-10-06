@@ -20,6 +20,8 @@ const Mokki := preload("res://scripts/mokki.gd")
 const Moninpeli := preload("res://scripts/moninpeli.gd")
 const Sauna := preload("res://scripts/sauna.gd")
 const Kokkaus := preload("res://scripts/kokkaus.gd")
+const Kahvi := preload("res://scripts/kahvi.gd")
+const Mustikat := preload("res://scripts/mustikat.gd")
 const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Chat := preload("res://scripts/chat.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
@@ -56,15 +58,21 @@ var crew: Array = []
 var crew_modes: Array = []  # player | ai | remote (moninpelissä toisen koneen ohjaama)
 var player_index := 0
 var mp: Node
-## Alamökin minipeli käynnissä: "" | sauna | kokkaus | kortit (vastaava solmu: start, act, stop, prompt).
+## Alamökin minipeli käynnissä: "" | sauna | kokkaus | kahvi | kortit (vastaava solmu: start, act, stop, prompt).
 var activity := ""
 var sauna: Node
 var kokkaus: Node
+var kahvi: Node  # Jukan aamukahvit liedellä (kahvi.gd)
+var mustikat: Node3D  # mustikkamättäät metsässä: suihku paranee (mustikat.gd)
 var kortit: Node
 var chat: Node
 var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
+## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
+const NAP_T := 10.0
+var _nap_t := 0.0
+var _nap_fx: ColorRect
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -72,7 +80,7 @@ var _drunk_label: Label
 var _drunk_fx: ColorRect
 var _was_out := false
 ## Minipeleissä katsotaan silmistä: lauteilta kiukaalle, hellalla pannuun, pöydässä kortteihin (kallistus).
-const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kortit": -0.42}
+const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kahvi": -0.9, "kortit": -0.42}
 const LOOK_YAW := 1.9  # pöydässä ja lauteilla katse kääntyy näin paljon sivulle (A/D, hiiren oikea nappi)
 var boat: CharacterBody3D
 var _amb: Node
@@ -119,6 +127,12 @@ func _ready() -> void:
 	kokkaus = Kokkaus.new()
 	kokkaus.game = self
 	add_child(kokkaus)
+	kahvi = Kahvi.new()
+	kahvi.game = self
+	add_child(kahvi)
+	mustikat = Mustikat.new()
+	mustikat.game = self
+	add_child(mustikat)
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
@@ -209,6 +223,8 @@ func set_crew_mode(j: int, mode: String) -> void:
 ## Kamera, HUD ja äänet seuraamaan hahmoa i.
 func set_player(i: int) -> void:
 	end_activity()
+	if _nap_t > 0.0:
+		_wake()
 	if pissa != null and pissa.active:
 		pissa.stop()
 	if tennis != null:
@@ -239,11 +255,19 @@ func _process(delta: float) -> void:
 		world.trees.update_around(player.global_position)
 	if world.mokki != null:
 		world.mokki.set_lamp(1.0 - smoothstep(-5.0, 3.0, sun.altitude))
+	if _nap_t > 0.0:
+		_nap_t -= delta
+		_nap_fx.color.a = 0.94 * minf(1.0, minf((NAP_T - _nap_t) / 1.5, _nap_t / 1.5))
+		if _nap_t <= 0.0:
+			_wake()
 	_update_hud()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if state != "play" or get_tree().paused or wc != null or pissa.active:
+	if _nap_t > 0.0 and event.is_action_pressed("interact"):
+		_wake()
+		return
+	if state != "play" or get_tree().paused or wc != null or pissa.active or _nap_t > 0.0:
 		return
 	if event.is_action_pressed("map"):
 		_map.open()
@@ -274,7 +298,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_wc("kakkonen")
 
 
-# --- Kätköt: saunan takana ja rannan rinteessä (ranta.gd) ----------------------------------------------------
+# --- Kätköt: saunan takana rinteessä ja rannan rinteessä (ranta.gd) ------------------------------------------
 
 func _near_stash() -> bool:
 	if player.pose == "Sammunut" or player.boat != null:
@@ -289,6 +313,17 @@ func _near_beach_stash() -> bool:
 	var s: Vector3 = world.ranta.stash_pos
 	var p := player.global_position
 	return Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5
+
+
+## Viinakätköosoitin: kompassin keltainen merkki lähimpään kätköön (saunan takana tai rannan rinteessä).
+func _point_to_stash(p: Vector3) -> void:
+	var best := Vector2.INF
+	for s: Vector3 in [world.mokki.stash_pos, world.ranta.stash_pos]:
+		var q := Vector2(s.x, s.z)
+		if q.distance_to(Vector2(p.x, p.z)) < best.distance_to(Vector2(p.x, p.z)):
+			best = q
+	_compass.cache = best
+	_compass.cache_text = "kätkö %d m" % roundi(best.distance_to(Vector2(p.x, p.z)))
 
 
 func _beer() -> void:
@@ -317,6 +352,60 @@ static func drunk_text(pm: float) -> String:
 	if pm < 3.6:
 		return "tolkuttomassa humalassa – kävely ei onnistu"
 	return "sammunut"
+
+
+## Kourallinen mustikoita: suihku pitenee (rinnepissa.gd), Markolla erikoiskyvyn päälle.
+func _eat_berries(k: int) -> void:
+	mustikat.eat(k, player_index)
+	var n: int = mustikat.eaten[player_index]
+	var t := "Mustikoita! Suihku paranee (%d/%d kourallista)." % [n, Mustikat.MAX]
+	if Porukka.CREW[player_index].name != "Marko" and n >= Mustikat.MAX:
+		t = "Mustikkavoimaa täynnä – Markon kaareen ei silti ylletä."
+	toast(t, 3.0)
+
+
+# --- Päikkärit ylämökissä -------------------------------------------------------------------------------------
+
+## Ylämökkiin nukkumaan: hahmo sisään, ruutu pimenee hetkeksi. Herätessä kunto on täynnä ja humala laskenut.
+func _nap() -> void:
+	end_activity()
+	player.controls_enabled = false
+	player.velocity = Vector3.ZERO
+	player.set_hidden_inside(true)
+	Sfx.play("door", -6.0)
+	if _nap_fx == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 15
+		add_child(layer)
+		_nap_fx = ColorRect.new()
+		_nap_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_nap_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_nap_fx.color = Color(0.02, 0.02, 0.05, 0.0)
+		layer.add_child(_nap_fx)
+		var l := _label(_nap_fx, 34)
+		l.text = "Zzz… päikkärit ylämökissä\n(E: herää)"
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.set_anchors_preset(Control.PRESET_CENTER)
+		l.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		l.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_nap_fx.visible = true
+	_nap_t = NAP_T
+
+
+func _wake() -> void:
+	_nap_t = 0.0
+	_nap_fx.visible = false
+	var d := Mokki.cabin_door()
+	player.global_position = d + Vector3.UP * 0.05
+	player.rotation.y = atan2(Mokki.CABIN_LAKE.x, Mokki.CABIN_LAKE.y)  # ovelta metsään päin
+	player.velocity = Vector3.ZERO
+	player.set_hidden_inside(false)
+	player.controls_enabled = true
+	player.stamina = 100.0
+	player.exhausted = false
+	player.promille = maxf(0.0, player.promille - 1.2)
+	Sfx.play("door_close", -6.0)
+	toast("Heräsit päikkäreiltä virkeänä. Kunto täynnä" + (", ja humala on laskenut." if player.drinks > 0 else "."), 3.5)
 
 
 # --- Huussi ja rinne ---------------------------------------------------------------------------------------------
@@ -379,7 +468,7 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 # --- Alamökin minipelit ---------------------------------------------------------------------------------------
 
 func _activity_node() -> Node:
-	return {"sauna": sauna, "kokkaus": kokkaus, "kortit": kortit}.get(activity, null)
+	return {"sauna": sauna, "kokkaus": kokkaus, "kahvi": kahvi, "kortit": kortit}.get(activity, null)
 
 
 func start_activity(a: String) -> void:
@@ -431,6 +520,13 @@ func _interaction() -> Dictionary:
 		if Porukka.CREW[player_index].name == "Marko":
 			t += " (erikoiskyky: suuri kaari 5 m)"
 		return {"text": t, "cb": pissa.start}
+	var bush: int = mustikat.near(player.global_position)
+	if bush >= 0:
+		return {"text": "E: syö mustikoita (suihku paranee)", "cb": func() -> void: _eat_berries(bush)}
+	if Mokki.at_cabin_door(player.global_position):
+		if Porukka.CREW[player_index].name == "Jukka":
+			return {"text": "Jukka ei nuku päikkäreitä – aamukahvit keitetään alamökin liedellä"}
+		return {"text": "E: päikkärit ylämökissä", "cb": _nap}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	var m: Node3D = world.mokki
@@ -439,12 +535,17 @@ func _interaction() -> Dictionary:
 			return {"text": "E: istu lauteille", "cb": func() -> void: start_activity("sauna")}
 		"keittio":
 			if player.global_position.distance_to(m.cook_spot) < 0.75:
-				if Porukka.CREW[player_index].name == "Marko":
-					return {"text": "E: paista pyttipannua", "cb": func() -> void: start_activity("kokkaus")}
-				return {"text": "Vain Marko osaa tehdä pyttipannua"}
+				match Porukka.CREW[player_index].name:
+					"Marko":
+						return {"text": "E: paista pyttipannua", "cb": func() -> void: start_activity("kokkaus")}
+					"Jukka":
+						return {"text": "E: keitä aamukahvit liedellä", "cb": func() -> void: start_activity("kahvi")}
+				return {"text": "Vain Marko osaa tehdä pyttipannua ja Jukka keittää aamukahvit"}
 			var t := "E: istu pöytään (ristiseiska)"
 			if kokkaus.annokset > 0:
 				t += " · pöydässä %d annosta pyttipannua" % kokkaus.annokset
+			if kahvi.kupit > 0:
+				t += " · %d kuppia kahvia" % kahvi.kupit
 			return {"text": t, "cb": func() -> void: start_activity("kortit")}
 	return {}
 
@@ -511,6 +612,18 @@ func _setup_environment() -> void:
 	env.fog_depth_end = 5500.0
 	env.fog_depth_curve = 1.6
 	env.fog_sky_affect = 0.1
+	# Auringonpaiste: ohut tilavuususva, joka sirottaa auringonvaloa eteenpäin. Puiden latvusten ja rakennusten
+	# varjot näkyvät ilmassa valokiiloina, kun katsoo aurinkoa kohti, ja ilta-aurinko hehkuu kultaisena
+	# (Forward+; yhteensopivassa grafiikassa ei käytössä).
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.0045
+	env.volumetric_fog_albedo = Color(1.0, 0.97, 0.9)
+	env.volumetric_fog_anisotropy = 0.8
+	env.volumetric_fog_length = 110.0
+	env.volumetric_fog_detail_spread = 2.0
+	env.volumetric_fog_ambient_inject = 0.0
+	env.volumetric_fog_sky_affect = 0.0
+	env.volumetric_fog_temporal_reprojection_enabled = true
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.1
 	env.adjustment_contrast = 1.05
@@ -521,6 +634,7 @@ func _setup_environment() -> void:
 	var light := DirectionalLight3D.new()
 	_sun = light
 	light.shadow_enabled = true
+	light.light_volumetric_fog_energy = 2.2  # valokiilat latvusten välistä
 	light.shadow_blur = 1.5
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	light.directional_shadow_max_distance = 180.0
@@ -538,6 +652,7 @@ func _apply_settings() -> void:
 	_env.ssao_enabled = q >= 2
 	_env.ssil_enabled = q >= 3
 	_env.glow_enabled = q >= 2
+	_env.volumetric_fog_enabled = q >= 2  # auringonpaisteen valokiilat
 	sun.shadows_allowed = q >= 1
 	sun.max_shadow = [70.0, 70.0, 120.0, 180.0][q]
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
@@ -567,9 +682,8 @@ func _build_hud() -> void:
 	_compass = Compass.new()
 	_compass.player = player
 	_compass.paper = _map
-	# Rannan viinakätkö kompassiin: suunta ja matka, polku ylämökiltä metsän läpi.
+	# Viinakätköosoitin: kompassissa lähimmän kätkön suunta ja matka (_update_hud).
 	_compass.has_cache = true
-	_compass.cache = Vector2(world.ranta.stash_pos.x, world.ranta.stash_pos.z)
 	_hud.add_child(_compass)
 	var mm := Minimap.new()
 	mm.player = player
@@ -642,6 +756,7 @@ func _update_hud() -> void:
 	if not _hud.visible:
 		return
 	var p := player.global_position
+	_point_to_stash(p)
 	var near: Dictionary = world.nearest_name(Vector2(p.x, p.z))
 	var where: String = near.name if near.dist < 450.0 else "Äpätti"
 	if player.boat != null:

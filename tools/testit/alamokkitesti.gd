@@ -120,10 +120,10 @@ func _process(delta: float) -> bool:
 		7:
 			var jj: Node3D = main.crew[2]
 			var mm: Node3D = main.crew[1]
-			var arrived: bool = jj.pose.begins_with("Sitting") and mm.global_position.distance_to(m.cook_spot) < 0.8
+			var arrived: bool = jj.pose.begins_with("Sitting") and mm.brain._state == "stay"
 			if t > 0.3 and (arrived or t > 40.0):
 				print("tietokoneen hahmot perillä %.1f s:n jälkeen" % t)
-				check(main._interaction().get("text", "") == "Vain Marko osaa tehdä pyttipannua", "vain Marko osaa kokata")
+				check(main._interaction().get("text", "") == "Vain Marko osaa tehdä pyttipannua ja Jukka keittää aamukahvit", "vain Marko osaa kokata")
 				var j: Node3D = main.crew[2]
 				print("Jaakko: %s %s, %s" % [j.brain.activity, j.pose, Mokki.room_at(j.global_position)])
 				var mk: Node3D = main.crew[1]

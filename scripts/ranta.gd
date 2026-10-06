@@ -1,8 +1,8 @@
 extends Node3D
 ## Hiekkaranta ja viinakätkö Äpätin itärannalla (kätkö 64.431214 N, 26.889959 E, n. 170 m mökiltä itä-kaakkoon).
-## - Polku ylämökin terassin maanpuoleiselta sivulta metsän läpi törmän reunalle ja vinosti rinnettä alas
-##   rannalle. Polun varrelta puut pois.
-## - Viinakätkö rinteessä, kun polkua laskeudutaan rannalle: lahonnut puulaatikko havujen ja kivien alla,
+## - Kätkölle ei ole polkua: se löytyy kulkemalla metsän läpi ylämökiltä itä-kaakkoon törmän reunalle ja
+##   vinosti rinnettä alas (TRAIL on vain testien reitti, ei näy maastossa). Kätköosoitin näyttää suunnan.
+## - Viinakätkö rinteessä, kun laskeudutaan rannalle: lahonnut puulaatikko havujen ja kivien alla,
 ##   viinapulloja ja oluita. Ehtymätön kuten saunan kätkö (main.gd: E olut, Q viina).
 ## - Hiekkaranta törmän juurella: kuivan rannan pinta hiekaksi, ajopuu ja kiviä. Järven pohja rannan edessä
 ##   hiekkaa ja syvenee loivasti, joten kahlataan ensin ja n. 18 m rannasta päästään uimaan (on_foot.gd).
@@ -10,8 +10,8 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
-## Polku (maailman x, z): ylämökin terassin takaa tenniskentän ohi itä-kaakkoon metsän läpi, Äpätintien yli, törmän reunalta
-## vinosti rinnettä alas kätkön ohi rantaan.
+## Kulkureitti (maailman x, z) ylämökiltä tenniskentän ohi itä-kaakkoon metsän läpi, Äpätintien yli, törmän
+## reunalta vinosti rinnettä alas kätkön ohi rantaan. Ei piirretä eikä raivata: vain testien kävelyreitti.
 const TRAIL := [Vector2(-3.4, 10.6), Vector2(8.0, 14.0), Vector2(19.0, 23.0), Vector2(36.0, 31.5),
 	Vector2(54.0, 41.0), Vector2(72.0, 49.5), Vector2(90.0, 58.0), Vector2(106.0, 66.5), Vector2(122.0, 73.5),
 	Vector2(136.0, 79.0), Vector2(146.0, 84.0), Vector2(152.0, 88.5), Vector2(156.0, 92.6), Vector2(159.8, 97.6),
@@ -100,27 +100,12 @@ static func terraform() -> void:
 	f.heights = fs
 
 
-## Polku tieaineiston muodossa (world.gd piirtää sen muiden polkujen tapaan).
-static func trail_road() -> Dictionary:
-	var pts := []
-	for q: Vector2 in TRAIL:
-		pts.append([q.x, q.y])
-	return {"kind": "path", "name": "Kätköpolku", "paved": false, "pts": pts}
-
-
-static func trail_dist(p: Vector2) -> float:
-	var best := INF
-	for k in TRAIL.size() - 1:
-		best = minf(best, p.distance_to(Geometry2D.get_closest_point_to_segment(p, TRAIL[k], TRAIL[k + 1])))
-	return best
-
-
-## Puut pois polun, kätkön ja kuivan hiekkarannan kohdalta.
+## Puut pois kätkön ja kuivan hiekkarannan kohdalta.
 static func clears_tree(x: float, z: float) -> bool:
-	if x < -10.0 or x > BEACH_X.y or z < 5.0 or z > BEACH_Z.y + 4.0:
+	if x < 140.0 or x > BEACH_X.y or z < BEACH_Z.x - 4.0 or z > BEACH_Z.y + 4.0:
 		return false
 	var p := Vector2(x, z)
-	if trail_dist(p) < 1.3 or p.distance_to(STASH) < 2.0:
+	if p.distance_to(STASH) < 1.5:
 		return true
 	return z > BEACH_Z.x and x > 150.0 and Terrain.h(x, z) < SAND_TOP + 0.3
 
@@ -135,10 +120,6 @@ func _ready() -> void:
 	mi.material_override = B.vcol_mat()
 	add_child(mi)
 	add_child(body)
-	# Polun alkuun viitta ylämökin taakse.
-	var a: Vector2 = TRAIL[1]
-	var d: Vector2 = (TRAIL[2] as Vector2) - a
-	B.trail_sign(self, Vector3(a.x - 1.0, Terrain.h(a.x - 1.0, a.y + 0.8), a.y + 0.8), "Ranta", atan2(-d.x, -d.y))
 
 
 ## Lahonnut puulaatikko rinteessä polun vieressä, kansi raollaan ja osin havujen peitossa: viinapulloja,

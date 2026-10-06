@@ -1,9 +1,8 @@
 extends SceneTree
 ## Huussin ja rinteen testi (headless): godot --headless --path . -s tools/testit/huussitesti.gd
-## Saunan ovelta kävellen etuterassin ja itäterassin kautta (ei saunan takaa: pääterassilta ei ole kulkua taakse)
-## ja pitkospuita pitkin huussille rinteen reunaan, huussin
+## Saunan ovelta kävellen saunan takaa (halkopinon ohi) ja pitkospuita pitkin huussille rinteen reunaan, huussin
 ## minipeli (ykkönen) sisään ja ulos, sekä virtsaus rinteeseen pitkospuiden alussa: Markon kaari n. 5 m,
-## Santun n. 2 m. Lopuksi tarkistetaan, ettei saunan ovelta (pääterassin puolelta) pääse saunan taakse.
+## Santun n. 2 m. Lopuksi tarkistetaan, ettei järven puoleiselta itäterassilta pääse huussin pitkospuille.
 
 ## Kävelee reittipisteitä pitkin samoilla syötteillä kuin tekoäly.
 class Follow:
@@ -81,7 +80,7 @@ func _process(delta: float) -> bool:
 				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 13, 0)
 				var route: Array = m.route(m.points.sauna_ovi, "huussi")
 				print("reitti saunan ovelta huussille: %d pistettä" % route.size())
-				check(route.has(m.points.itaterassi) and not route.has(m.points.takana_l), "reitti kulkee itäterassin kautta")
+				check(route.has(m.points.takana_l) and not route.has(m.points.itaterassi), "reitti kulkee saunan takaa")
 				# Muut pois kulkureitiltä (testikävelijä ei väistä): pääterassin länsipäähän paikoilleen.
 				for c in main.crew:
 					if c != p:
@@ -173,21 +172,21 @@ func _process(delta: float) -> bool:
 		11:
 			if t > 1.0:
 				check(not main.pissa._remote[1].stream.active(), "toisen suihku loppuu, kun viestit loppuvat")
-				# Saunan ovelta suoraan kohti saunan takakulkua: kaide on tiellä.
+				# Itäterassilta suoraan kohti pitkospuita: kaide on tiellä.
 				p = main.player
-				var a: Vector3 = main.world.mokki.points.sauna_ovi
+				var a: Vector3 = main.world.mokki.points.itaterassi
 				p.global_position = a + Vector3.UP * 0.1
 				p.velocity = Vector3.ZERO
 				p.brain = Follow.new()
 				p.brain.body = p
-				p.brain.path = [main.world.mokki.points.takana_l]
+				p.brain.path = [main.world.mokki.points.pitkos]
 				next()
 		12:
 			if t > 6.0:
 				var q: Vector2 = Mokki.wy(Vector2(p.global_position.x, p.global_position.z))
 				p.brain = null
-				print("saunan ovelta takana kohti: (%.2f, %.2f)" % [q.x, q.y])
-				check(q.y > Mokki.BACK - 0.2, "pääterassin puolelta ei pääse saunan taakse")
+				print("itäterassilta pitkospuita kohti: (%.2f, %.2f)" % [q.x, q.y])
+				check(q.x < 5.5 and q.y > -0.9, "itäterassilta ei pääse huussille eikä saunan taakse")
 				print("vikoja %d" % fails)
 				return true
 	if now() > 120.0:

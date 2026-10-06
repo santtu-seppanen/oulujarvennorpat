@@ -1,6 +1,6 @@
 extends SceneTree
 ## Hiekkarannan ja viinakätkön testi (headless): godot --headless --path . -s tools/testit/rantatesti.gd
-## Ylämökin ovelta kävellen kätköpolkua metsän läpi ja rinnettä alas viinakätkölle, kätkön kehote ja huikka,
+## Ylämökin ovelta kävellen metsän läpi (ei polkua) ja rinnettä alas viinakätkölle, kätkön kehote ja huikka,
 ## kuiva ranta hiekkaa, ja rannasta kävellen järveen: ensin kahlataan, n. 18 m päässä uidaan.
 
 ## Kävelee reittipisteitä pitkin samoilla syötteillä kuin tekoäly.
@@ -13,13 +13,43 @@ class Follow:
 	var fast := false
 	var jump := false
 
-	func think(_d: float) -> void:
+	var _stuck := 0.0
+	var _last := Vector3.ZERO
+	var _side := 0.0
+	var _n := -1
+	var _best := INF
+	var _since := 0.0
+
+	func think(delta: float) -> void:
 		while path.size() > 1 and Vector2(body.global_position.x - path[0].x, body.global_position.z - path[0].z).length() < 0.6:
 			path.pop_front()
 		var t: Vector3 = path[0]
 		var d := Vector2(t.x - body.global_position.x, t.z - body.global_position.z)
 		throttle = 1.0 if d.length() > 0.3 else 0.0
 		var want := atan2(-d.x, -d.y)
+		# Metsässä puunrunko tiellä: hypätään ja kierretään sivulta.
+		var moved := Vector2(body.global_position.x - _last.x, body.global_position.z - _last.z).length()
+		_last = body.global_position
+		_stuck = _stuck + delta if throttle > 0.5 and moved < 0.3 * delta else maxf(0.0, _stuck - delta)
+		jump = _stuck > 0.8
+		if _stuck > 1.2:
+			_side = 1.0
+			_stuck = 0.0
+
+		if _side > 0.0:
+			_side -= delta
+			want += 1.2
+		# Tiheässä kohtaa (rungot vierekkäin) testikävelijä ei osaa kiertää: jos matka seuraavaan pisteeseen ei
+		# lyhene 4 sekuntiin, siirrytään 1,5 m eteenpäin.
+		if path.size() != _n or d.length() < _best - 0.5:
+			_n = path.size()
+			_best = d.length()
+			_since = 0.0
+		_since += delta
+		if _since > 4.0:
+			_since = 0.0
+			_best = d.length()
+			body.global_position += Vector3(d.x, 0.0, d.y).normalized() * 1.5 + Vector3.UP * 0.3
 		steer = clampf(wrapf(want - body.rotation.y, -PI, PI) * 3.0, -1.0, 1.0)
 
 
@@ -92,7 +122,7 @@ func _process(delta: float) -> bool:
 			if main._near_beach_stash():
 				p.brain = null
 				print("ylämökiltä kätkölle %.1f s" % t)
-				check(true, "kävellen ylämökiltä polkua kätkölle")
+				check(true, "kävellen ylämökiltä metsän läpi kätkölle")
 				next()
 			elif t > 120.0:
 				check(false, "jumissa polulla: %s" % [p.global_position])

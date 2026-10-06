@@ -43,7 +43,6 @@ func _ready() -> void:
 	if data.is_empty():
 		push_error("Kohdedataa ei löydy (%s): aja tools/kartta/bake.py." % DATA)
 		return
-	data.roads.append(Ranta.trail_road())
 	for p in data.ponds:
 		ponds.append({"level": float(p.level), "poly": _poly(p.pts)})
 	for n in data.names:
@@ -110,14 +109,14 @@ static func _poly(pts: Array) -> PackedVector2Array:
 
 func _terrain_mat(sink: float) -> ShaderMaterial:
 	# Pintojen värit (a, b) ja kohinan mittakaava luokittain: FOREST, WATER(pohja), SAND, ROCK, BOG, FIELD, YARD,
-	# ROAD, PATH, CLEARING, FILL, POND(pohja).
+	# ROAD (tien piennar: ruohoista soraa, itse ajorata on road.gdshader), PATH, CLEARING, FILL, POND(pohja).
 	var a := PackedColorArray([Color(0.27, 0.31, 0.16), Color(0.52, 0.47, 0.34), Color(0.74, 0.67, 0.5),
 		Color(0.44, 0.43, 0.41), Color(0.5, 0.46, 0.27), Color(0.47, 0.53, 0.25), Color(0.31, 0.47, 0.18),
-		Color(0.52, 0.47, 0.39), Color(0.42, 0.35, 0.25), Color(0.42, 0.38, 0.24), Color(0.56, 0.51, 0.42),
+		Color(0.34, 0.34, 0.2), Color(0.42, 0.35, 0.25), Color(0.42, 0.38, 0.24), Color(0.56, 0.51, 0.42),
 		Color(0.24, 0.21, 0.14)])
 	var b := PackedColorArray([Color(0.4, 0.38, 0.22), Color(0.6, 0.55, 0.4), Color(0.84, 0.78, 0.6),
 		Color(0.58, 0.56, 0.52), Color(0.4, 0.43, 0.23), Color(0.6, 0.6, 0.31), Color(0.4, 0.56, 0.24),
-		Color(0.63, 0.58, 0.48), Color(0.52, 0.44, 0.32), Color(0.53, 0.47, 0.3), Color(0.64, 0.6, 0.5),
+		Color(0.42, 0.41, 0.26), Color(0.52, 0.44, 0.32), Color(0.53, 0.47, 0.3), Color(0.64, 0.6, 0.5),
 		Color(0.32, 0.28, 0.19)])
 	var sc := PackedFloat32Array([0.035, 0.05, 0.06, 0.08, 0.03, 0.02, 0.04, 0.1, 0.08, 0.03, 0.06, 0.05])
 	return B.shader_mat("res://shaders/terrain.gdshader", {
@@ -239,8 +238,10 @@ func _build_roads() -> void:
 		var style: Array = ROAD_STYLE.get(r.kind, ROAD_STYLE.drive)
 		var w: float = style[0]
 		var col: Color = style[1]
+		# Alfa kertoo varjostimelle tien lajin (road.gdshader): asfaltti, soratie, ajoura tai polku.
+		col.a = {"road": 0.7, "drive": 0.7, "track": 0.4, "path": 0.15}.get(r.kind, 1.0)
 		if r.get("paved", false) and r.kind in ["road", "drive"]:
-			col = Color(0.22, 0.22, 0.23)
+			col = Color(0.22, 0.22, 0.23, 1.0)
 		var pts := _poly(r.pts)
 		for k in pts.size() - 1:
 			var a := pts[k]
@@ -261,13 +262,14 @@ func _build_roads() -> void:
 	add_child(mi)
 
 
-## Tien pala: reunat (UV.x 0) ja keskiviiva (UV.x 1), jokainen piste maaston pinnasta hieman koholla.
+## Tien pala: reunat (UV.x 0) ja keskiviiva (UV.x 1), jokainen piste maaston pinnasta hieman koholla; sora- ja
+## asfalttitie kupera (keskeltä korkeampi, vesi valuu reunoille).
 func _road_quad(st: SurfaceTool, p0: Vector2, p1: Vector2, nrm: Vector2, w: float, col: Color) -> void:
-	var lift := 0.06
+	var crown := 0.05 if col.a > 0.5 else 0.0
 	var v := func(p: Vector2, u: float) -> void:
 		st.set_color(col)
 		st.set_uv(Vector2(u, 0))
-		st.add_vertex(Vector3(p.x, Terrain.h(p.x, p.y) + lift, p.y))
+		st.add_vertex(Vector3(p.x, Terrain.h(p.x, p.y) + 0.05 + crown * u, p.y))
 	for side: float in [-1.0, 1.0]:
 		var e0 := p0 + nrm * w * side
 		var e1 := p1 + nrm * w * side

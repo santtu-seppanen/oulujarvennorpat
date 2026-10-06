@@ -5,12 +5,14 @@ extends RefCounted
 ## Kun aurinko on laskemassa, porukka kerääntyy laiturille ja etuterassille katsomaan sitä.
 
 const ACTIVITIES := {"poyta": 5.0, "grilli": 2.0, "sauna": 2.5, "uinti": 1.5, "ylamokki": 1.2, "huussi": 0.6,
-	"kaide": 1.5, "kokkaus": 1.2, "kalja": 1.0}
+	"kaide": 1.5, "kokkaus": 1.2, "kahvi": 1.2, "kalja": 1.0}
 ## Tekemiset per hahmo painotettuina (Jukka grillaa, Jaakko ui, Marko istuu).
-const LIKES := {"Jukka": {"grilli": 3.0, "kalja": 1.5}, "Jaakko": {"uinti": 2.5, "sauna": 1.5}, "Marko": {"poyta": 1.6, "kokkaus": 1.0},
+## Jukka ei nuku päikkäreitä (ylämökki), vaan keittää kahvit.
+const LIKES := {"Jukka": {"grilli": 3.0, "kalja": 1.5, "ylamokki": 0.0, "kahvi": 1.5}, "Jaakko": {"uinti": 2.5, "sauna": 1.5}, "Marko": {"poyta": 1.6, "kokkaus": 1.0},
 	"Santtu": {"ylamokki": 1.6}}
 
 static var _taken := {}  # istumapaikan indeksi -> hahmo
+static var _stove := ""  # kuka on hellalla (Markon pyttipannu tai Jukan kahvit): vain yksi kerrallaan
 
 var body: CharacterBody3D
 var mokki: Node3D
@@ -53,6 +55,8 @@ func _init(b: CharacterBody3D, m: Node3D, s: Node, n: String) -> void:
 func reset() -> void:
 	_leave_seat()
 	activity = ""
+	if _stove == name:
+		_stove = ""
 	_set_path([])
 	_state = "walk"
 	body.pose = ""
@@ -67,7 +71,7 @@ func think(delta: float) -> void:
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
-	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus"] and _state != "hidden":
+	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus", "kahvi"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -120,6 +124,8 @@ func _choose() -> void:
 	for a in ACTIVITIES:
 		if a == "kokkaus" and name != "Marko":
 			continue  # vain Marko osaa kokata
+		if a == "kahvi" and name != "Jukka":
+			continue  # vain Jukka keittää kahvit
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
 	var r := rng.randf() * total
@@ -133,6 +139,11 @@ func _choose() -> void:
 
 func _start(a: String) -> void:
 	_leave_seat()
+	if a in ["kokkaus", "kahvi"]:
+		if _stove != "" and _stove != name:
+			a = "poyta"  # toinen on jo hellalla
+		else:
+			_stove = name
 	body.pose = ""
 	activity = a
 	_state = "walk"
@@ -153,7 +164,7 @@ func _start(a: String) -> void:
 			_seat_s = mokki.free_seat(mokki.sauna_seats, body)
 			if _seat_s >= 0:
 				body.claimed_seat = mokki.sauna_seats[_seat_s][0]
-		"kokkaus":
+		"kokkaus", "kahvi":
 			goal = "hella"
 		"kalja":
 			goal = "katko"
@@ -290,7 +301,7 @@ func _arrive() -> void:
 			_loyly_t = rng.randf_range(4.0, 10.0)
 			_stay_for(rng.randf_range(40.0, 80.0), "Sitting_Idle" if i >= 0 else "Idle")
 			_next = "uinti"
-		"kokkaus":
+		"kokkaus", "kahvi":
 			_face = mokki.cook_face
 			_stay_for(rng.randf_range(25.0, 45.0), "Idle")
 		"kalja":
@@ -360,6 +371,10 @@ func _done() -> void:
 		body.stand_up(activity == "sauna")
 	if activity == "kokkaus":
 		mokki.cooked.emit(rng.randi_range(2, 4))
+	elif activity == "kahvi":
+		mokki.coffee.emit(rng.randi_range(3, 4))
+	if _stove == name:
+		_stove = ""
 	body.pose = ""
 	_face = Vector3.ZERO
 	_leave_seat()

@@ -431,7 +431,7 @@ func _nearest_spot(p: Vector3, taken: Array) -> int:
 	return best
 
 
-## Alhaalta pihasta ja saunalta portaita ylös ylämökin terassille ja sen maanpuoleisesta reunasta kentälle.
+## Alhaalta pihasta ja saunalta portaita ylös ylämökin terassille, oven edustan tasanteelta portaat alas kentälle.
 func _route_to_field(b: CharacterBody3D) -> Array:
 	var p := b.global_position
 	var q := local(Vector2(p.x, p.z))
@@ -439,8 +439,7 @@ func _route_to_field(b: CharacterBody3D) -> Array:
 		return []
 	var m: Node3D = game.world.mokki
 	var path: Array = m.route(p, "ylamokki_ovi")
-	var off := Mokki.cw(3.8, -2.6)
-	path.append(Vector3(off.x, Terrain.h(off.x, off.y), off.y))
+	path.append(Mokki.cabin_steps_foot())
 	return path
 
 

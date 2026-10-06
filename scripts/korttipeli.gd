@@ -79,6 +79,7 @@ func start() -> bool:
 	CamCtl.free_mouse = true
 	_request("istu")
 	game.kokkaus.eat()
+	game.kahvi.drink()
 	_refresh()
 	return true
 

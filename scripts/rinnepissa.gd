@@ -1,7 +1,8 @@
 extends Node3D
 ## Rinteeseen virtsaaminen pitkospuiden alkupäässä ennen huussia. Suihku lentää hahmon edestä heittoliikkeenä ja
 ## osuu maastoon; kaaren pituus mitataan vaakasuoraan jaloista osumakohtaan. W/S nostaa ja laskee kaarta, A/D
-## kääntää. Markon erikoiskyky: suuri kaari 5 metrin päähän, muilta noin 2 m. Humala heiluttaa suihkua. Paine
+## kääntää. Markon erikoiskyky: suuri kaari 5 metrin päähän, muilta noin 2 m; metsän mustikat pidentävät kaarta
+## (mustikat.gd), mutta muut eivät silti yllä Markon kaareen. Humala heiluttaa suihkua. Paine
 ## nousee alussa ja hiipuu lopussa tipoiksi; märät läikät jäävät maahan. E tai F lopettaa kesken.
 ## Moninpelissä suihku näkyy muillakin: kulma, suunnan heilunta ja lähtönopeus lähetetään (viesti "pissa"),
 ## ja vastaanottaja laskee kaaren itse hahmon paikasta.
@@ -188,6 +189,11 @@ func _marko() -> bool:
 	return _who == "Marko"
 
 
+## Metsän mustikoista lisää lähtönopeutta (mustikat.gd).
+func _berries() -> float:
+	return game.mustikat.boost(game.player_index) if game.get("mustikat") != null else 0.0
+
+
 func start() -> void:
 	var p := _player()
 	_who = p.display_name
@@ -233,6 +239,8 @@ func stop() -> void:
 ## Kehoteteksti alareunaan (main.gd).
 func prompt() -> String:
 	var t := "W/S kaaren korkeus · A/D suunta · kaari %.1f m" % _mine.dist
+	if _berries() > 0.0:
+		t += " · mustikkavoimaa +%d %%" % roundi(_berries() / (SPEED_MARKO if _marko() else SPEED) * 100.0)
 	if best.has(_who):
 		t += " (ennätys %.1f m)" % best[_who]
 	return t + " · E/F lopettaa"
@@ -259,7 +267,7 @@ func _physics_process(delta: float) -> void:
 	var a := _angle + sin(_t * 2.1) * d * 0.3 + sin(_t * 5.3) * 0.02
 	var wobble := sin(_t * 1.7 + 1.0) * d * 0.35
 	var pr := _pressure()
-	var v := (SPEED_MARKO if _marko() else SPEED) * pr
+	var v := ((SPEED_MARKO if _marko() else SPEED) + _berries()) * pr
 	_mine.update(p, a, p.rotation.y + wobble, v, pr, delta)
 	if pr > 0.8:
 		_max = maxf(_max, _mine.dist)
