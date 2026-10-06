@@ -843,16 +843,16 @@ func _sauna(pt: Part) -> void:
 		_lamp(pt, Part.p(x - 0.18 * signf(x), 2.75, y0 + 1.7), 0.8, 6.0)
 	pt.bx(-1.9, 1.9, 2.7, 2.85, eave - 0.2, eave, TRIM)
 	# Katto: matala harja pitkittäin (v), räystäät 0,45 m, kuistin päällä 0,4 m yli. Terassin puolella katto
-	# jatkuu ovien yli 1,25 m ja nojaa palkkiin ja pyöreään pylvääseen.
+	# jatkuu ovien yli 1,25 m ja nojaa palkkiin, jonka päässä on pyöreä pylväs (ei välitolppia kulun tiellä).
 	var vb := BACK - 0.4
 	var vf := 3.3
 	var rc := Color(ROOF.r, ROOF.g, ROOF.b, SHINGLE)
 	var wx := 3.15
 	var wy_ := eave - (wx - 1.9) * tan(pitch)
 	pt.beam(Part.p(-3.0, vb + 0.3, wy_ - 0.2), Part.p(-3.0, vf - 0.55, wy_ - 0.2), 0.12, 0.14, TRIM)
-	for pv: float in [-0.75, -3.1, BACK + 0.4]:
-		pt.cyl(Part.p(-3.0, pv, y0), Part.p(-3.0, pv, wy_ - 0.27), 0.07, TRIM)
-		pt.body.add_child(B.box_shape(Vector3(0.14, wy_ - y0, 0.14), Part.p(-3.0, pv, (y0 + wy_) * 0.5)))
+	var pv := BACK + 0.4
+	pt.cyl(Part.p(-3.0, pv, y0), Part.p(-3.0, pv, wy_ - 0.27), 0.07, TRIM)
+	pt.body.add_child(B.box_shape(Vector3(0.14, wy_ - y0, 0.14), Part.p(-3.0, pv, (y0 + wy_) * 0.5)))
 	pt.roof()
 	for s: float in [-1.0, 1.0]:
 		var ex := wx if s < 0.0 else 2.35
