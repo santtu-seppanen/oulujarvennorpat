@@ -46,8 +46,8 @@ func _process(_delta: float) -> bool:
 			tn.start()
 			for pl in tn.players:
 				(pl.body as Node3D).global_position = tn._spot_pos(pl.spot) + Vector3.UP * 0.1
-				if pl.brain != null:
-					pl.brain.path = []
+				if tn._brains.has(pl.i):
+					tn._brains[pl.i].path = []
 		120:
 			var me: Dictionary = tn._me()
 			main.player.global_position = tn._spot_pos(me.spot) + Vector3.UP * 0.1

@@ -106,10 +106,14 @@ näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat
   ulottuvilla sopivalla korkeudella; hyvällä korkeudella pallo menee tarkemmin. Keltainen rengas näyttää, mihin
   sinulle tuleva pallo putoaa.
 - Tietokoneen hahmot juoksevat pallon alle ja lyövät useimmiten. Humala heikentää kaikkien tarkkuutta.
-- Kentältä poistuminen lopettaa pelin. Moninpelissä mukana ovat oman koneen pelaaja ja sen ohjaamat
-  tietokoneen hahmot.
+- Kentältä poistuminen lopettaa pelin.
+- Moninpelissä kaikki pelaavat samaa peliä samalla pallolla: kaverit liittyvät kentällä E:llä, ja pallo
+  kulkee koneelta toiselle. Host pitää kirjaa pelaajista ja ohjaa tietokoneen hahmoja. Jokainen lyönti
+  lähetetään kaikille, ja kukin kone laskee saman lentoradan; pallon putoamisen ratkaisee sen kone, jolle pallo
+  oli menossa. Lyöntimäärä ja ennätys ovat kaikilla samat.
 
-Testi: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
+Testit: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`) ja kahden koneen
+`tools/testit/tennismoninpeli.gd` (ohjeet tiedoston alussa), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
 
 ## Moninpeli
 

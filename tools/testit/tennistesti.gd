@@ -69,7 +69,7 @@ func _process(delta: float) -> bool:
 				check(tn.active and tn.players.size() == 4, "peli alkoi, mukana %d" % tn.players.size())
 				next()
 		2:
-			var ready: Array = tn.players.filter(func(pl: Dictionary) -> bool: return pl.brain == null or pl.brain.ready)
+			var ready: Array = tn.players.filter(func(pl: Dictionary) -> bool: return not tn._brains.has(pl.i) or tn._brains[pl.i].ready)
 			if ready.size() == 4:
 				print("kaikki paikoillaan %.1f s" % t)
 				check(true, "tietokoneen hahmot kentälle")
@@ -77,7 +77,7 @@ func _process(delta: float) -> bool:
 				next()
 			elif t > 90.0:
 				for pl in tn.players:
-					print("  %s %s valmis %s" % [main.Porukka.CREW[pl.i].name, (pl.body as Node3D).global_position, pl.brain == null or pl.brain.ready])
+					print("  %s %s valmis %s" % [main.Porukka.CREW[pl.i].name, (pl.body as Node3D).global_position, not tn._brains.has(pl.i) or tn._brains[pl.i].ready])
 				check(false, "kaikki eivät päässeet kentälle")
 				_to_spot()
 				next()
@@ -91,12 +91,12 @@ func _process(delta: float) -> bool:
 		4:
 			# Ralli: pelaaja siirtyy omalle vuorolle tulevan pallon alle ja lyö sopivalla korkeudella.
 			if tn.hits > _prev_hits:
-				if tn._last_hitter == tn._me():
+				if tn._hitter_i == main.player_index:
 					my_hits += 1
 				else:
 					ai_hits += 1
 				_prev_hits = tn.hits
-			if tn._state == "fly" and tn._target == tn._me():
+			if tn._state == "fly" and tn._target_i == main.player_index:
 				var land: Vector3 = tn._landing()
 				p.global_position = Vector3(land.x, p.global_position.y, land.z)
 				p.velocity = Vector3.ZERO
@@ -117,6 +117,7 @@ func _process(delta: float) -> bool:
 					step = 6
 					ts = clock
 			elif t > 120.0:
+				print("tila %s lyöntejä %d kohde %d lyöjä %d pallo %s" % [tn._state, tn.hits, tn._target_i, tn._hitter_i, tn._pos])
 				check(false, "ralli jumissa")
 				return true
 		5:
@@ -175,7 +176,7 @@ func _face_ai() -> void:
 	var p: CharacterBody3D = main.player
 	var best: Node3D = null
 	for pl in main.tennis.players:
-		if pl.brain != null and (best == null or (pl.body as Node3D).global_position.distance_to(p.global_position) < best.global_position.distance_to(p.global_position)):
+		if main.tennis._brains.has(pl.i) and (best == null or (pl.body as Node3D).global_position.distance_to(p.global_position) < best.global_position.distance_to(p.global_position)):
 			best = pl.body
 	var d := best.global_position - p.global_position
 	p.rotation.y = atan2(-d.x, -d.z)
