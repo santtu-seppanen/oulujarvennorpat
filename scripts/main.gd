@@ -146,8 +146,9 @@ func _ready() -> void:
 	world.mokki.talk.connect(func(who: String, text: String) -> void:
 		for j in Porukka.CREW.size():
 			if Porukka.CREW[j].name == who:
-				chat.show_message(j, text))
+				chat.ai_say(j, text))
 	world.mokki.napped.connect(_coffee_call)
+	mp.on("kahvikutsu", func(_d: Dictionary, _from: int) -> void: _coffee_shout())
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
@@ -398,22 +399,32 @@ func _ballgame() -> Node3D:
 # --- Päikkärit ylämökissä -------------------------------------------------------------------------------------
 
 ## Päikkärien jälkeen Jukka huutaa porukan kahville (kerran päivässä): kupit alamökin keittiön pöydässä.
+## Huuto lähtee kaikille koneille (viesti "kahvikutsu"); kupit kulkevat kahvi.gd:n viestillä.
 func _coffee_call() -> void:
+	var j := _coffee_shout()
+	if j < 0:
+		return
+	if crew_modes[j] == "ai" and kahvi.kupit < 4:
+		kahvi.add(4 - kahvi.kupit)  # tietokoneen Jukka keitti kahvit päikkärien aikana
+	mp.send({"t": "kahvikutsu"})
+
+
+## Jukan huuto tällä koneella (kerran päivässä): kupla, puhe ja ilmoitus. Palauttaa Jukan indeksin tai -1.
+func _coffee_shout() -> int:
 	var day: int = sun.local().day
 	if _coffee_day == day:
-		return
+		return -1
 	_coffee_day = day
 	var j := -1
 	for i in Porukka.CREW.size():
 		if Porukka.CREW[i].name == "Jukka":
 			j = i
 	if j < 0:
-		return
+		return -1
 	chat.show_message(j, ["Kahville! Pannukahvit on valmiina.", "Herätys, kahvit on pöydässä!", "Kaffelle, pojat!"][day % 3])
-	if crew_modes[j] == "ai" and kahvi.kupit < 4:
-		kahvi.add(4 - kahvi.kupit)  # tietokoneen Jukka keitti kahvit päikkärien aikana
 	if j != player_index:
 		toast("Jukka huutaa kahville: kupit alamökin keittiön pöydässä.", 4.0)
+	return j
 
 
 ## Klo 16 aikoihin porukka lähtee päikkäreille (ai.gd): kerran päivässä ilmoitus pelaajalle.

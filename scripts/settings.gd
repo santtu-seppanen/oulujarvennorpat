@@ -24,6 +24,8 @@ var values := {
 	"vol_sfx": 0.9,
 	"vol_ambience": 0.8,
 	"vol_music": 0.8,
+	"tts": true,  # puhekuplat ääneen käyttöjärjestelmän puhesynteesillä (chat.gd)
+	"vol_speech": 0.8,
 	"mouse_sens": 1.0,
 	"invert_y": false,
 	"auto_recenter": true,

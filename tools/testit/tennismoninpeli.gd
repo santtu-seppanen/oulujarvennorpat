@@ -6,7 +6,8 @@ extends SceneTree
 ## Vieras syöttää. Kumpikin lyö omalle vuorolleen tulevat pallot, hostin tietokone lyö Jaakon ja Jukan pallot.
 ## Tarkistetaan, että pallo kulkee koneelta toiselle: kummallakin sama ralli, lyöntimäärä kasvaa ja toisen
 ## koneen lyönnit näkyvät. Lopuksi vieras jättää lyömättä: molemmilla ralli päättyy samaan lyöntimäärään ja
-## ennätykseen. Kentältä poistuttua peli loppuu.
+## ennätykseen. Hostin tietokoneen hahmon puhe ja Jukan kahvihuuto näkyvät vieraallakin. Kentältä poistuttua
+## peli loppuu.
 
 const AiS := preload("res://scripts/ai.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -77,6 +78,7 @@ func _process(delta: float) -> bool:
 				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 14, 0)
 				tn.save_path = "user://rantatennis_mp_%s.cfg" % role
 				tn.record = 0
+				tn.ai_skill = 1.0  # tietokone ei lyö ohi: ralli kestää tavoitteeseen asti
 				var c: Vector2 = T.fw(0.0 if role == "host" else 2.0, 0.0)
 				p = main.player
 				p.global_position = Vector3(c.x, Terrain.h(c.x, c.y) + 0.1, c.y)
@@ -140,10 +142,20 @@ func _process(delta: float) -> bool:
 			check(over_hits >= GOAL, "ralli kesti %d lyöntiä" % over_hits)
 			check(tn.record == over_hits, "ennätys %d" % tn.record)
 			print("[%s] TULOS %d" % [role, over_hits])
+			if role == "host":
+				# Tietokoneen hahmon puhe ja Jukan kahvihuuto hostilta kaikille.
+				main.world.mokki.talk.emit("Jaakko", "Moro kaikki, päikkäreille!")
+				main._coffee_call()
 			next()
 		8:
 			# Vieras lähtee ensin kentältä, host perässä: sitten peli loppuu.
 			if t > (2.0 if role == "vieras" else 5.0):
+				if role == "vieras":
+					var heard := []
+					for e in main.chat._lines:
+						heard.append((e[0] as Label).text)
+					check(heard.has("Jaakko: Moro kaikki, päikkäreille!"), "tietokoneen hahmon puhe hostilta")
+					check(heard.any(func(x: String) -> bool: return x.begins_with("Jukka:")), "Jukan kahvihuuto hostilta")
 				var w: Vector2 = T.fw(0.0, -T.FIELD_H.y - 8.0)
 				p.global_position = Vector3(w.x, Terrain.h(w.x, w.y) + 0.2, w.y)
 				next()

@@ -300,6 +300,8 @@ func _settings(from: String) -> void:
 	_slider(a, "Tehosteet", "vol_sfx", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Ympäristö", "vol_ambience", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Musiikki", "vol_music", 0.0, 1.0, 0.05, "%d %%", 100.0)
+	_check(a, "Puhesynteesi: puhekuplat ääneen", "tts")
+	_slider(a, "Puhe", "vol_speech", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	var c := _tab(tabs, "Ohjaus")
 	_slider(c, "Hiiren herkkyys", "mouse_sens", 0.3, 3.0, 0.1, "%.1f", 1.0)
 	_check(c, "Käänteinen pystyakseli", "invert_y")

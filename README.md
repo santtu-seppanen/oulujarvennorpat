@@ -23,7 +23,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
 | Q | kätköllä (saunan takana tai rannan rinteessä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen) |
 | F | lopettaa huussin minipelin, rinteeseen virtsaamisen, rantatenniksen tai pallon heittelyn |
-| Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella |
+| Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella ja luetaan ääneen puhesynteesillä |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
@@ -136,7 +136,13 @@ Valikosta **Moninpeli → Luo uusi peli** avaa huoneen ja näyttää sen nelikir
 koodilla (**Liity peliin**), selaimessa tai työpöytäversiossa. Kukin valitsee oman mökkiläisensä, ja vapaita
 hahmoja ohjaa huoneen luojan (hostin) tietokone. Host pitää myös kelloa; T kelaa aikaa kaikilta. Jos host
 lähtee, seuraava pelaaja jatkaa hostina. Keskusteluviestit (Enter) näkyvät kaikille puhekuplina ja
-keskusteluhistoriassa.
+keskusteluhistoriassa. Tietokoneen hahmojen puheet (esimerkiksi klo 16
+päikkärikutsu ja Jukan kahvihuuto) näkyvät myös kaikilla: hostin tietokone lähettää ne muille.
+
+**Puhesynteesi:** puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetukset → Ääni → Puhesynteesi
+ja Puhe-voimakkuus). Kullakin hahmolla on oma suomenkielinen ääni, jos sellainen on asennettu (macOS:ssa
+Santtu Eddy, Marko Rocko, Jaakko Reed ja Jukka Grandpa); muuten ensimmäinen suomenkielinen ääni hahmon omalla
+äänenkorkeudella. Kauempana olevan puhe kuuluu hiljempaa.
 
 Välityspalvelin on `server/`-hakemistossa: Cloudflare Worker ja yksi Durable Object per huone
 (`wss://norpat.santtu-seppane.workers.dev/huone/<KOODI>`). Pelaajat lähettävät ohjaamiensa hahmojen ja

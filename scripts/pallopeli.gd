@@ -106,6 +106,7 @@ var lines_good := ["Hyvä!", "Pidetään pystyssä!", "Nyt menee!", "Tasasta!"]
 
 var game: Node3D
 var save_path := "user://pallopeli.cfg"  # testit käyttävät omaa tiedostoaan
+var ai_skill := -1.0  # testeille: tietokoneen onnistumistodennäköisyys (-1 = humalan mukaan)
 var session := false  # peli käynnissä (joku pelaa)
 var active := false  # oma pelaaja on mukana
 var hits := 0
@@ -494,7 +495,8 @@ func _launch(by: int, to: int, p: Vector3, v: Vector3, n: int, r: int) -> void:
 	_will_hit = true
 	if _brains.has(to):
 		var tbody: CharacterBody3D = game.crew[to]
-		_will_hit = _rng.randf() < clampf(0.93 - tbody.promille * 0.15 - 0.03 * float(hb.promille), 0.4, 0.97)
+		var chance := clampf(0.93 - tbody.promille * 0.15 - 0.03 * float(hb.promille), 0.4, 0.97)
+		_will_hit = _rng.randf() < (ai_skill if ai_skill >= 0.0 else chance)
 	Sfx.play_on(hb, hit_sound[0], hit_sound[1], hit_sound[2])
 	if n > 1 and n % 10 == 0:
 		var ai := players.filter(func(o: Dictionary) -> bool: return not _human(o.i))
