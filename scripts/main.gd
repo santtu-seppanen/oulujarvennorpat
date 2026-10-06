@@ -889,7 +889,7 @@ func _update_hud() -> void:
 	_clock.text = "%s · %s · aurinko laskee %s, nousee %s%s" % [Porukka.CREW[player_index].name, sun.clock_text(),
 		day.set, day.rise, "  ▶▶ (T)" if sun.fast else ""]
 	if mp.online():
-		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
+		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa · Enter: viesti kaikille" % [mp.room(), mp.players()]
 	if pissa.active:
 		_prompt.text = pissa.prompt()
 	elif _ballgame() != null:

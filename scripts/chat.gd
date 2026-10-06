@@ -64,7 +64,8 @@ func _build_ui() -> void:
 	box.add_child(_log)
 	_edit = LineEdit.new()
 	_edit.max_length = MAX_LEN
-	_edit.placeholder_text = "Kirjoita viesti, Enter lähettää, Esc peruu"
+	_edit.placeholder_text = "Kirjoita viesti muille, Enter lähettää, Esc peruu"
+	_edit.virtual_keyboard_enabled = true  # kosketusnäytöllä näppäimistö aukeaa ("Viesti"-nappi)
 	_edit.custom_minimum_size = Vector2(480, 34)
 	_edit.add_theme_font_size_override("font_size", 17)
 	var sb := StyleBoxFlat.new()

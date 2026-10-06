@@ -19,7 +19,8 @@ extends Node3D
 ##   saunan taakse.
 ##   Pitkospuiden alkupäästä voi virtsata rinteeseen (rinnepissa.gd).
 ## - ylämökki törmän päällä (MML:n rakennus 5,3 x 5,1 m): sinharmaa hirsi, valkoiset ikkunat, harjakatto
-##   kohtisuoraan järveä kohti (päädyt järvelle ja metsään), ovi metsän puoleisessa päädyssä, aurinkopaneelit ja
+##   kohtisuoraan järveä kohti (päädyt järvelle ja metsään), yksi ikkuna järvelle, ovi metsän puoleisessa päädyssä,
+##   aurinkopaneelit ja
 ##   antenni, valkoinen säleikkö alla, kaiteeton terassi itäsivulla ja tasanne oven edessä. Mökissä nukutaan
 ##   päikkärit.
 ## - jyrkät portaat (n. 38°, 22 askelmaa) terassilta törmään ylämökin terassille
@@ -63,11 +64,14 @@ const DY := 1.3  # terassin ja saunan lattian korkeus järven pinnasta
 const CABIN_C := Vector2(-8.15, 9.19)
 const CABIN_X := Vector2(0.854, -0.520)
 const CABIN_LAKE := Vector2(-0.520, -0.854)
-const CABIN_HX := 2.56
-const CABIN_HV := 2.64
+## Ylämökki pienennetty (4,2 x 4,0 m; MML:n rakennus 5,3 x 5,1 m sisältää terassin).
+const CABIN_HX := 2.1
+const CABIN_HV := 2.0
+## Terassin järven puoleinen reuna: portaat alamökiltä nousevat tähän (mökin seinää kauempana järvellä).
+const CABIN_TERRACE_V := 2.64
 ## Ylämökin ovi metsän puoleisessa päädyssä (x-väli), tasanteen syvyys oven edessä ja portaat tasanteelta
 ## metsään (x-väli).
-const CABIN_DOOR := Vector2(0.9, 1.75)
+const CABIN_DOOR := Vector2(0.45, 1.25)
 const CABIN_LANDING := 1.3
 const CABIN_STEPS := Vector2(2.9, 3.9)
 ## Terassit pihan kehyksessä [u0, u1, v0, v1]: pääterassi, etuterassi, itäterassi, sauna, halkovaja, saunan oven
@@ -1486,23 +1490,18 @@ func _cabin(pt: Part) -> void:
 	pt.bx(hx - 0.08, hx - 0.05, -hv + 0.05, hv - 0.05, g - 0.3, fy - 0.1, lat)
 	pt.bx(-hx + 0.05, hx - 0.05, -hv + 0.05, -hv + 0.08, g - 0.3, fy - 0.1, Color(0.3, 0.3, 0.3))
 	pt.bx(-hx, hx, -hv, hv, fy - 0.12, fy, TRIM)
-	# Seinät: järven puoleisessa päädyssä kaksi ikkunaa, metsän puoleisessa päädyssä ovi ja ikkuna, länsiseinässä
-	# yksi ikkuna ja itäseinässä terassille kaksi.
+	# Seinät: yksi ikkuna järven puoleisessa päädyssä (näkymä järvelle), ovi metsän puoleisessa päädyssä; sivuseinät
+	# umpinaiset.
 	var w0 := fy + 0.85
 	var w1 := fy + 1.9
 	var dx0 := CABIN_DOOR.x
 	var dx1 := CABIN_DOOR.y
-	_log_wall_v(pt, -hx, hx, hv - 0.2, hv, fy, eave, WALL_UP, [[-1.7, -0.5, w0, w1], [0.4, 1.6, w0, w1]])
-	_log_wall_v(pt, -hx, hx, -hv, -hv + 0.2, fy, eave, WALL_UP, [[-1.5, -0.3, w0 + 0.2, w1], [dx0, dx1, fy, fy + 2.0]])
-	_log_wall_x(pt, -hx, -hx + 0.2, -hv + 0.2, hv - 0.2, fy, eave, WALL_UP, [[-0.5, 0.5, w0 + 0.2, w1]])
-	_log_wall_x(pt, hx - 0.2, hx, -hv + 0.2, hv - 0.2, fy, eave, WALL_UP, [[-1.4, -0.4, w0, w1], [0.6, 1.6, w0, w1]])
+	_log_wall_v(pt, -hx, hx, hv - 0.2, hv, fy, eave, WALL_UP, [[-0.65, 0.65, w0, w1]])
+	_log_wall_v(pt, -hx, hx, -hv, -hv + 0.2, fy, eave, WALL_UP, [[dx0, dx1, fy, fy + 2.0]])
+	_log_wall_x(pt, -hx, -hx + 0.2, -hv + 0.2, hv - 0.2, fy, eave, WALL_UP)
+	_log_wall_x(pt, hx - 0.2, hx, -hv + 0.2, hv - 0.2, fy, eave, WALL_UP)
 	_log_corners(pt, -hx + 0.1, hx - 0.1, -hv + 0.1, hv - 0.1, fy, eave, WALL_UP)
-	_window_v(pt, -1.7, -0.5, hv, 1.0, w0, w1, true)
-	_window_v(pt, 0.4, 1.6, hv, 1.0, w0, w1, true)
-	_window_v(pt, -1.5, -0.3, -hv, -1.0, w0 + 0.2, w1)
-	_window_x(pt, -0.5, 0.5, -hx, -1.0, w0 + 0.2, w1)
-	_window_x(pt, -1.4, -0.4, hx, 1.0, w0, w1, true)
-	_window_x(pt, 0.6, 1.6, hx, 1.0, w0, w1, true)
+	_window_v(pt, -0.65, 0.65, hv, 1.0, w0, w1, true)
 	# Ovi metsän puoleisessa päädyssä: valkoinen, ikkunallinen, karmit ja kahva.
 	pt.bx(dx0, dx1, -hv, -hv + 0.05, fy, fy + 2.0, Color(0.95, 0.95, 0.93, BOARD_U))
 	pt.bx(dx0 + 0.1, dx1 - 0.1, -hv - 0.04, -hv, fy + 1.4, fy + 1.85, Color(0.12, 0.14, 0.17, GLASS))
@@ -1552,7 +1551,7 @@ func _cabin(pt: Part) -> void:
 	# Terassi itäsivulla (portaat alamökiltä järven puolella) ja siitä tasanne metsän puoleisen oven eteen;
 	# tasanteelta portaat metsään.
 	var tx1 := 4.9
-	var tv1 := hv
+	var tv1 := CABIN_TERRACE_V
 	var lv := -hv - CABIN_LANDING
 	var dc := Color(DECK.r, DECK.g, DECK.b, BOARD_V)
 	for r in [[hx, tx1, lv, tv1], [CABIN_DOOR.x - 0.5, hx, lv, -hv]]:

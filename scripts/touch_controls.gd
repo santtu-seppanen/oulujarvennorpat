@@ -69,7 +69,7 @@ func _layout() -> void:
 		{"key": KEY_E, "label": "Toiminto", "pos": Vector2(w - 330, h - 110), "r": 58.0, "side": "main"},
 		{"key": KEY_SPACE, "label": "Hyppy", "pos": Vector2(w - 470, h - 80), "r": 46.0, "side": "main"},
 	]
-	var col := [[KEY_ESCAPE, "Valikko"], [KEY_M, "Kartta"], [KEY_V, "Kamera"]]
+	var col := [[KEY_ESCAPE, "Valikko"], [KEY_M, "Kartta"], [KEY_V, "Kamera"], [KEY_ENTER, "Viesti"]]
 	for i in col.size():
 		_buttons.append({"key": col[i][0], "label": col[i][1], "pos": Vector2(w - 42, 150 + i * 64), "r": 29.0,
 			"side": "edge"})
