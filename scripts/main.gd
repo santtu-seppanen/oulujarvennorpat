@@ -24,6 +24,7 @@ const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Chat := preload("res://scripts/chat.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const Rinnepissa := preload("res://scripts/rinnepissa.gd")
+const Rantatennis := preload("res://scripts/rantatennis.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-6.9, 1.2), Vector2(-4.9, -1.05), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -63,6 +64,7 @@ var kortit: Node
 var chat: Node
 var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
+var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -123,6 +125,9 @@ func _ready() -> void:
 	pissa = Rinnepissa.new()
 	pissa.game = self
 	add_child(pissa)
+	tennis = Rantatennis.new()
+	tennis.game = self
+	add_child(tennis)
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
@@ -206,6 +211,8 @@ func set_player(i: int) -> void:
 	end_activity()
 	if pissa != null and pissa.active:
 		pissa.stop()
+	if tennis != null:
+		tennis.stop()
 	player_index = i
 	player = crew[i]
 	_amb.player = player
@@ -246,6 +253,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("interact"):
 		if activity != "":
 			_activity_node().act()
+		elif tennis.active:
+			tennis.act()
 		elif player.boat != null:
 			player.leave_boat()
 		else:
@@ -422,6 +431,8 @@ func _interaction() -> Dictionary:
 		if Porukka.CREW[player_index].name == "Marko":
 			t += " (erikoiskyky: suuri kaari 5 m)"
 		return {"text": t, "cb": pissa.start}
+	if tennis.can_start(player.global_position) and player.boat == null:
+		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	var m: Node3D = world.mokki
 	match Mokki.room_at(player.global_position):
 		"loylyhuone":
@@ -669,6 +680,8 @@ func _update_hud() -> void:
 		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
 	if pissa.active:
 		_prompt.text = pissa.prompt()
+	elif tennis.active:
+		_prompt.text = tennis.prompt()
 	elif activity != "":
 		_prompt.text = _activity_node().prompt()
 	elif player.boat != null:

@@ -13,6 +13,7 @@ const Terrain := preload("res://scripts/terrain.gd")
 const Trees := preload("res://scripts/trees.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
+const Rantatennis := preload("res://scripts/rantatennis.gd")
 
 const DATA := "res://assets/map/kohteet.json"
 const NEAR_CHUNK := 100.0
@@ -36,6 +37,7 @@ func _ready() -> void:
 	Terrain.ensure()
 	Mokki.terraform()
 	Ranta.terraform()
+	Rantatennis.terraform()
 	var f := FileAccess.open(DATA, FileAccess.READ)
 	data = JSON.parse_string(f.get_as_text()) if f != null else {}
 	if data.is_empty():

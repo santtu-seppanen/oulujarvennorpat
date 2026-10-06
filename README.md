@@ -19,7 +19,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua, istu pöytään |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua, istu pöytään; ylämökin edessä rantatennis (syötä ja lyö) |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
 | Q | kätköllä (saunan kupeessa tai rannan rinteessä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen) |
 | F | lopettaa huussin minipelin tai rinteeseen virtsaamisen kesken |
@@ -93,6 +93,23 @@ Kompassissa keltainen merkki näyttää kätkön suunnan ja matkan.
   loivasti: ensin kahlataan, ja noin 18 m rannasta pääsee uimaan.
 
 Testi: `tools/testit/rantatesti.gd` (`--headless --fixed-fps 60`), kuvakaappaukset `tools/testit/ranta_kuvat.gd`.
+
+## Rantatennis ylämökin edessä
+
+Ylämökin maanpuoleisella sivulla on tasainen ruohokenttä (14 × 9 m, valkoiset rajat), jossa pelataan
+Spartan-rantatennistä isoilla puumailoilla (`scripts/rantatennis.gd`). Peliä ei pelata vastakkain, vaan koko
+porukka yrittää yhdessä pitää pallon ilmassa: lyönnit lasketaan, kunnes pallo osuu maahan. Ennätys on yhteinen ja
+näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat; muuten kaikki hävisivät.
+
+- Kentällä E aloittaa: tietokoneen hahmot tulevat paikoilleen mailat kädessä (pihalta portaita ylös).
+- E syöttää ja lyö. Pallo lähtee sille, jota kohti hahmo katsoo. Lyönti onnistuu, kun pallo on mailan
+  ulottuvilla sopivalla korkeudella; hyvällä korkeudella pallo menee tarkemmin. Keltainen rengas näyttää, mihin
+  sinulle tuleva pallo putoaa.
+- Tietokoneen hahmot juoksevat pallon alle ja lyövät useimmiten. Humala heikentää kaikkien tarkkuutta.
+- Kentältä poistuminen lopettaa pelin. Moninpelissä mukana ovat oman koneen pelaaja ja sen ohjaamat
+  tietokoneen hahmot.
+
+Testi: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
 
 ## Moninpeli
 
@@ -176,6 +193,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
 | `scripts/ranta.gd` | hiekkaranta, kätköpolku ylämökiltä ja viinakätkö rannan rinteessä |
+| `scripts/rantatennis.gd` | rantatennis ylämökin edessä: kenttä, mailat, pallo ja yhteinen ennätys |
 | `scripts/wc_game.gd`, `scripts/rinnepissa.gd` | huussin minipeli ja rinteeseen virtsaaminen |
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |

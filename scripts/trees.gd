@@ -12,6 +12,7 @@ const Foliage := preload("res://scripts/foliage.gd")
 const B := preload("res://scripts/build.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
+const Rantatennis := preload("res://scripts/rantatennis.gd")
 
 const BIN := "res://assets/map/puut.bin"
 enum { PINE, SPRUCE, BIRCH, ASPEN, BUSH }
@@ -64,11 +65,12 @@ func _ready() -> void:
 	var raw_b := f.get_buffer(w * h * 4)
 	data_a = raw_a.to_float32_array()
 	data_b = raw_b
-	# Mökkipihan rakennusten, terassien ja portaiden sekä kätköpolun ja hiekkarannan kohdalta puut pois (matalaksi maan alle).
+	# Mökkipihan rakennusten, terassien ja portaiden sekä kätköpolun, hiekkarannan ja tenniskentän kohdalta puut pois (matalaksi maan alle).
 	for i in count:
 		var x := data_a[i * 4]
 		var z := data_a[i * 4 + 2]
-		if (absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z)) or Ranta.clears_tree(x, z):
+		if (absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z)) or Ranta.clears_tree(x, z) \
+				or Rantatennis.clears_tree(x, z):
 			data_a[i * 4 + 1] = -50.0
 			data_a[i * 4 + 3] = 0.01
 	raw_a = data_a.to_byte_array()

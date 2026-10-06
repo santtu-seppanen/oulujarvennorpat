@@ -10,9 +10,9 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
-## Polku (maailman x, z): ylämökin terassin takaa itä-kaakkoon metsän läpi, Äpätintien yli, törmän reunalta
+## Polku (maailman x, z): ylämökin terassin takaa tenniskentän ohi itä-kaakkoon metsän läpi, Äpätintien yli, törmän reunalta
 ## vinosti rinnettä alas kätkön ohi rantaan.
-const TRAIL := [Vector2(-3.4, 10.6), Vector2(5.0, 16.5), Vector2(19.0, 23.0), Vector2(36.0, 31.5),
+const TRAIL := [Vector2(-3.4, 10.6), Vector2(8.0, 14.0), Vector2(19.0, 23.0), Vector2(36.0, 31.5),
 	Vector2(54.0, 41.0), Vector2(72.0, 49.5), Vector2(90.0, 58.0), Vector2(106.0, 66.5), Vector2(122.0, 73.5),
 	Vector2(136.0, 79.0), Vector2(146.0, 84.0), Vector2(152.0, 88.5), Vector2(156.0, 92.6), Vector2(159.8, 97.6),
 	Vector2(163.5, 101.0)]
