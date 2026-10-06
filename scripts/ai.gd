@@ -88,6 +88,9 @@ func think(delta: float) -> void:
 			_timer -= delta
 			if _timer <= 0.0:
 				body.set_hidden_inside(false)
+				if activity in ["paikkarit", "ylamokki"]:
+					mokki.napped.emit()
+					_next = "poyta"  # päikkäreiltä kahville
 				_done()
 
 
@@ -115,14 +118,25 @@ func cards_end() -> void:
 			_done()
 
 
+## Päikkärit nukutaan klo 15-18.
+static func nap_hours(s: Node) -> bool:
+	if s == null:
+		return true
+	var h: int = s.local().hour
+	return h >= 15 and h < 18
+
+
 ## Klo 16 aikoihin porukka juttelee päikkäreistä ja lähtee ylämökkiin nukkumaan; Jukka keittää kahvit.
 func _nap_time() -> void:
 	var lt: Dictionary = sun.local() if sun != null else {}
 	if lt.is_empty() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
 		return
-	if activity in ["kortit", "sauna", "kokkaus", "kahvi", "paikkarit"] or _state == "hidden" or body.boat != null:
+	if activity in ["kortit", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
+			or _state == "hidden" or body.boat != null:
 		return
 	_nap_day = lt.day
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
 	if name == "Jukka":
 		mokki.talk.emit(name, LINES_JUKKA[rng.randi() % LINES_JUKKA.size()])
 		_start("kahvi")
@@ -150,6 +164,8 @@ func _choose() -> void:
 			continue  # vain Jukka keittää kahvit
 		if a in ["kokkaus", "kahvi"] and _stove != "" and _stove != name:
 			continue  # toinen on jo hellalla
+		if a == "ylamokki" and not nap_hours(sun):
+			continue  # ylämökissä nukutaan päikkäreitä vain klo 15-18
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
 	# Kiukaan tuli hiipuu: joku hakee haloja halkovajasta.

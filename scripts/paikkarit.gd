@@ -1,11 +1,14 @@
 extends Node3D
-## Päikkäreiden välianimaatio ylämökin sisältä: kolme norppaa nukkuu sängyissä peittojen alla, kyljet
-## nousevat ja laskevat, ja kuorsaus nousee Zzz-kuplina. Kamera liukuu hitaasti oven puoleisesta nurkasta
+## Päikkäreiden välianimaatio ylämökin sisältä: porukan norpat Santtu, Marko ja Jaakko (oikeat hahmot omine
+## ulkonäköineen; Jukka ei nuku päikkäreitä) nukkuvat sängyissä selällään peittojen alla, rinta nousee ja laskee,
+## ja kuorsaus nousee Zzz-kuplina. Hahmot rakennetaan vasta ensimmäisellä kerralla. Kamera liukuu hitaasti oven puoleisesta nurkasta
 ## sänkyjä kohti. Sisätila (lattia, räsymatto, sängyt, yöpöytä ja lamppu) on mökin pohjan sisällä ja näkyy vain
 ## välianimaation ajan (main.gd: _nap ja _wake).
 
 const B := preload("res://scripts/build.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Looks := preload("res://scripts/looks.gd")
+const Porukka := preload("res://scripts/porukka.gd")
 
 ## Sängyt mökin kehyksessä [x0, x1, v0, v1], pää x0- tai v-päässä (head: suunta paikallisesti).
 const BEDS := [[-2.25, -0.35, 1.35, 2.25, Vector2(-1, 0)], [0.35, 2.25, 1.35, 2.25, Vector2(1, 0)],
@@ -13,7 +16,8 @@ const BEDS := [[-2.25, -0.35, 1.35, 2.25, Vector2(-1, 0)], [0.35, 2.25, 1.35, 2.
 
 var cam: Camera3D
 var _t := 0.0
-var _seals: Array[Node3D] = []
+var sleepers: Array[Node3D] = []  # nukkujien hahmot (character.gd)
+var _beds: Array = []  # [paikka jalkopäässä, suunta päähän]
 var _zzz: Array[Label3D] = []
 var _cam_a := Vector3.ZERO
 var _cam_b := Vector3.ZERO
@@ -49,6 +53,7 @@ func _ready() -> void:
 	window.omni_range = 4.0
 	window.position = _p(0.0, 2.3, 1.4)
 	add_child(window)
+	process_mode = Node.PROCESS_MODE_DISABLED
 
 
 ## Paikallinen piste mökin kehyksestä (x, v, korkeus lattiasta).
@@ -127,16 +132,13 @@ func _bed(r: Array, k: int) -> void:
 	var across := Vector3.UP.cross(along).normalized()
 	var pillow := c + along * (length * 0.5 - 0.25) + Vector3.UP * 0.5
 	_box(Vector3(0.45, 0.1, 0.32) if absf(head.y) > 0.0 else Vector3(0.32, 0.1, 0.45), pillow, Color(0.95, 0.95, 0.97))
-	var seal := _seal(k)
-	seal.position = c + Vector3.UP * 0.62 + along * 0.05
-	seal.basis = Basis.looking_at(along) * Basis(Vector3.BACK, 0.35 if k % 2 == 0 else -0.35)  # pää tyynylle, kyljellään
-	add_child(seal)
-	_seals.append(seal)
-	# Peitto norpan takaosan päällä.
+	_beds.append([c + Vector3.UP * 0.6 - along * (length * 0.5 - 0.05), along])
+	# Peitto nukkujan jalkojen ja vatsan päällä.
 	var plaid: Color = [Color(0.65, 0.12, 0.1), Color(0.15, 0.3, 0.55), Color(0.2, 0.42, 0.25)][k]
-	var blanket := _box(Vector3(w - 0.05, 0.08, d - 0.05) * Vector3(1.0 if absf(head.y) > 0.0 else 0.62, 1.0, 0.62 if absf(head.y) > 0.0 else 1.0),
-		c - along * (length * 0.18) + Vector3.UP * 0.66, plaid)
-	blanket.scale = Vector3(1.04, 1.0, 1.04)
+	# Paksu untuvapeitto jalkopäästä rintaan asti, reunat sängyn yli.
+	var cover := length * 0.66
+	var size := Vector3(cover, 0.34, d + 0.06) if absf(head.x) > 0.0 else Vector3(w + 0.06, 0.34, cover)
+	_box(size, c - along * (length * 0.5 - cover * 0.5) + Vector3.UP * 0.66, plaid)
 	var z := Label3D.new()
 	z.text = "Z"
 	z.font_size = 64
@@ -150,52 +152,29 @@ func _bed(r: Array, k: int) -> void:
 	_zzz.append(z)
 
 
-## Norppa: harmaa pyöreä vartalo vaaleine rengaskuvioineen, pää, kuono viiksineen, suljetut silmät ja räpylät.
-## Paikallisesti pää -z-suuntaan.
-func _seal(k: int) -> Node3D:
-	var n := Node3D.new()
-	var grey := Color(0.36, 0.38, 0.42).lerp(Color(0.46, 0.47, 0.5), k * 0.4)
-	var body := _ball(0.28, Vector3(0, 0, 0.1), Vector3(1.0, 0.8, 2.1), grey, n)
-	body.name = "Body"
-	var ring := Color(0.62, 0.63, 0.66)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 40 + k
-	for j in 9:
-		var t := TorusMesh.new()
-		t.inner_radius = 0.025
-		t.outer_radius = 0.045
-		t.rings = 10
-		t.ring_segments = 4
-		var mi := MeshInstance3D.new()
-		mi.mesh = t
-		mi.material_override = B.mat(ring)
-		var a := rng.randf_range(-1.0, 1.0)
-		mi.position = Vector3(sin(a) * 0.22, cos(a) * 0.2, rng.randf_range(-0.35, 0.55))
-		mi.basis = Basis.looking_at(mi.position.normalized()) * Basis(Vector3.RIGHT, PI * 0.5)
-		n.add_child(mi)
-	_ball(0.17, Vector3(0, 0.06, -0.55), Vector3(1.0, 0.9, 1.1), grey, n)  # pää
-	_ball(0.09, Vector3(0, 0.02, -0.72), Vector3(1.1, 0.8, 1.0), grey.lightened(0.1), n)  # kuono
-	_ball(0.025, Vector3(0, 0.05, -0.8), Vector3.ONE, Color(0.08, 0.08, 0.09), n)  # nenä
-	for s: float in [-1.0, 1.0]:
-		var eye := MeshInstance3D.new()  # suljettu silmä: tumma viiva
-		eye.mesh = B.boxm(Vector3(0.05, 0.008, 0.01))
-		eye.material_override = B.mat(Color(0.05, 0.05, 0.06))
-		eye.position = Vector3(s * 0.07, 0.13, -0.66)
-		eye.rotation.z = s * 0.2
-		n.add_child(eye)
-		for w in 3:
-			var wh := MeshInstance3D.new()
-			wh.mesh = B.cyl(0.002, 0.002, 0.14, 4)
-			wh.material_override = B.mat(Color(0.9, 0.9, 0.88))
-			wh.position = Vector3(s * 0.1, 0.0 + w * 0.015, -0.74)
-			wh.rotation = Vector3(0, 0, s * (1.35 + w * 0.1))
-			n.add_child(wh)
-		_ball(0.1, Vector3(s * 0.22, -0.12, -0.25), Vector3(0.35, 0.25, 1.0), grey.darkened(0.15), n)  # etuevä
-		_ball(0.12, Vector3(s * 0.08, 0.0, 0.62), Vector3(0.9, 0.25, 1.1), grey.darkened(0.2), n)  # takaevä
-	return n
+## Porukan nukkujat sänkyihin: kaikki paitsi Jukka (ei nuku päikkäreitä), selällään pää tyynyllä.
+func _build_sleepers() -> void:
+	var k := 0
+	for i in Porukka.CREW.size():
+		if Porukka.CREW[i].name == "Jukka" or k >= _beds.size():
+			continue
+		var bed: Array = _beds[k]
+		k += 1
+		var holder := Node3D.new()
+		holder.position = bed[0]
+		holder.basis = Basis.looking_at(-(bed[1] as Vector3))  # paikallinen +z päähän päin
+		add_child(holder)
+		var ch := Looks.make(holder, Porukka.look(i))
+		Porukka.decorate(i, ch)
+		ch.rotation.x = PI * 0.5  # selällään, kasvot ylös
+		ch.play("Idle", 0.0, 0.3)
+		sleepers.append(ch)
 
 
 func play() -> void:
+	if sleepers.is_empty():
+		_build_sleepers()
+	process_mode = Node.PROCESS_MODE_INHERIT
 	visible = true
 	_t = 0.0
 	cam.current = true
@@ -203,6 +182,7 @@ func play() -> void:
 
 func stop() -> void:
 	visible = false
+	process_mode = Node.PROCESS_MODE_DISABLED  # nukkujien animaatiot seis, kun välianimaatio ei näy
 
 
 func _process(delta: float) -> void:
@@ -212,11 +192,9 @@ func _process(delta: float) -> void:
 	var k := smoothstep(0.0, 10.0, _t)
 	cam.position = _cam_a.lerp(_cam_b, k)
 	cam.look_at(to_global(_look), Vector3.UP)
-	# Hengitys: kylki nousee ja laskee, kullakin omassa tahdissaan.
-	for i in _seals.size():
-		var b := _seals[i].get_node("Body") as Node3D
-		var s := 1.0 + sin(_t * 1.6 + i * 1.7) * 0.05
-		b.scale = Vector3(1.0 * s, 0.8 * s, 2.1)
+	# Hengitys: rinta nousee ja laskee, kullakin omassa tahdissaan.
+	for i in sleepers.size():
+		sleepers[i].set_override("spine_03", Vector3.RIGHT, sin(_t * 1.6 + i * 1.7) * 0.05)
 	# Kuorsaus: Z nousee ja kasvaa, häipyy ja alkaa alusta.
 	for z in _zzz:
 		var ph := fmod(_t * 0.45 + float(z.get_meta("phase")), 1.0)

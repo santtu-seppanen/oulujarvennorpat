@@ -79,6 +79,7 @@ var _nap_t := 0.0
 var _nap_fx: ColorRect
 var _nap_scene: Node3D  # välianimaatio: norpat nukkumassa ylämökissä (paikkarit.gd)
 var _nap_day := -1  # päivä, jolloin klo 16 päikkärikutsu on jo tullut
+var _coffee_day := -1  # päivä, jolloin Jukka on jo huutanut kahville
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -146,6 +147,7 @@ func _ready() -> void:
 		for j in Porukka.CREW.size():
 			if Porukka.CREW[j].name == who:
 				chat.show_message(j, text))
+	world.mokki.napped.connect(_coffee_call)
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
@@ -395,6 +397,25 @@ func _ballgame() -> Node3D:
 
 # --- Päikkärit ylämökissä -------------------------------------------------------------------------------------
 
+## Päikkärien jälkeen Jukka huutaa porukan kahville (kerran päivässä): kupit alamökin keittiön pöydässä.
+func _coffee_call() -> void:
+	var day: int = sun.local().day
+	if _coffee_day == day:
+		return
+	_coffee_day = day
+	var j := -1
+	for i in Porukka.CREW.size():
+		if Porukka.CREW[i].name == "Jukka":
+			j = i
+	if j < 0:
+		return
+	chat.show_message(j, ["Kahville! Pannukahvit on valmiina.", "Herätys, kahvit on pöydässä!", "Kaffelle, pojat!"][day % 3])
+	if crew_modes[j] == "ai" and kahvi.kupit < 4:
+		kahvi.add(4 - kahvi.kupit)  # tietokoneen Jukka keitti kahvit päikkärien aikana
+	if j != player_index:
+		toast("Jukka huutaa kahville: kupit alamökin keittiön pöydässä.", 4.0)
+
+
 ## Klo 16 aikoihin porukka lähtee päikkäreille (ai.gd): kerran päivässä ilmoitus pelaajalle.
 func _nap_call() -> void:
 	var lt: Dictionary = sun.local()
@@ -456,6 +477,7 @@ func _wake() -> void:
 	player.promille = maxf(0.0, player.promille - 1.2)
 	Sfx.play("door_close", -6.0)
 	toast("Heräsit päikkäreiltä virkeänä. Kunto täynnä" + (", ja humala on laskenut." if player.drinks > 0 else "."), 3.5)
+	_coffee_call()
 
 
 # --- Huussi ja rinne ---------------------------------------------------------------------------------------------
@@ -576,6 +598,8 @@ func _interaction() -> Dictionary:
 	if Mokki.at_cabin_door(player.global_position):
 		if Porukka.CREW[player_index].name == "Jukka":
 			return {"text": "Jukka ei nuku päikkäreitä – aamukahvit keitetään alamökin liedellä"}
+		if not Ai.nap_hours(sun):
+			return {"text": "Päikkärit nukutaan klo 15–18 (nyt klo %02d.%02d)" % [sun.local().hour, sun.local().minute]}
 		return {"text": "E: päikkärit ylämökissä", "cb": _nap}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}

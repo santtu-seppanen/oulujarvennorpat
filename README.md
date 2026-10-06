@@ -64,7 +64,7 @@ Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydä
 kohtaan.
 
 Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd`, `tools/testit/ristiseiskatesti.gd` ja
-`tools/testit/arkitesti.gd` (päikkärit ja klo 16, välianimaatio, kahvit, mustikat, kätköosoitin ja saunan
+`tools/testit/arkitesti.gd` (päikkärit klo 15-18 ja klo 16, välianimaatio, Jukan kahvihuuto, kahvit, mustikat, kätköosoitin ja saunan
 lämmitys haloilla).
 
 ## Huussi ja pitkospuut
@@ -163,10 +163,12 @@ kaiteeton terassi ja oven edessä tasanne portaineen) ja jyrkät portaat (38°, 
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
 kumivene, jolla voi soutaa.
 
-Päikkärit otetaan kello neljän aikoihin: porukka alkaa jutella, että nyt päikkäreille, ja lähtee ylämökkiin
-nukkumaan noin tunniksi; pelaajalle tulee ilmoitus. Ylämökin ovella E vie nukkumaan: välianimaatiossa mökin
-sisältä kolme norppaa nukkuu sängyissään peittojen alla kuorsaten (`scripts/paikkarit.gd`), ja herätessä kunto on
-täynnä ja humala laskenut. Jukka ei nuku päikkäreitä, vaan keittää sillä aikaa kahvit alamökin liedellä.
+Päikkärit nukutaan ylämökissä klo 15-18; muulloin ovella kerrotaan, milloin päikkärit ovat. Kello neljän
+aikoihin porukka alkaa jutella, että nyt päikkäreille, ja lähtee ylämökkiin nukkumaan noin tunniksi; pelaajalle
+tulee ilmoitus. Ylämökin ovella E vie nukkumaan: välianimaatiossa mökin sisältä porukan omat hahmot (Santtu, Marko
+ja Jaakko) nukkuvat sängyissään selällään peittojen alla kuorsaten (`scripts/paikkarit.gd`), ja herätessä kunto on
+täynnä ja humala laskenut. Jukka ei nuku päikkäreitä, vaan keittää sillä aikaa kahvit alamökin liedellä ja huutaa
+päikkärien jälkeen porukan kahville: kupit ovat keittiön pöydässä.
 
 Porukka (`scripts/porukka.gd`, `scripts/ai.gd`): tietokoneen ohjaamat hahmot istuvat pöydän ääressä ja
 juttelevat, grillaavat, käyvät saunassa ja uimassa, nukkuvat päikkärit ylämökissä (paitsi Jukka, joka keittää
@@ -227,7 +229,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/ranta.gd` | hiekkaranta ja viinakätkö rannan rinteessä |
 | `scripts/kahvi.gd`, `scripts/mustikat.gd` | Jukan aamukahvit liedellä; mustikkamättäät, jotka pidentävät virtsauskaarta |
 | `scripts/pallopeli.gd`, `scripts/rantatennis.gd`, `scripts/amerikanpallo.gd` | yhteiset pallopelit: pohja (osallistujat, moninpeli, lentorata, tekoäly, ennätys), rantatennis ylämökin edessä ja amerikkalaisen jalkapallon heittely vedessä |
-| `scripts/paikkarit.gd` | päikkäreiden välianimaatio: norpat nukkumassa ylämökissä |
+| `scripts/paikkarit.gd` | päikkäreiden välianimaatio: porukka nukkumassa ylämökissä |
 | `scripts/wc_game.gd`, `scripts/rinnepissa.gd` | huussin minipeli ja rinteeseen virtsaaminen |
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |

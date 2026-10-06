@@ -5,7 +5,8 @@ extends SceneTree
 ##   pöytään istuva juo kupin. Muut eivät osaa keittää.
 ## - Mustikat: metsässä mättäitä; kourallisia syömällä Santun kaari pitenee, mutta jää Markon kaaren alle.
 ## - Kätköosoitin: kompassi näyttää lähimmän kätkön (saunan takana tai rannan rinteessä).
-## - Päikkäreiden välianimaatio (norpat nukkumassa ylämökissä) ja klo 16 porukka lähtee päikkäreille.
+## - Päikkärit vain klo 15-18; välianimaatiossa porukan oikeat hahmot (Santtu, Marko, Jaakko) nukkumassa,
+##   päikkärien jälkeen Jukka huutaa kahville, ja klo 16 porukka lähtee päikkäreille.
 ## - Saunan lämmitys: halot halkovajasta kiukaaseen, sammunut tuli jäähdyttää saunan, tietokone hakee haloja.
 
 var main: Node3D
@@ -65,20 +66,30 @@ func _process(delta: float) -> bool:
 				p.promille = 2.0
 				p.stamina = 20.0
 				_put(p, d)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)
 				next()
 		1:
 			if t > 0.5:
+				var early: Dictionary = main._interaction()
+				check(not early.has("cb") and str(early.get("text", "")).contains("klo 15–18"), "ennen klo 15 ei päikkäreitä: %s" % early.get("text", ""))
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 15, 30)
 				var it: Dictionary = main._interaction()
 				check(str(it.get("text", "")).contains("päikkärit"), "päikkärikehote: %s" % it.get("text", ""))
 				it.cb.call()
 				check(p.hidden_inside and not p.controls_enabled, "nukkumassa sisällä")
 				check(main._nap_scene.visible and main._nap_scene.cam.current, "välianimaatio mökin sisältä")
-				check(main._nap_scene._seals.size() == 3, "kolme norppaa nukkumassa")
+				check(main._nap_scene.sleepers.size() == 3, "kolme porukan hahmoa nukkumassa")
 				next()
 		2:
 			if t > main.NAP_T + 0.5:
 				check(not p.hidden_inside and p.controls_enabled and main._nap_t <= 0.0, "heräsi päikkäreiltä")
 				check(p.stamina >= 99.0 and p.promille < 1.0, "kunto täynnä, humala laskenut (%.1f ‰)" % p.promille)
+				var called := false
+				for e in main.chat._lines:
+					if (e[0] as Label).text.begins_with("Jukka:"):
+						called = true
+				check(called and main.kahvi.kupit >= 4, "Jukka huutaa kahville, kupit pöydässä (%d)" % main.kahvi.kupit)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)  # loput testistä päivällä, ei päikkäreitä
 				main.choose_character(3)  # Jukka
 				next()
 		3:

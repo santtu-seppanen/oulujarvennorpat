@@ -34,6 +34,7 @@ signal cooked(n: int)  # tietokoneen Marko paistoi pyttipannua (kokkaus.gd)
 signal coffee(n: int)  # tietokoneen Jukka keitti kahvit (kahvi.gd)
 signal log_added  # tietokoneen hahmo lisäsi halon kiukaaseen (sauna.gd)
 signal talk(who: String, text: String)  # tietokoneen hahmo sanoo jotain (main.gd: puhekupla)
+signal napped  # tietokoneen hahmo heräsi päikkäreiltä (main.gd: Jukka huutaa kahville)
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
