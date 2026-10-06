@@ -254,13 +254,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		_booze()
 
 
-# --- Kätkö saunan takana --------------------------------------------------------------------------------------
+# --- Kätköt: saunan takana ja rannan rinteessä (ranta.gd) ----------------------------------------------------
 
 func _near_stash() -> bool:
+	if player.pose == "Sammunut" or player.boat != null:
+		return false
 	var s: Vector3 = world.mokki.stash_pos
 	var p := player.global_position
-	return Vector2(p.x - s.x, p.z - s.z).length() < 1.5 and p.y > Mokki.DY - 0.3 and p.y < Mokki.DY + 1.2 \
-		and player.pose != "Sammunut" and player.boat == null
+	return (Vector2(p.x - s.x, p.z - s.z).length() < 1.5 and p.y > Mokki.DY - 0.3 and p.y < Mokki.DY + 1.2) \
+		or _near_beach_stash()
+
+
+func _near_beach_stash() -> bool:
+	var s: Vector3 = world.ranta.stash_pos
+	var p := player.global_position
+	return Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5
 
 
 func _beer() -> void:
@@ -334,6 +342,8 @@ func _interaction() -> Dictionary:
 	if player.hidden_inside or player.swimming or player.pose == "Sammunut":
 		return {}
 	if _near_stash():
+		if _near_beach_stash():
+			return {"text": "Viinakätkö! E: olut · Q: huikka viinaa", "cb": _beer}
 		return {"text": "E: kylmä olut · Q: huikka viinaa (ehtymätön kätkö)", "cb": _beer}
 	if player.pose == "Ryomii":
 		return {}
@@ -471,6 +481,9 @@ func _build_hud() -> void:
 	_compass = Compass.new()
 	_compass.player = player
 	_compass.paper = _map
+	# Rannan viinakätkö kompassiin: suunta ja matka, polku ylämökiltä metsän läpi.
+	_compass.has_cache = true
+	_compass.cache = Vector2(world.ranta.stash_pos.x, world.ranta.stash_pos.z)
 	_hud.add_child(_compass)
 	var mm := Minimap.new()
 	mm.player = player

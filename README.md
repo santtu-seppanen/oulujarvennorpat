@@ -21,7 +21,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | Välilyönti | hyppää |
 | E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista lettuja, istu pöytään |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
-| Q | kätköllä saunan kupeessa huikka viinaa (E = olut) |
+| Q | kätköllä (saunan kupeessa tai rannan rinteessä) huikka viinaa (E = olut) |
 | Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
@@ -61,6 +61,19 @@ Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydä
 kohtaan.
 
 Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd` ja `tools/testit/ristiseiskatesti.gd`.
+
+## Hiekkaranta ja viinakätkö
+
+Ylämökin terassin takaa lähtee kätköpolku (viitta "Ranta") itä-kaakkoon metsän läpi ja Äpätintien yli
+törmän reunalle, ja sieltä vinosti rinnettä alas Äpätin itärannan hiekkarannalle (n. 200 m, `scripts/ranta.gd`).
+Kompassissa keltainen merkki näyttää kätkön suunnan ja matkan.
+
+- **Viinakätkö** (64.431214 N, 26.889959 E) on rinteessä polun vieressä, kun laskeudutaan rannalle: lahonnut
+  puulaatikko havujen ja kivien alla, viinapulloja ja oluita. Ehtymätön kuten saunan kätkö (E olut, Q viina).
+- **Hiekkaranta** törmän juurella: kuiva ranta on hiekkaa, rannassa ajopuu ja kiviä. Pohja on hiekkaa ja syvenee
+  loivasti: ensin kahlataan, ja noin 18 m rannasta pääsee uimaan.
+
+Testi: `tools/testit/rantatesti.gd` (`--headless --fixed-fps 60`), kuvakaappaukset `tools/testit/ranta_kuvat.gd`.
 
 ## Moninpeli
 
@@ -143,6 +156,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/mokki.gd`, `shaders/mokki.gdshader` | mökkipiha: rakennukset, terassit, portaat, laituri, maaston kaivu, reittipisteet |
 | `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
+| `scripts/ranta.gd` | hiekkaranta, kätköpolku ylämökiltä ja viinakätkö rannan rinteessä |
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |
 | `tools/testit/mokkitesti.gd`, `mokki_kuvat.gd` | mökin testi (`--headless --fixed-fps 60`) ja kuvakaappaukset valokuvien kuvakulmista |
