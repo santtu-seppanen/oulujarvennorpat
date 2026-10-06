@@ -65,9 +65,10 @@ Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd` ja `tools/
 
 ## Huussi ja pitkospuut
 
-Saunan ovelta katsottuna kulku lähtee alamökin oikealta sivulta: takapäädyn seinustalle pinottujen saunapuiden
-ohi saunan taakse (itäpuolelle) terassin tasoisia pitkospuita pitkin. Itäterassilta pitkospuut jatkuvat rantaa
-pitkin huussille, joka on saunan takana veden rajassa noin 10 metrin päässä saunasta.
+Huussi on saunan itäpuolella aivan rinteen reunassa, takaseinä rinnettä vasten. Sinne kuljetaan pitkospuita
+mökin oikealta puolelta: pääterassilta etuterassin kautta itäterassille ja siitä pitkospuita notkon yli huussin
+ovelle. Mökin vasemmalta puolelta (pääterassilta ja saunan oven edustalta) ei ole kulkua huussille eikä saunan
+taakse; saunan takana halkopinon ohi kuljetaan vain itäpuolelta.
 
 - **Huussi** (`scripts/wc_game.gd`, Normipäivä Saloisissa -pelin vessaminipeli huussiversiona): ovella E on ykkönen ja Q kakkonen.
   - Ykkösessä suihku pidetään reiässä (WASD tai hiiri); tähtäin vaeltaa, humalassa enemmän.
@@ -79,7 +80,7 @@ pitkin huussille, joka on saunan takana veden rajassa noin 10 metrin päässä s
   - **Markon erikoiskyky:** suuri kaari 5 metrin päähän; muilta onnistuu noin 2 m. Humala heiluttaa suihkua.
   - Moninpelissä suihku näkyy kaikilla: kulma ja lähtönopeus lähetetään muille, ja kaari lasketaan jokaisella koneella hahmon paikasta.
 
-Tietokoneen hahmot käyvät huussissa samaa reittiä saunan takaa. Testi: `tools/testit/huussitesti.gd`.
+Tietokoneen hahmot käyvät huussissa samaa reittiä itäterassin kautta. Testi: `tools/testit/huussitesti.gd`.
 
 ## Hiekkaranta ja viinakätkö
 
@@ -142,7 +143,7 @@ Kahden koneen testi: `tools/testit/moninpelitesti.gd` (ohjeet tiedoston alussa).
 Aloituspaikan mökkipiha on mallinnettu valokuvista ja maastotietokannan pohjapiirroksista (`scripts/mokki.gd`):
 rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grillikatoksineen ja telttoineen (pöytä
 penkkeineen teltan keskellä, teltta saunan katon ulkopuolella),
-etuterassi, kelluva laituri tikkaineen, kulku saunan takaa, pitkospuut ja huussi veden rajassa, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
+etuterassi, kelluva laituri tikkaineen, kulku saunan takana itäpuolelta, pitkospuut ja huussi rinteen reunassa, ylämökki törmän päällä (aurinkopaneelit, antenni, säleikkö,
 terassi) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
 kumivene, jolla voi soutaa.

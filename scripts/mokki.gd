@@ -13,8 +13,9 @@ extends Node3D
 ##   valkoinen pop-up-teltta (saunan katon ulkopuolella) pöytineen ja penkkeineen keskellä, kaiteet ja portaat
 ##   rantaan
 ## - etuterassi ja portaat kelluvalle laiturille, laiturin päässä tikkaat; itäterassi
-## - kulku saunan takaa: saunan ovelta katsottuna oikealta, takapäädyn halkopinon ohi saunan itäpuolelle
-##   pitkospuita pitkin, ja itäterassilta pitkospuut rantaa pitkin huussille veden rajaan noin 10 m saunasta.
+## - huussi saunan itäpuolella aivan rinteen reunassa: sinne kuljetaan pitkospuita mökin oikealta puolelta
+##   (itäterassilta). Pääterassilta (mökin vasemmalta puolelta) ei ole kulkua huussille eikä saunan taakse;
+##   saunan takana kulku halkopinon ohi on vain itäpuolelta.
 ##   Pitkospuiden alkupäästä voi virtsata rinteeseen (rinnepissa.gd).
 ## - ylämökki törmän päällä (MML:n rakennus 5,3 x 5,1 m): sinharmaa hirsi, valkoiset ikkunat, harjakatto,
 ##   aurinkopaneelit ja antenni, valkoinen säleikkö alla, terassi itäsivulla
@@ -58,20 +59,23 @@ const CABIN_LAKE := Vector2(-0.520, -0.854)
 const CABIN_HX := 2.56
 const CABIN_HV := 2.64
 ## Terassit pihan kehyksessä [u0, u1, v0, v1]: pääterassi, etuterassi, itäterassi, sauna, halkovaja, saunan oven
-## edusta katon alla sekä kulku saunan takapäädyn ohi (BACK_WALK) ja saunan itäpuolta itäterassille (EAST_WALK).
+## edusta katon alla sekä kulku saunan takana (BACK_WALK, länsipää suljettu) ja saunan itäpuolta itäterassille
+## (EAST_WALK).
 const DECKS := [[-10.8, -1.9, -3.2, 2.0], [-3.4, 2.2, 2.0, 4.3], [2.2, 5.4, -0.8, 4.3], [-1.9, 1.9, BACK, 2.9],
 	[1.9, 3.2, -2.9, -0.8], [-3.4, -1.9, BACK, -3.2], BACK_WALK, EAST_WALK]
-## Kulku saunan takaa: lattiana pitkospuut kaivannossa terassin tasolla.
-const BACK_WALK := [-3.4, 4.2, -7.2, BACK]
+## Kulku saunan takana: lattiana pitkospuut kaivannossa terassin tasolla. Vain itäpuolelta; saunan oven
+## edustalta (pääterassin puolelta) ei ole kulkua taakse.
+const BACK_WALK := [-1.9, 4.2, -7.2, BACK]
 const EAST_WALK := [3.2, 4.2, BACK, -0.8]
-## Pitkospuut itäterassin itäreunalta rantaa pitkin huussin ovelle (u, v); laskevat terassin tasolta huussin
-## lattian tasolle ja kulkevat vähintään maanpinnan yllä.
-const DUCKBOARDS := [Vector2(5.4, 0.0), Vector2(7.5, 1.6), Vector2(9.9, 3.75)]
+## Pitkospuut itäterassin itäreunalta (mökin oikealta puolelta) notkon yli huussin ovelle (u, v); nousevat
+## terassin tasolta huussin lattian tasolle ja kulkevat vähintään maanpinnan yllä.
+const DUCKBOARDS := [Vector2(5.4, 0.0), Vector2(7.8, -0.7), Vector2(10.3, -1.7)]
 const DUCK_W := 0.8
-## Huussi saunan takana veden rajassa [u0, u1, v0, v1], ovi länteen pitkospuille päin.
-const OUTHOUSE := [10.4, 11.9, 2.9, 4.6]
+## Huussi saunan itäpuolella aivan rinteen reunassa [u0, u1, v0, v1], takaseinä rinnettä vasten, ovi länteen
+## pitkospuille päin.
+const OUTHOUSE := [10.75, 12.25, -2.55, -0.85]
 ## Rinteeseen virtsataan pitkospuiden alkupäästä (u, v) tämän säteen sisältä.
-const PEE_SPOT := Vector2(6.3, 0.7)
+const PEE_SPOT := Vector2(6.4, -0.3)
 const PEE_R := 1.6
 const STAIR_W := 1.2
 ## Alamökki: takaseinän ulkopinta ja väliseinä (keittiön takaseinä) v-suunnassa sekä ovet terassin puoleisessa
@@ -704,6 +708,9 @@ func _decks(pt: Part) -> void:
 	_railing(pt, Vector2(5.4, 4.3), Vector2(5.4, 0.45), DY)
 	_railing(pt, Vector2(5.4, -0.45), Vector2(5.4, -0.8), DY)
 	_railing(pt, Vector2(5.4, -0.8), Vector2(EAST_WALK[1], -0.8), DY)
+	# Saunan oven edustalta ei kulkua taakse: kaide oven edustan takareunassa ja takakulun länsipäässä.
+	_railing(pt, Vector2(-3.4, BACK), Vector2(-1.9, BACK), DY)
+	_railing(pt, Vector2(-1.9, BACK - 0.05), Vector2(-1.9, BACK_WALK[2]), DY)
 	# Rantaportaat pääterassilta hiekkarantaan ja portaat etuterassilta laiturille.
 	var beach := Terrain.h(yw(-8.0, 3.8).x, yw(-8.0, 3.8).y)
 	_steps(pt, -8.0, 1.15, 3.7, 2.0, beach, DY, false)
@@ -1280,7 +1287,7 @@ func _world3(pt: Part, x: float, v: float, y: float) -> Vector3:
 
 # --- Huussi ---------------------------------------------------------------------------------------------------
 
-## Huussi saunan takana veden rajassa: hirsiseinät, pulpettikatto, ovi auki pitkospuille päin (sydän ovessa),
+## Huussi rinteen reunassa: hirsiseinät, pulpettikatto, ovi auki pitkospuille päin (sydän ovessa),
 ## penkki reikineen, paperirulla ja tuuletusputki. Lattia pitkospuiden pään tasolla, tolpat maahan.
 func _outhouse(pt: Part) -> void:
 	var x0: float = OUTHOUSE[0]
@@ -1302,12 +1309,13 @@ func _outhouse(pt: Part) -> void:
 	for k in [[cv - dv - 0.08, cv - dv], [cv + dv, cv + dv + 0.08]]:
 		pt.bx(x0 - 0.05, x0, k[0], k[1], y0, y0 + 1.93, TRIM)
 	pt.bx(x0 - 0.05, x0, cv - dv - 0.08, cv + dv + 0.08, y0 + 1.85, y0 + 1.93, TRIM)
-	# Ovi auki ulospäin, sarana pohjoisreunassa; sydän sahattu ylös.
+	# Ovi auki ulospäin, sarana rinteen puoleisessa reunassa (pitkospuut tulevat järven puolelta); sydän
+	# sahattu ylös.
 	var door := Color(0.96, 0.96, 0.94, BOARD_V)
-	pt.bx(x0 - 2.0 * dv, x0 - 0.02, cv + dv + 0.02, cv + dv + 0.06, y0 + 0.03, y0 + 1.82, door)
+	pt.bx(x0 - 2.0 * dv, x0 - 0.02, cv - dv - 0.06, cv - dv - 0.02, y0 + 0.03, y0 + 1.82, door)
 	for s: float in [-1.0, 1.0]:
-		pt.bt.add(B.sphere(0.05, 6), Transform3D(Basis(), Part.p(x0 - dv + s * 0.04, cv + dv + 0.04, y0 + 1.55)), DARK)
-	pt.bt.add(B.boxm(Vector3(0.07, 0.07, 0.02)), Transform3D(Basis(Vector3.FORWARD, PI * 0.25), Part.p(x0 - dv, cv + dv + 0.04, y0 + 1.51)), DARK)
+		pt.bt.add(B.sphere(0.05, 6), Transform3D(Basis(), Part.p(x0 - dv + s * 0.04, cv - dv - 0.04, y0 + 1.55)), DARK)
+	pt.bt.add(B.boxm(Vector3(0.07, 0.07, 0.02)), Transform3D(Basis(Vector3.FORWARD, PI * 0.25), Part.p(x0 - dv, cv - dv - 0.04, y0 + 1.51)), DARK)
 	# Pulpettikatto laskee järvestä poispäin (itään), päädyt umpeen.
 	var hi := top + 0.33
 	var lo := top + 0.05
@@ -1578,9 +1586,9 @@ func _waypoints() -> void:
 		"sauna_ovi": y.call(-2.55, (DOOR_SAUNA[0] + DOOR_SAUNA[1]) * 0.5, DY),
 		"loylyhuone": y.call(-0.5, (DOOR_SAUNA[0] + DOOR_SAUNA[1]) * 0.5, DY),
 		"katko": y.call(-3.8, -2.9, DY),
-		"itaterassi": y.call(2.9, 3.4, DY), "takana_l": y.call(-2.4, -6.75, DY), "takana_i": y.call(3.7, -6.75, DY),
+		"itaterassi": y.call(2.9, 3.4, DY), "takana_l": y.call(-1.4, -6.75, DY), "takana_i": y.call(3.7, -6.75, DY),
 		"itapuoli": y.call(3.7, -1.2, DY), "pitkos_ala": y.call(4.9, 0.0, DY),
-		"pitkos": y.call(7.5, 1.6, duck_y(DUCKBOARDS[1], (DUCKBOARDS[0] as Vector2).distance_to(DUCKBOARDS[1]))),
+		"pitkos": y.call(DUCKBOARDS[1].x, DUCKBOARDS[1].y, duck_y(DUCKBOARDS[1], (DUCKBOARDS[0] as Vector2).distance_to(DUCKBOARDS[1]))),
 		"huussi": outhouse_door(), "laituri_alku": y.call(-2.2, 6.4, 0.42),
 		"laituri_paa": y.call(-2.2, 13.2, 0.42), "rantaportaat": y.call(-8.0, 1.5, DY),
 		"ranta": Vector3(beach.x, Terrain.h(beach.x, beach.y), beach.y),
@@ -1595,7 +1603,7 @@ func _waypoints() -> void:
 		["keittio_kaytava", "hella"], ["keittio_ovi", "katos"], ["katos", "sauna_ovi"], ["sauna_ovi", "loylyhuone"],
 		["poyta", "katko"], ["katko", "katos"],
 		["etuterassi", "kaide"], ["kaide", "itaterassi"],
-		["sauna_ovi", "takana_l"], ["takana_l", "takana_i"], ["takana_i", "itapuoli"], ["itapuoli", "pitkos_ala"],
+		["takana_l", "takana_i"], ["takana_i", "itapuoli"], ["itapuoli", "pitkos_ala"],
 		["itaterassi", "pitkos_ala"], ["pitkos_ala", "pitkos"], ["pitkos", "huussi"], ["etuterassi", "laituri_alku"],
 		["laituri_alku", "laituri_paa"], ["laituri_paa", "uinti1"], ["uinti1", "uinti2"], ["uinti1", "uinti3"],
 		["uinti3", "ranta_vesi"], ["uinti1", "ranta_vesi"], ["ranta_vesi", "ranta"], ["ranta", "rantaportaat"],
