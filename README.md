@@ -19,10 +19,10 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; ylämökin edessä rantatennis (syötä ja lyö) |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen; ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; ylämökin edessä rantatennis (syötä ja lyö); vedessä alamökin edustalla amerikkalaisen jalkapallon heittely (heitä ja ota kiinni) |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
 | Q | kätköllä (saunan takana tai rannan rinteessä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen) |
-| F | lopettaa huussin minipelin tai rinteeseen virtsaamisen kesken |
+| F | lopettaa huussin minipelin, rinteeseen virtsaamisen, rantatenniksen tai pallon heittelyn |
 | Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
@@ -49,7 +49,8 @@ tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
   - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
   - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
-- **Oikea ovi, sauna:** pelkkä löylyhuone. Ovi on sisältä katsoen vasemmassa nurkassa ja kiuas heti oven oikealla puolella. Lauteet ovat perällä, ja niille mahtuu juuri neljä. Saunan ovelle kuljetaan katon alle jatketulla terassilla.
+- **Oikea ovi, sauna:** pelkkä löylyhuone. Ovi on sisältä katsoen vasemmassa nurkassa ja kiuas heti oven oikealla puolella. Lauteet ovat perällä, ja niille mahtuu juuri neljä. Saunan ovelle kuljetaan katon alle jatketulla terassilla; räystäät ovat lyhyet eikä niiden alla ole tolppia.
+  - **Lämmitys haloilla:** halot haetaan syliin halkovajasta (itäterassilla, E, neljä kerrallaan) ja lisätään kiukaaseen löylyhuoneessa (E kiukaan vieressä). Halko palaa 2,5 min, ja kiukaaseen mahtuu neljä. Tulen palaessa sauna lämpenee (piipusta nousee savua, luukusta hehkuu), ja sammuneena se jäähtyy; kylmässä saunassa löyly ei riitä hyviin löylyihin. Kun tuli hiipuu, saunoja muistutetaan lisäämään haloja, ja tietokoneen hahmot käyvät lämmittämässä. Moninpelissä tulen tila lähetetään muille.
   - Lauteille istutaan lähimmälle vapaalle paikalle, joten jos joku jo saunoo, viereen voi istua.
   - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
   - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
@@ -63,7 +64,8 @@ Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydä
 kohtaan.
 
 Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd`, `tools/testit/ristiseiskatesti.gd` ja
-`tools/testit/arkitesti.gd` (päikkärit, kahvit, mustikat ja kätköosoitin).
+`tools/testit/arkitesti.gd` (päikkärit ja klo 16, välianimaatio, kahvit, mustikat, kätköosoitin ja saunan
+lämmitys haloilla).
 
 ## Huussi ja pitkospuut
 
@@ -111,7 +113,7 @@ näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat
   ulottuvilla sopivalla korkeudella; hyvällä korkeudella pallo menee tarkemmin. Keltainen rengas näyttää, mihin
   sinulle tuleva pallo putoaa.
 - Tietokoneen hahmot juoksevat pallon alle ja lyövät useimmiten. Humala heikentää kaikkien tarkkuutta.
-- Kentältä poistuminen lopettaa pelin.
+- F tai kentältä poistuminen lopettaa pelin.
 - Moninpelissä kaikki pelaavat samaa peliä samalla pallolla: kaverit liittyvät kentällä E:llä, ja pallo
   kulkee koneelta toiselle. Host pitää kirjaa pelaajista ja ohjaa tietokoneen hahmoja. Jokainen lyönti
   lähetetään kaikille, ja kukin kone laskee saman lentoradan; pallon putoamisen ratkaisee sen kone, jolle pallo
@@ -119,6 +121,14 @@ näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat
 
 Testit: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`) ja kahden koneen
 `tools/testit/tennismoninpeli.gd` (ohjeet tiedoston alussa), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
+
+### Amerikkalaisen jalkapallon heittely vedessä
+
+Samalla mekaniikalla (`scripts/pallopeli.gd`, yhteinen pohja rantatenniksen kanssa) heitellään amerikkalaista
+jalkapalloa vedessä alamökin edustalla, 20-30 m rannasta, jossa vettä on 0,7-1 m (`scripts/amerikanpallo.gd`).
+Vedessä E aloittaa, ja tietokoneen hahmot kahlaavat paikoilleen. E heittää ja ottaa kiinni; pallo lentää
+spiraalina, ja heitot lasketaan, kunnes pallo putoaa veteen ja jää kellumaan. Ennätys on oma ja yhteinen, ja
+moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Testi: `tools/testit/heittelytesti.gd`.
 
 ## Moninpeli
 
@@ -149,12 +159,14 @@ rantasauna eli alamökki (kuisti, piippu, lyhdyt, halkovaja), iso terassi grilli
 penkkeineen teltan keskellä, teltta saunan katon ulkopuolella),
 etuterassi, kelluva laituri tikkaineen, kulku saunan takaa, pitkospuut ja huussi rinteen reunassa, ylämökki törmän
 päällä (harja kohtisuoraan järveä kohti, ovi metsän puoleisessa päädyssä, aurinkopaneelit, antenni, säleikkö,
-terassi ja oven edessä tasanne portaineen) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
+kaiteeton terassi ja oven edessä tasanne portaineen) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
 kumivene, jolla voi soutaa.
 
-Ylämökkiin pääsee nukkumaan päikkärit: oven edessä E, ja herätessä kunto on täynnä ja humala laskenut. Jukka ei
-nuku päikkäreitä, vaan keittää aamukahvit alamökin liedellä.
+Päikkärit otetaan kello neljän aikoihin: porukka alkaa jutella, että nyt päikkäreille, ja lähtee ylämökkiin
+nukkumaan noin tunniksi; pelaajalle tulee ilmoitus. Ylämökin ovella E vie nukkumaan: välianimaatiossa mökin
+sisältä kolme norppaa nukkuu sängyissään peittojen alla kuorsaten (`scripts/paikkarit.gd`), ja herätessä kunto on
+täynnä ja humala laskenut. Jukka ei nuku päikkäreitä, vaan keittää sillä aikaa kahvit alamökin liedellä.
 
 Porukka (`scripts/porukka.gd`, `scripts/ai.gd`): tietokoneen ohjaamat hahmot istuvat pöydän ääressä ja
 juttelevat, grillaavat, käyvät saunassa ja uimassa, nukkuvat päikkärit ylämökissä (paitsi Jukka, joka keittää
@@ -214,7 +226,8 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
 | `scripts/ranta.gd` | hiekkaranta ja viinakätkö rannan rinteessä |
 | `scripts/kahvi.gd`, `scripts/mustikat.gd` | Jukan aamukahvit liedellä; mustikkamättäät, jotka pidentävät virtsauskaarta |
-| `scripts/rantatennis.gd` | rantatennis ylämökin edessä: kenttä, mailat, pallo ja yhteinen ennätys |
+| `scripts/pallopeli.gd`, `scripts/rantatennis.gd`, `scripts/amerikanpallo.gd` | yhteiset pallopelit: pohja (osallistujat, moninpeli, lentorata, tekoäly, ennätys), rantatennis ylämökin edessä ja amerikkalaisen jalkapallon heittely vedessä |
+| `scripts/paikkarit.gd` | päikkäreiden välianimaatio: norpat nukkumassa ylämökissä |
 | `scripts/wc_game.gd`, `scripts/rinnepissa.gd` | huussin minipeli ja rinteeseen virtsaaminen |
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |

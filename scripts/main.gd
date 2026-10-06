@@ -22,11 +22,13 @@ const Sauna := preload("res://scripts/sauna.gd")
 const Kokkaus := preload("res://scripts/kokkaus.gd")
 const Kahvi := preload("res://scripts/kahvi.gd")
 const Mustikat := preload("res://scripts/mustikat.gd")
+const Paikkarit := preload("res://scripts/paikkarit.gd")
 const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Chat := preload("res://scripts/chat.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const Rinnepissa := preload("res://scripts/rinnepissa.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
+const Amerikanpallo := preload("res://scripts/amerikanpallo.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-6.9, 1.2), Vector2(-4.9, -1.05), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -69,10 +71,14 @@ var chat: Node
 var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
+var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
+var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
 const NAP_T := 10.0
 var _nap_t := 0.0
 var _nap_fx: ColorRect
+var _nap_scene: Node3D  # välianimaatio: norpat nukkumassa ylämökissä (paikkarit.gd)
+var _nap_day := -1  # päivä, jolloin klo 16 päikkärikutsu on jo tullut
 var _toast: Label
 var _toast_t := 0.0
 var _was_fps := false
@@ -133,6 +139,13 @@ func _ready() -> void:
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
+	_nap_scene = Paikkarit.new()
+	add_child(_nap_scene)
+	# Tietokoneen hahmojen puheet (esim. klo 16 "päikkäreille!") kuplina.
+	world.mokki.talk.connect(func(who: String, text: String) -> void:
+		for j in Porukka.CREW.size():
+			if Porukka.CREW[j].name == who:
+				chat.show_message(j, text))
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
@@ -142,6 +155,10 @@ func _ready() -> void:
 	tennis = Rantatennis.new()
 	tennis.game = self
 	add_child(tennis)
+	heittely = Amerikanpallo.new()
+	heittely.game = self
+	add_child(heittely)
+	ballgames = [tennis, heittely]
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
@@ -227,8 +244,8 @@ func set_player(i: int) -> void:
 		_wake()
 	if pissa != null and pissa.active:
 		pissa.stop()
-	if tennis != null:
-		tennis.stop()
+	for g in ballgames:
+		g.stop()
 	player_index = i
 	player = crew[i]
 	_amb.player = player
@@ -257,9 +274,11 @@ func _process(delta: float) -> void:
 		world.mokki.set_lamp(1.0 - smoothstep(-5.0, 3.0, sun.altitude))
 	if _nap_t > 0.0:
 		_nap_t -= delta
-		_nap_fx.color.a = 0.94 * minf(1.0, minf((NAP_T - _nap_t) / 1.5, _nap_t / 1.5))
+		# Häivytys mustaan välianimaation alussa ja lopussa.
+		_nap_fx.color.a = 1.0 - minf(1.0, minf((NAP_T - _nap_t) / 1.2, _nap_t / 1.2))
 		if _nap_t <= 0.0:
 			_wake()
+	_nap_call()
 	_update_hud()
 
 
@@ -277,14 +296,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("interact"):
 		if activity != "":
 			_activity_node().act()
-		elif tennis.active:
-			tennis.act()
+		elif _ballgame() != null:
+			_ballgame().act()
 		elif player.boat != null:
 			player.leave_boat()
 		else:
 			var it := _interaction()
 			if it.has("cb"):
 				it.cb.call()
+	elif _ballgame() != null and event is InputEventKey and event.pressed and event.keycode == KEY_F:
+		_ballgame().stop()  # F lopettaa pallopelin
 	elif activity != "" and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
 		end_activity()
 	elif activity != "" and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_RIGHT \
@@ -364,9 +385,31 @@ func _eat_berries(k: int) -> void:
 	toast(t, 3.0)
 
 
+## Pallopeli, jossa oma pelaaja on mukana (tai null).
+func _ballgame() -> Node3D:
+	for g in ballgames:
+		if g.active:
+			return g
+	return null
+
+
 # --- Päikkärit ylämökissä -------------------------------------------------------------------------------------
 
-## Ylämökkiin nukkumaan: hahmo sisään, ruutu pimenee hetkeksi. Herätessä kunto on täynnä ja humala laskenut.
+## Klo 16 aikoihin porukka lähtee päikkäreille (ai.gd): kerran päivässä ilmoitus pelaajalle.
+func _nap_call() -> void:
+	var lt: Dictionary = sun.local()
+	if lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day:
+		_nap_day = lt.day
+		var t := "Kello on neljä: porukka lähtee päikkäreille ylämökkiin."
+		if Porukka.CREW[player_index].name == "Jukka":
+			t += " Jukka keittää sillä aikaa kahvit."
+		else:
+			t += " E ylämökin ovella."
+		toast(t, 5.0)
+
+
+## Ylämökkiin nukkumaan: hahmo sisään, välianimaatio mökin sisältä (norpat nukkumassa). Herätessä kunto on
+## täynnä ja humala laskenut.
 func _nap() -> void:
 	end_activity()
 	player.controls_enabled = false
@@ -382,19 +425,26 @@ func _nap() -> void:
 		_nap_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_nap_fx.color = Color(0.02, 0.02, 0.05, 0.0)
 		layer.add_child(_nap_fx)
-		var l := _label(_nap_fx, 34)
-		l.text = "Zzz… päikkärit ylämökissä\n(E: herää)"
+		var l := _label(layer, 30)
+		l.text = "Zzz… päikkärit ylämökissä (E: herää)"
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.set_anchors_preset(Control.PRESET_CENTER)
-		l.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		l.grow_vertical = Control.GROW_DIRECTION_BOTH
+		l.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 40)
+		_nap_fx.set_meta("label", l)
 	_nap_fx.visible = true
+	(_nap_fx.get_meta("label") as Label).visible = true
+	_nap_fx.color.a = 1.0
+	_hud.visible = false
+	_nap_scene.play()
 	_nap_t = NAP_T
 
 
 func _wake() -> void:
 	_nap_t = 0.0
 	_nap_fx.visible = false
+	(_nap_fx.get_meta("label") as Label).visible = false
+	_nap_scene.stop()
+	_hud.visible = true
+	player.activate_camera()
 	var d := Mokki.cabin_door()
 	player.global_position = d + Vector3.UP * 0.05
 	player.rotation.y = atan2(Mokki.CABIN_LAKE.x, Mokki.CABIN_LAKE.y)  # ovelta metsään päin
@@ -529,10 +579,22 @@ func _interaction() -> Dictionary:
 		return {"text": "E: päikkärit ylämökissä", "cb": _nap}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
+	if heittely.can_start(player.global_position) and player.boat == null:
+		return {"text": "E: amerikkalaisen jalkapallon heittely koko porukalla (ennätys %d heittoa)" % heittely.record,
+			"cb": heittely.start}
+	if Mokki.at_woodshed(player.global_position):
+		return {"text": "E: halot syliin saunan kiukaaseen (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
+			"cb": func() -> void: sauna.take_logs(player_index)}
 	var m: Node3D = world.mokki
 	match Mokki.room_at(player.global_position):
 		"loylyhuone":
-			return {"text": "E: istu lauteille", "cb": func() -> void: start_activity("sauna")}
+			var held: int = sauna.carried.get(player_index, 0)
+			var kp: Vector3 = m.kiuas_pos
+			if held > 0 and Vector2(player.global_position.x - kp.x, player.global_position.z - kp.z).length() < 1.3:
+				return {"text": "E: halko kiukaaseen (sylissä %d · %s)" % [held, sauna.fire_text()],
+					"cb": func() -> void: sauna.add_log(player_index)}
+			return {"text": "E: istu lauteille (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
+				"cb": func() -> void: start_activity("sauna")}
 		"keittio":
 			if player.global_position.distance_to(m.cook_spot) < 0.75:
 				match Porukka.CREW[player_index].name:
@@ -795,8 +857,8 @@ func _update_hud() -> void:
 		_clock.text += "\nMoninpeli: huone %s · %d pelaajaa" % [mp.room(), mp.players()]
 	if pissa.active:
 		_prompt.text = pissa.prompt()
-	elif tennis.active:
-		_prompt.text = tennis.prompt()
+	elif _ballgame() != null:
+		_prompt.text = _ballgame().prompt()
 	elif activity != "":
 		_prompt.text = _activity_node().prompt()
 	elif player.boat != null:

@@ -17,6 +17,8 @@ E	istu lauteille, heitä löylyä
 E	paista pyttipannua (vain Marko), istu pöytään (ristiseiska)
 W / S	nouse / lopeta
 E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
+E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen
+F	lopettaa rantatenniksen ja pallon heittelyn
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)

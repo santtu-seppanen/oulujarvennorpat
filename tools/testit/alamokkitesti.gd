@@ -85,7 +85,7 @@ func _process(delta: float) -> bool:
 		3:
 			if t > 0.2:
 				p.brain = null
-				check(main._interaction().get("text", "") == "E: istu lauteille", "löylyhuoneessa voi istua lauteille")
+				check(str(main._interaction().get("text", "")).begins_with("E: istu lauteille"), "löylyhuoneessa voi istua lauteille")
 				# Tietokoneen hahmot: Jaakko saunaan, Marko hellalle.
 				main.crew[2].brain._start("sauna")
 				main.crew[1].brain._start("kokkaus")

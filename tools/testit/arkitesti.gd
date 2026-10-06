@@ -5,6 +5,8 @@ extends SceneTree
 ##   pöytään istuva juo kupin. Muut eivät osaa keittää.
 ## - Mustikat: metsässä mättäitä; kourallisia syömällä Santun kaari pitenee, mutta jää Markon kaaren alle.
 ## - Kätköosoitin: kompassi näyttää lähimmän kätkön (saunan takana tai rannan rinteessä).
+## - Päikkäreiden välianimaatio (norpat nukkumassa ylämökissä) ja klo 16 porukka lähtee päikkäreille.
+## - Saunan lämmitys: halot halkovajasta kiukaaseen, sammunut tuli jäähdyttää saunan, tietokone hakee haloja.
 
 var main: Node3D
 var Mokki: GDScript
@@ -70,6 +72,8 @@ func _process(delta: float) -> bool:
 				check(str(it.get("text", "")).contains("päikkärit"), "päikkärikehote: %s" % it.get("text", ""))
 				it.cb.call()
 				check(p.hidden_inside and not p.controls_enabled, "nukkumassa sisällä")
+				check(main._nap_scene.visible and main._nap_scene.cam.current, "välianimaatio mökin sisältä")
+				check(main._nap_scene._seals.size() == 3, "kolme norppaa nukkumassa")
 				next()
 		2:
 			if t > main.NAP_T + 0.5:
@@ -189,6 +193,76 @@ func _process(delta: float) -> bool:
 				check(main._near_stash() and main._interaction().get("text", "").begins_with("E: kylmä olut"), "saunan kätkö takakulusta")
 				var q: Vector2 = Mokki.wy(Vector2(m.stash_pos.x, m.stash_pos.z))
 				check(q.y < Mokki.BACK, "kätkö saunan takana (v %.2f)" % q.y)
+				next()
+		15:
+			# Saunan lämmitys: halot halkovajasta kiukaaseen.
+			var sa: Node = main.sauna
+			sa.fire = 0.0
+			sa.temp = 40.0
+			_put(p, Mokki.woodshed_spot())
+			var it: Dictionary = main._interaction()
+			check(str(it.get("text", "")).contains("halot syliin"), "halkovajan kehote: %s" % it.get("text", ""))
+			it.cb.call()
+			check(sa.carried.get(0, 0) == sa.CARRY, "halot sylissä")
+			_put(p, m.kiuas_pos + Vector3(0.6, 0, 0.0) - Vector3(0, m.kiuas_pos.y - Mokki.DY, 0))
+			next()
+		16:
+			if t > 0.3:
+				var sa: Node = main.sauna
+				var it: Dictionary = main._interaction()
+				check(str(it.get("text", "")).contains("halko kiukaaseen"), "kiukaan kehote: %s" % it.get("text", ""))
+				if it.has("cb"):
+					it.cb.call()
+					it.cb.call()
+				check(sa.fire > 250.0 and sa.carried[0] == sa.CARRY - 2, "kaksi halkoa tuleen (%.0f s)" % sa.fire)
+				next()
+		17:
+			if t > 5.0:
+				var sa: Node = main.sauna
+				check(sa.temp > 41.0, "sauna lämpenee (%.1f °C)" % sa.temp)
+				sa.fire = 0.0
+				sa.temp = 60.0
+				next()
+		18:
+			if t > 5.0:
+				var sa: Node = main.sauna
+				check(sa.temp < 59.5 and sa.fire_text() == "tuli sammunut", "sammunut tuli: sauna jäähtyy (%.1f °C)" % sa.temp)
+				# Tietokone hakee haloja, kun tuli on sammunut.
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 13, 0)  # päivä: ei auringonlaskua eikä päikkäreitä
+				var j: CharacterBody3D = main.crew[2]
+				j.brain = load("res://scripts/ai.gd").new(j, m, main.sun, "Jaakko")
+				j.brain._start("lammitys")
+				next()
+		19:
+			if main.sauna.fire > 100.0:
+				print("tietokoneen Jaakko lisäsi haloja %.1f s:n jälkeen" % t)
+				check(true, "tietokone lämmittää saunan")
+				next()
+			elif t > 90.0:
+				var j: CharacterBody3D = main.crew[2]
+				print("Jaakko %s %s polku %d tila %s" % [Mokki.wy(Vector2(j.global_position.x, j.global_position.z)), j.brain.activity, j.brain._path.size(), j.brain._state])
+				check(false, "tietokone ei lisännyt haloja")
+				next()
+		20:
+			# Klo 16: porukka lähtee päikkäreille, Jukka keittää kahvit.
+			main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 15, 59)
+			for j in [1, 2, 3]:
+				var c: CharacterBody3D = main.crew[j]
+				c.brain = load("res://scripts/ai.gd").new(c, m, main.sun, main.Porukka.CREW[j].name)
+			next()
+		21:
+			if t > 4.0:
+				var acts := []
+				for j in [1, 2, 3]:
+					acts.append(main.crew[j].brain.activity)
+				print("klo %s: %s" % [main.sun.clock_text(), acts])
+				check(acts[0] == "paikkarit" and acts[1] == "paikkarit", "Marko ja Jaakko lähtevät päikkäreille")
+				check(acts[2] == "kahvi", "Jukka keittää kahvit")
+				var talked := false
+				for e in main.chat._lines:
+					if (e[0] as Label).text.begins_with("Marko:") or (e[0] as Label).text.begins_with("Jaakko:"):
+						talked = true
+				check(talked, "porukka juttelee päikkäreistä")
 				print("vikoja %d" % fails)
 				return true
 	if clock > 200.0:

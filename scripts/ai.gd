@@ -40,6 +40,11 @@ var _avoid_dir := 1.0
 var _loyly_t := 0.0
 var _card_seat: Array = []
 var _seat_s := -1  # lauteiden paikka, jolle ollaan menossa
+var _logs := false  # halot sylissä matkalla kiukaalle
+var _nap_day := -1  # päivä, jolloin päikkärit on jo nukuttu
+const LINES_NAP := ["Nyt päikkäreille!", "Kello on neljä – päikkäriaika.", "Mä meen ottaan nokoset ylämökkiin.",
+	"Päikkärit kutsuu, tuutteko?", "Pieni torkku ennen saunaa."]
+const LINES_JUKKA := ["Te nukutte, mä keitän kahvit.", "Ei mulle päikkäreitä – kahvia!"]
 var _prev := Vector3.INF  # viimeksi saavutettu reittipiste (jumista sinne takaisin)
 var _back_to := Vector3.INF  # piste, jonne jumista palattiin (kerran per reittiväli)
 
@@ -68,6 +73,7 @@ func think(delta: float) -> void:
 	steer = 0.0
 	fast = false
 	jump = false
+	_nap_time()
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
@@ -109,6 +115,22 @@ func cards_end() -> void:
 			_done()
 
 
+## Klo 16 aikoihin porukka juttelee päikkäreistä ja lähtee ylämökkiin nukkumaan; Jukka keittää kahvit.
+func _nap_time() -> void:
+	var lt: Dictionary = sun.local() if sun != null else {}
+	if lt.is_empty() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
+		return
+	if activity in ["kortit", "sauna", "kokkaus", "kahvi", "paikkarit"] or _state == "hidden" or body.boat != null:
+		return
+	_nap_day = lt.day
+	if name == "Jukka":
+		mokki.talk.emit(name, LINES_JUKKA[rng.randi() % LINES_JUKKA.size()])
+		_start("kahvi")
+		return
+	mokki.talk.emit(name, LINES_NAP[rng.randi() % LINES_NAP.size()])
+	_start("paikkarit")
+
+
 func _sunset() -> bool:
 	return sun != null and sun.altitude > -1.0 and sun.altitude < 5.0 and (sun.azimuth > 250.0 or sun.azimuth < 70.0)
 
@@ -126,8 +148,14 @@ func _choose() -> void:
 			continue  # vain Marko osaa kokata
 		if a == "kahvi" and name != "Jukka":
 			continue  # vain Jukka keittää kahvit
+		if a in ["kokkaus", "kahvi"] and _stove != "" and _stove != name:
+			continue  # toinen on jo hellalla
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
+	# Kiukaan tuli hiipuu: joku hakee haloja halkovajasta.
+	if mokki.fire_left < 90.0:
+		w["lammitys"] = 6.0
+		total += 6.0
 	var r := rng.randf() * total
 	for a in w:
 		r -= w[a]
@@ -140,10 +168,7 @@ func _choose() -> void:
 func _start(a: String) -> void:
 	_leave_seat()
 	if a in ["kokkaus", "kahvi"]:
-		if _stove != "" and _stove != name:
-			a = "poyta"  # toinen on jo hellalla
-		else:
-			_stove = name
+		_stove = name
 	body.pose = ""
 	activity = a
 	_state = "walk"
@@ -159,6 +184,11 @@ func _start(a: String) -> void:
 					goal = "poyta_etu"
 		"grilli":
 			goal = "grilli"
+		"lammitys":
+			# Halkovajalta syli täyteen ja kiukaalle.
+			_logs = true
+			_set_path(mokki.route(body.global_position, "halkovaja") + mokki.route(mokki.points.halkovaja, "loylyhuone").slice(1))
+			return
 		"sauna":
 			goal = "loylyhuone"
 			_seat_s = mokki.free_seat(mokki.sauna_seats, body)
@@ -170,7 +200,7 @@ func _start(a: String) -> void:
 			goal = "katko"
 		"uinti":
 			goal = "uinti" + str(rng.randi_range(1, 3))
-		"ylamokki":
+		"ylamokki", "paikkarit":
 			goal = "ylamokki_ovi"
 		"huussi":
 			goal = "huussi"
@@ -274,6 +304,13 @@ func _set_path(path: Array) -> void:
 
 func _arrive() -> void:
 	match activity:
+		"lammitys":
+			# Kiukaan vieressä: halot tuleen.
+			if _logs:
+				_logs = false
+				for k in 3:
+					mokki.log_added.emit()
+			_done()
 		"poyta":
 			if _seat >= 0:
 				var s: Array = mokki.seats[_seat]
@@ -313,6 +350,8 @@ func _arrive() -> void:
 			_stay_for(1e9, "Sitting_Idle")
 		"ylamokki":
 			_hide(rng.randf_range(25.0, 60.0))
+		"paikkarit":
+			_hide(rng.randf_range(50.0, 75.0))  # nukutaan n. tunti (pelivuorokausi 24 min)
 		"huussi":
 			_hide(rng.randf_range(12.0, 25.0))
 		_:
