@@ -153,6 +153,7 @@ func _build_terrain() -> void:
 			add_child(mi)
 	# Kaukoverkko koko 10 x 10 km alueelle, lähialueella hieman tarkan verkon alla.
 	var far_mat := _terrain_mat(0.35)
+	far_mat.set_shader_parameter("near_view", NEAR_VIEW)
 	var fh: float = Terrain.far.half
 	var fplane := PlaneMesh.new()
 	fplane.size = Vector2(FAR_CHUNK, FAR_CHUNK)

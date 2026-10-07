@@ -113,7 +113,7 @@ static func clears_tree(x: float, z: float) -> bool:
 func _ready() -> void:
 	var batch := B.Batch.new()
 	var body := StaticBody3D.new()
-	_build_stash(batch)
+	stash_pos = build_stash(batch, STASH, Vector2(1.0, 0.25), 23)  # rinne laskee itään
 	_build_beach(batch, body)
 	var mi := MeshInstance3D.new()
 	mi.mesh = batch.commit()
@@ -122,14 +122,15 @@ func _ready() -> void:
 	add_child(body)
 
 
-## Lahonnut puulaatikko rinteessä polun vieressä, kansi raollaan ja osin havujen peitossa: viinapulloja,
-## oluttölkkejä ja kiviä painona havujen päällä.
-func _build_stash(batch: B.Batch) -> void:
-	var down := Vector2(1.0, 0.25).normalized()  # rinne laskee itään
+## Lahonnut puulaatikko rinteessä kohdassa spot, kansi raollaan ja osin havujen peitossa: viinapulloja,
+## oluttölkkejä ja kiviä painona havujen päällä. down = rinteen laskusuunta. Palauttaa kätkön paikan
+## (myös tutkimusmatka.gd:n kätkö).
+static func build_stash(batch: B.Batch, spot: Vector2, down: Vector2, seed: int) -> Vector3:
+	down = down.normalized()
 	var yaw := atan2(down.x, down.y)
 	var basis := Basis(Vector3.UP, yaw)
-	var y := Terrain.h(STASH.x, STASH.y)
-	var o := Vector3(STASH.x, y, STASH.y)
+	var y := Terrain.h(spot.x, spot.y)
+	var o := Vector3(spot.x, y, spot.y)
 	var at := func(lx: float, ly: float, lz: float) -> Vector3:
 		return o + basis * Vector3(lx, ly, lz)
 	var wood := Color(0.36, 0.27, 0.18)
@@ -156,18 +157,18 @@ func _build_stash(batch: B.Batch) -> void:
 		batch.add(B.cyl(0.032, 0.032, 0.15, 8), Transform3D(Basis(), p), Color(0.15, 0.3, 0.6))
 	# Havut laatikon päällä ja kivet painona.
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 23
+	rng.seed = seed
 	for k in 6:
 		var a: Vector3 = at.call(-0.4 + k * 0.15, 0.4, rng.randf_range(-0.1, 0.25))
 		batch.add(B.boxm(Vector3(0.5, 0.02, 0.14)), Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3),
 			yaw + rng.randf_range(-0.8, 0.8), rng.randf_range(-0.2, 0.2))), a), Color(0.13, 0.27, 0.13))
 	for k in 4:
-		var q := STASH + Vector2(rng.randf_range(-0.6, 0.6), rng.randf_range(-0.6, 0.6))
+		var q := spot + Vector2(rng.randf_range(-0.6, 0.6), rng.randf_range(-0.6, 0.6))
 		var r := rng.randf_range(0.1, 0.18)
 		var gc := rng.randf_range(0.35, 0.5)
 		batch.add(B.sphere(r, 7), Transform3D(Basis().scaled(Vector3(1.2, 0.7, 1)), Vector3(q.x, Terrain.h(q.x, q.y), q.y)),
 			Color(gc, gc * 0.98, gc * 0.95))
-	stash_pos = o + Vector3(0, 0.1, 0)
+	return o + Vector3(0, 0.1, 0)
 
 
 ## Ajopuu hiekalla ja kiviä rannassa ja matalassa vedessä.

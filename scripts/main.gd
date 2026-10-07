@@ -29,6 +29,7 @@ const WcGame := preload("res://scripts/wc_game.gd")
 const Rinnepissa := preload("res://scripts/rinnepissa.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
 const Amerikanpallo := preload("res://scripts/amerikanpallo.gd")
+const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
 ## Jukka grillillä.
 const SPAWNS := [Vector2(-6.9, 1.2), Vector2(-4.9, -1.05), Vector2(-2.2, 3.6), Vector2(-8.6, -1.6)]
@@ -73,6 +74,7 @@ var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
+var retki: Node3D  # tutkimusmatka kumiveneellä viinakätkölle (tutkimusmatka.gd)
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
 const NAP_T := 10.0
 var _nap_t := 0.0
@@ -162,6 +164,9 @@ func _ready() -> void:
 	heittely.game = self
 	add_child(heittely)
 	ballgames = [tennis, heittely]
+	retki = Tutkimusmatka.new()
+	retki.game = self
+	add_child(retki)
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
@@ -316,13 +321,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Vapaalla kursorilla (korttipöytä) hiiren oikea nappi pohjassa katsellaan ympärille.
 		CamCtl.yaw = clampf(CamCtl.yaw - event.relative.x * 0.005, -LOOK_YAW, LOOK_YAW)
 		CamCtl.pitch = clampf(CamCtl.pitch - event.relative.y * 0.005, -1.1, 0.5)
+	elif event.is_action_pressed("drink") and player.boat != null:
+		retki.toggle()  # veneessä Q: tutkimusmatka viinakätkölle
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
 		_booze()
 	elif event.is_action_pressed("drink") and activity == "" and _can_act() and Mokki.at_outhouse(player.global_position):
 		_start_wc("kakkonen")
 
 
-# --- Kätköt: saunan takana rinteessä ja rannan rinteessä (ranta.gd) ------------------------------------------
+# --- Kätköt: saunan takana rinteessä, rannan rinteessä (ranta.gd) ja tutkimusmatkan kätkö (tutkimusmatka.gd) ----
 
 func _near_stash() -> bool:
 	if player.pose == "Sammunut" or player.boat != null:
@@ -333,16 +340,19 @@ func _near_stash() -> bool:
 		or _near_beach_stash()
 
 
+## Metsän kätköt: rannan rinteessä ja tutkimusmatkan kätkö.
 func _near_beach_stash() -> bool:
 	var s: Vector3 = world.ranta.stash_pos
 	var p := player.global_position
-	return Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5
+	return (Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5) or retki.near_stash(p)
 
 
-## Viinakätköosoitin: kompassin keltainen merkki lähimpään kätköön (saunan takana tai rannan rinteessä).
+## Viinakätköosoitin: kompassin keltainen merkki lähimpään kätköön (saunan takana, rannan rinteessä tai
+## tutkimusmatkan kätkö); tutkimusmatkalla aina matkan kätköön.
 func _point_to_stash(p: Vector3) -> void:
 	var best := Vector2.INF
-	for s: Vector3 in [world.mokki.stash_pos, world.ranta.stash_pos]:
+	var list: Array = [retki.stash_pos] if retki.active else [world.mokki.stash_pos, world.ranta.stash_pos, retki.stash_pos]
+	for s: Vector3 in list:
 		var q := Vector2(s.x, s.z)
 		if q.distance_to(Vector2(p.x, p.z)) < best.distance_to(Vector2(p.x, p.z)):
 			best = q
@@ -897,7 +907,7 @@ func _update_hud() -> void:
 	elif activity != "":
 		_prompt.text = _activity_node().prompt()
 	elif player.boat != null:
-		_prompt.text = "W/S soutaa · A/D kääntää · E nouse veneestä"
+		_prompt.text = "W/S soutaa · A/D kääntää · E %s · %s" % ["veneestä" if retki.active else "nouse veneestä", retki.prompt()]
 	else:
 		_prompt.text = _interaction().get("text", "")
 	if _fps_label.visible:

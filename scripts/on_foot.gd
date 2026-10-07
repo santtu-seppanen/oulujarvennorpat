@@ -260,6 +260,7 @@ func leave_boat() -> void:
 	b.rower = null
 	boat = null
 	_body.clear_ik()
+	_body.set_override("spine_01", Vector3.RIGHT, 0.0)
 	_body.rotation.y = 0.0
 	_body.position = Vector3.ZERO
 	var best := b.global_position + b.global_transform.basis.x * 1.1
@@ -302,6 +303,10 @@ func _ride(delta: float) -> void:
 		var side := "l" if s > 0.0 else "r"
 		var pole := target + Vector3(0.45 * (1.0 if side == "l" else -1.0), -0.35, 0.1)
 		_body.set_ik("arm_" + side, "upperarm_" + side, "lowerarm_" + side, "hand_" + side, target, pole)
+		# Jalat ojennettuina pohjalle perää kohti, polvet koukussa (istuma-asennon sääret menisivät pohjan läpi).
+		_body.set_ik("leg_" + side, "thigh_" + side, "calf_" + side, "foot_" + side,
+			_body.to_local(hull.global_transform * boat.foot_pos(s)), _body.to_local(hull.global_transform * boat.knee_pole(s)))
+	_body.set_override("spine_01", Vector3.RIGHT, -boat.lean(ph, input_steer()))
 	tire(rowing, not rowing, delta, 1.5)
 	if is_player:
 		_update_camera(delta)

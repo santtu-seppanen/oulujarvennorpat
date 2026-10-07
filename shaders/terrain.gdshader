@@ -13,8 +13,12 @@ uniform float near_step = 2.0;
 uniform float far_half = 5120.0;
 uniform float far_step = 16.0;
 uniform float open_depth = -9.0;
-// Kaukoverkko painetaan lähiverkon alle sen alueella (sauma piiloon).
+// Kaukoverkko painetaan lähiverkon alle sen alueella (sauma piiloon). Siellä kaukoverkon pisteet ovat 16 m
+// välein lähiverkon korkeuksilla, joten koverassa maastossa (rinteen juurella) suora väli nousisi paikoin yli
+// metrin tarkan pinnan yläpuolelle: lähellä kameraa, missä tarkka verkko varmasti näkyy (near_view, world.gd
+// NEAR_VIEW), kaukoverkko painetaan reilusti alemmas.
 uniform float sink = 0.0;
+uniform float near_view = 0.0;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 
 uniform vec3 col_a[12] : source_color;
@@ -67,7 +71,8 @@ void vertex() {
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float y = height(wp.xz);
 	if (sink > 0.0 && abs(wp.x) < near_half + far_step && abs(wp.z) < near_half + far_step) {
-		y -= sink;
+		float cd = distance(CAMERA_POSITION_WORLD.xz, wp.xz);
+		y -= sink + 4.0 * (1.0 - smoothstep(near_view - 170.0, near_view - 100.0, cd));
 	}
 	VERTEX.y = y - MODEL_MATRIX[3].y;
 	// Normaali korkeuseroista (ruudun kokoinen askel).

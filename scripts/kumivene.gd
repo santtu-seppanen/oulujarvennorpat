@@ -1,23 +1,31 @@
 extends CharacterBody3D
-## Kumivene (valokuvan keltainen kahden hengen vene, n. 1,9 x 1,0 m): putki pyöreäkulmaisena renkaana, keltainen
-## yläpinta, oranssi-punainen raita, vaalea pohja, kahvanarut ja airot hankaimissa. Kelluu Oulujärven pinnalla
-## ja keinuu laineissa; matalikossa ja laituria vasten pysähtyy (törmää maastoon ja rakenteisiin).
+## Kumivene (valokuvan keltainen kahden hengen vene, n. 1,9 x 1,0 m): 27 cm putki pyöreäkulmaisena renkaana,
+## keltainen yläpinta, oranssi-punainen raita, vaalea pohja, kahvanarut ja airot putken päällä hankaimissa.
+## Sisätilaa jää n. 0,47 x 1,4 m. Kelluu Oulujärven pinnalla ja keinuu laineissa; matalikossa ja laituria
+## vasten pysähtyy (törmää maastoon ja rakenteisiin).
 ##
-## Soutaja istuu keskellä selkä keulaan päin ja vetää airoja (W eteen, S taakse, A/D kääntää: toinen airo
-## vetää ja toinen työntää). Airojen lavat ja soutajan kädet kulkevat soutuvedon mukana (IK).
+## Pohja on kalvo putken alaosassa hieman vedenpinnan yläpuolella, joten vesi ei näy veneen sisällä. Soutaja
+## istuu keskellä poikittaisella puhallettavalla istuimella selkä keulaan päin, jalat ojennettuina pohjalle
+## perää kohti polvet koukussa (jalkojen IK, on_foot.gd), ja vetää airoja (W eteen, S taakse, A/D kääntää: toinen airo vetää ja toinen työntää). Airojen
+## lavat ja soutajan kädet kulkevat soutuvedon mukana (IK).
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
 const LENGTH := 1.9
 const WIDTH := 1.0
-const TUBE := 0.17
+const TUBE := 0.135   # putken säde
+const TUBE_Y := 0.08  # putken keskiviivan korkeus veneen origosta (origo vedenpinnassa)
+const FLOOR_Y := 0.03 # pohjan yläpinta: vedenpinnan yläpuolella keinunnassakin
 const MAX_SPEED := 1.5
 const STROKE_TIME := 1.5  # yksi soutuveto (s)
 const DRIVE := 0.45       # vedon osuus syklistä
-## Hankaimet veneen avaruudessa (keula -Z) ja soutajan paikka (istuu pohjalla, kasvot perään).
-const OARLOCK := Vector3(0.47, 0.16, 0.12)
-const SEAT := Vector3(0.0, -0.5, -0.22)
+const SEAT_R := 0.08  # puhallettava istuin: poikittainen putki pohjalla
+## Hankaimet putken päällä veneen avaruudessa (keula -Z), vähän soutajan lantiosta perään päin, ja soutajan
+## paikka: hahmon origo niin, että istuma-asennon lantio (0,54 m origon yläpuolella, 0,33 m takana) on istuimella.
+const OARLOCK := Vector3(0.37, 0.25, -0.12)
+const HIP := Vector3(0.0, FLOOR_Y + SEAT_R * 2.0 + 0.08, -0.42)  # lantio veneen avaruudessa
+const SEAT := Vector3(0.0, HIP.y - 0.54, HIP.z + 0.33)
 const OAR_LEN := 1.45
 const INBOARD := 0.42  # kädensijasta hankaimeen
 
@@ -66,6 +74,9 @@ func _ready() -> void:
 		_oars.append(oar)
 		# Hankain.
 		B.mesh(_hull, B.boxm(Vector3(0.06, 0.08, 0.1)), Vector3(OARLOCK.x * s, OARLOCK.y - 0.02, OARLOCK.z), Color(0.1, 0.1, 0.1))
+	# Istuin: poikittainen puhallettava putki pohjalla soutajan alla.
+	B.mesh(_hull, B.cyl(SEAT_R, SEAT_R, (WIDTH * 0.5 - TUBE * 2.0) * 2.0 + 0.04, 12), Vector3(0, FLOOR_Y + SEAT_R, HIP.z),
+		Color(0.98, 0.8, 0.12), Vector3(0, 0, 90))
 	_pose_oars(0.0, 0.0)
 
 
@@ -160,7 +171,7 @@ func net_apply(a: Array) -> void:
 func handle_pos(side: float, ph: float, steer := 0.0) -> Vector3:
 	var lock := Vector3(OARLOCK.x * side, OARLOCK.y, OARLOCK.z)
 	if ph < 0.0:
-		return lock + Vector3(-side * 0.32, 0.12, -0.22)
+		return Vector3(side * 0.15, HIP.y + 0.16, HIP.z + 0.4)  # kädensijat polvilla, lavat ilmassa
 	# Toinen airo vastavaiheessa käännettäessä paikallaan.
 	var p := ph
 	if absf(steer) > 0.05 and side * steer > 0.0:
@@ -173,8 +184,28 @@ func handle_pos(side: float, ph: float, steer := 0.0) -> Vector3:
 	else:
 		t = 1.0 - (p - DRIVE) / (1.0 - DRIVE)  # palautus
 		lift = 1.0
-	var reach := lerpf(0.42, -0.2, smoothstep(0.0, 1.0, t))
-	return Vector3(side * 0.23, OARLOCK.y + 0.18 - lift * 0.1, OARLOCK.z + reach)
+	# Kapeassa veneessä kädensijat kohtaavat keskellä (vasen hieman ylempänä) ja kulkevat polvien yli.
+	var reach := lerpf(0.3, -0.22, smoothstep(0.0, 1.0, t))
+	return Vector3(side * 0.07, OARLOCK.y + 0.2 + side * 0.02 - lift * 0.06, OARLOCK.z + reach)
+
+
+## Soutajan vartalon kallistus (rad, + eteen perää kohti) soutuvaiheen mukaan: vedon alussa kurottaa, lopussa nojaa
+## taakse.
+func lean(ph: float, steer := 0.0) -> float:
+	if ph < 0.0:
+		return 0.0
+	var z := handle_pos(1.0, ph, steer).z - OARLOCK.z
+	return remap(z, -0.22, 0.3, -0.12, 0.38)
+
+
+## Soutajan jalkaterän paikka ja polven suunta veneen avaruudessa: jalat ojennettuina perään päin pohjalla,
+## polvet koukussa ylöspäin (sääret eivät mene pohjan läpi).
+func foot_pos(side: float) -> Vector3:
+	return Vector3(side * 0.13, FLOOR_Y + 0.085, HIP.z + 0.8)
+
+
+func knee_pole(side: float) -> Vector3:
+	return Vector3(side * 0.24, HIP.y + 0.8, HIP.z + 0.4)
 
 
 func _pose_oars(ph: float, steer: float) -> void:
@@ -229,7 +260,7 @@ func _hull_mesh() -> ArrayMesh:
 		for k in seg:
 			var th := TAU * k / seg
 			var o3 := Vector3(outv.x, 0, outv.y) * cos(th) * TUBE + Vector3.UP * sin(th) * TUBE
-			row.append(Vector3(c.x, 0.06, c.y) + o3)
+			row.append(Vector3(c.x, TUBE_Y, c.y) + o3)
 			nrow.append(o3.normalized())
 			var col := yellow
 			if sin(th) < -0.35:
@@ -251,18 +282,17 @@ func _hull_mesh() -> ArrayMesh:
 				st.set_color(cols[v[0]][v[1]])
 				st.set_normal(nrms[v[0]][v[1]])
 				st.add_vertex(pts[v[0]][v[1]])
-	# Pohja: tasainen kalvo putken alareunassa.
-	var fy := -0.08
+	# Pohja: tasainen kalvo putken alaosassa (reuna putken sisällä keskiviivalla), vedenpinnan yläpuolella.
 	for i in m:
 		var c0: Vector2 = ring[i]
 		var c1: Vector2 = ring[(i + 1) % m]
 		for v in [Vector3.ZERO, Vector3(c1.x, 0, c1.y), Vector3(c0.x, 0, c0.y)]:
-			st.set_color(white.darkened(0.1))
+			st.set_color(white.darkened(0.12))
 			st.set_normal(Vector3.UP)
-			st.add_vertex(v + Vector3(0, fy, 0))
+			st.add_vertex(v + Vector3(0, FLOOR_Y, 0))
 	# Kahvanarut (mustat) putken päällä neljässä kohdassa.
 	for q in [Vector2(a, 0.4), Vector2(-a, 0.4), Vector2(a, -0.55), Vector2(-a, -0.55)]:
-		var base := Vector3(q.x, 0.06 + TUBE, q.y)
+		var base := Vector3(q.x, TUBE_Y + TUBE, q.y)
 		for k in 6:
 			var t0 := PI * k / 6.0
 			var t1 := PI * (k + 1) / 6.0

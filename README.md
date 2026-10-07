@@ -19,9 +19,9 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen; ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; ylämökin edessä rantatennis (syötä ja lyö); vedessä alamökin edustalla amerikkalaisen jalkapallon heittely (heitä ja ota kiinni) |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää ja Q aloittaa tutkimusmatkan viinakätkölle; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen; ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; ylämökin edessä rantatennis (syötä ja lyö); vedessä alamökin edustalla amerikkalaisen jalkapallon heittely (heitä ja ota kiinni) |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
-| Q | kätköllä (saunan takana tai rannan rinteessä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen) |
+| Q | kätköllä (saunan takana, rannan rinteessä tai tutkimusmatkan kätköllä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen); veneessä tutkimusmatka viinakätkölle (uudelleen Q keskeyttää) |
 | F | lopettaa huussin minipelin, rinteeseen virtsaamisen, rantatenniksen tai pallon heittelyn |
 | Enter | keskustelu: kirjoita viesti, Enter lähettää ja Esc peruu; viesti näkyy puhekuplana hahmon yläpuolella ja luetaan ääneen puhesynteesillä |
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
@@ -101,6 +101,30 @@ metsän läpi itä-kaakkoon ja Äpätintien yli törmän reunalle, ja sieltä vi
 
 Testi: `tools/testit/rantatesti.gd` (`--headless --fixed-fps 60`), kuvakaappaukset `tools/testit/ranta_kuvat.gd`.
 
+## Tutkimusmatka kumiveneellä
+
+Äpätin länsipuolen niemen länsirannalla on viinakätkö (**64.431850 N, 26.880575 E**, n. 290 m mökiltä länteen),
+jonne ei kulje polkua: sinne mennään kumiveneellä (`scripts/tutkimusmatka.gd`). Veneessä Q aloittaa
+tutkimusmatkan. Vangeliksen Chariots of Fire soi, ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot
+kahlaavat veteen ja uivat jonossa veneen perässä sen kulkemaa reittiä (vanavedessä jaksaa, kunto ei kulu).
+Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
+
+- Reitti: mökin edestä ensin ulos lohkareiden ohi, lahden yli länteen, niemen kärjen ympäri ja etelään
+  rantaan. Soutu kestää noin neljä minuuttia, ja vettä riittää koko matkalla.
+- Perillä porukka nousee 24 m rinnettä ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
+  kätkö, ehtymätön (E olut, Q viina). Hetken päästä musiikki häipyy, ja tietokoneen hahmot palaavat omiin puuhiinsa.
+- Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
+  soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
+- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire -äänite ei ole vapaasti levitettävä, joten sitä ei
+  ole pelin mukana. Oman kopion voi lisätä tiedostoon `assets/music/chariots_of_fire.ogg` (tai `.mp3`/`.wav`),
+  ja se soi silmukkana. Ilman tiedostoa soi reaaliajassa syntetisoitu kappale samassa hengessä (Des-duuri,
+  69 bpm: pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot), mutta ei
+  Vangeliksen melodiaa.
+
+Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
+vanavedessä, porukka nousee kätkölle ja pelaaja ottaa huikan; lisäksi kumiveneen rakenne (soutajan jalat
+veneen sisällä pohjan päällä).
+
 ## Rantatennis ylämökin edessä
 
 Ylämökin maanpuoleisella sivulla on tasainen ruohokenttä (14 × 9 m, valkoiset rajat), jossa pelataan
@@ -167,7 +191,9 @@ etuterassi, kelluva laituri tikkaineen, kulku saunan takaa, pitkospuut ja huussi
 päällä (harja kohtisuoraan järveä kohti, ovi metsän puoleisessa päädyssä, aurinkopaneelit, antenni, säleikkö,
 kaiteeton terassi ja oven edessä tasanne portaineen) ja jyrkät portaat (38°, 22 askelmaa) törmään. Terassin kohdalta maastoa kaivetaan, ja kaivannon
 reunat peitetään alkuperäisen maanpinnan mukaisella kivimuurilla ja sammalella. Rannassa on keltainen
-kumivene, jolla voi soutaa.
+kumivene (1,9 × 1,0 m, 27 cm putki), jolla voi soutaa: pohja on vedenpinnan yläpuolella, ja soutaja istuu
+poikittaisella puhallettavalla istuimella jalat pohjalla perää kohti. Kapeassa veneessä airojen kädensijat
+kohtaavat keskellä, ja vartalo kurottaa ja nojaa soutuvedon mukana.
 
 Päikkärit nukutaan ylämökissä klo 15-18; muulloin ovella kerrotaan, milloin päikkärit ovat. Kello neljän
 aikoihin porukka alkaa jutella, että nyt päikkäreille, ja lähtee ylämökkiin nukkumaan noin tunniksi; pelaajalle
@@ -178,7 +204,8 @@ päikkärien jälkeen porukan kahville: kupit ovat keittiön pöydässä.
 
 Porukka (`scripts/porukka.gd`, `scripts/ai.gd`): tietokoneen ohjaamat hahmot istuvat pöydän ääressä ja
 juttelevat, grillaavat, käyvät saunassa ja uimassa, nukkuvat päikkärit ylämökissä (paitsi Jukka, joka keittää
-kahvit) ja käyvät huussissa, ja kerääntyvät laiturille ja etuterassille katsomaan auringonlaskua.
+kahvit) ja käyvät huussissa, ja kerääntyvät laiturille ja etuterassille katsomaan auringonlaskua. Jukka on
+laihtunut 9,8 kg: maha ja vartalo ovat aiempaa pienemmät, ja tutkimusmatkalla hän kehuu kelluvansa kevyempänä.
 
 Aurinko (`scripts/sun.gd`) lasketaan NOAA:n algoritmilla aloituspaikalle pelin päivämäärän ja kellonajan
 mukaan (Suomen aika, kesäaika huomioiden), ilmakehän taittuminen mukana. Pelivuorokausi kestää 24 minuuttia ja
@@ -232,6 +259,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/mokki.gd`, `shaders/mokki.gdshader` | mökkipiha: rakennukset, terassit, portaat, laituri, maaston kaivu, reittipisteet |
 | `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
+| `scripts/tutkimusmatka.gd`, `scripts/retkimusiikki.gd` | tutkimusmatka kumiveneellä viinakätkölle porukka vanavedessä; Chariots of Fire (oma tiedosto) tai syntetisoitu musiikki |
 | `scripts/ranta.gd` | hiekkaranta ja viinakätkö rannan rinteessä |
 | `scripts/kahvi.gd`, `scripts/mustikat.gd` | Jukan aamukahvit liedellä; mustikkamättäät, jotka pidentävät virtsauskaarta |
 | `scripts/pallopeli.gd`, `scripts/rantatennis.gd`, `scripts/amerikanpallo.gd` | yhteiset pallopelit: pohja (osallistujat, moninpeli, lentorata, tekoäly, ennätys), rantatennis ylämökin edessä ja amerikkalaisen jalkapallon heittely vedessä |
