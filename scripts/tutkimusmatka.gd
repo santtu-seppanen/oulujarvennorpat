@@ -5,8 +5,10 @@ extends Node3D
 ## - Veneessä Q aloittaa tutkimusmatkan: Vangeliksen Chariots of Fire soi (retkimusiikki.gd), ja koko porukka
 ##   tulee veneen vanavedessä: tietokoneen hahmot kahlaavat veteen ja uivat jonossa veneen perässä sen
 ##   kulkemaa reittiä (vanavedessä jaksaa uida, kunto ei kulu). Kompassin kätköosoitin näyttää kätkön.
-## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan; hetken päästä musiikki häipyy ja
-##   tietokoneen hahmot palaavat omiin puuhiinsa (uiden takaisin mökille). Veneessä Q keskeyttää matkan.
+## - Koko matka kestää noin minuutin: vene kulkee matkalla vauhdilla (BOAT_BOOST, soutu kestää n. 40 s) ja
+##   uimarit pysyvät perässä (SWIM_BOOST), perillä juhlitaan kappaleen loppuun (PARTY_T).
+## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan; kappaleen loputtua musiikki häipyy
+##   ja tietokoneen hahmot palaavat omiin puuhiinsa (uiden takaisin mökille). Veneessä Q keskeyttää matkan.
 ## - Kätkö: lahonnut puulaatikko havujen alla kuten rannan kätkö (ranta.gd), ehtymätön (E olut, Q viina).
 ## Moninpeli: aloitus ja keskeytys lähtevät kaikille (viesti "retki"), joten musiikki soi kaikilla; hostin
 ## tietokone ohjaa vapaita hahmoja. Perillepääsyn kukin kone huomaa itse veneen paikasta.
@@ -27,13 +29,14 @@ const SHORE_PATH := [Vector2(-296.5, 13.0), Vector2(-291.0, 18.5), Vector2(-286.
 ## Veneen reitti mökin edestä kätkölle (testi): ensin ulos lohkareiden ohi, lahden yli länteen ja niemen kärjen
 ## ympäri etelään rantaan. Vettä koko matkalla vähintään 0,13 m.
 const ROUTE := [Vector2(-15.0, -21.0), Vector2(-120.0, -20.0), Vector2(-240.0, -20.0), Vector2(-268.0, -20.0),
-	Vector2(-284.0, -10.0), Vector2(-296.0, 6.0), LANDING]
+	Vector2(-290.0, -12.0), Vector2(-297.0, 4.0), LANDING]
 const ARRIVE_DIST := 12.0  # vene näin lähellä rantautumispaikkaa: perillä
-const PARTY_T := 40.0  # kätköllä juhlitaan ennen paluuta
+const PARTY_T := 22.0  # kätköllä juhlitaan ennen paluuta: kappaleen viimeinen fraasi (retkimusiikki.gd FINALE)
+const BOAT_BOOST := 7.5  # veneen vauhti matkalla (kumivene.gd boost)
+const SWIM_BOOST := 5.5  # uimarien vauhti vanavedessä (on_foot.gd swim_boost)
 const GAP := 2.2  # uimarien väli jonossa
 const LINES_START := ["Tutkimusmatka! Kaikki veneen perään!", "Viinakätkö odottaa – uidaan perässä!",
 	"Kohti tuntematonta! Ja kätköä.", "Vanavedessä jaksaa uida vaikka Kajaaniin."]
-const LINES_JUKKA := ["9,8 kiloa kevyempänä menee kuin norppa!", "Kevyt mies kelluu – 9,8 kiloa pois!"]
 const LINES_ARRIVE := ["Kätkö löytyi! Kippis tutkimusmatkalle!", "Tämä on historiallinen hetki.",
 	"Vangelis soi ja viina virtaa.", "Löytöretki onnistui!"]
 
@@ -107,8 +110,13 @@ class Follow:
 		_last = p
 		if _stuck > 2.0:
 			jump = true
-		# Jumissa tai jäänyt kauas jälkeen (esim. kiven taakse): suoraan omalle paikalle.
-		if _stuck > 5.0 or (path.is_empty() and d.length() > 40.0):
+		# Jumissa tai jäänyt kauas jälkeen (esim. kiven taakse tai vielä rannalle, kun vene on jo kaukana):
+		# suoraan omalle paikalle.
+		var s: Vector3 = retki.slot(k)
+		if not path.is_empty() and spot == Vector3.INF and Vector2(s.x - p.x, s.z - p.z).length() > 50.0:
+			path.clear()
+			t = s
+		if _stuck > 5.0 or (path.is_empty() and Vector2(t.x - p.x, t.z - p.z).length() > 40.0):
 			body.global_position = t + Vector3.UP * 0.3
 			body.velocity = Vector3.ZERO
 			_stuck = 0.0
@@ -160,7 +168,8 @@ func _begin(send: bool) -> void:
 	_party_t = 0.0
 	var b: Node3D = game.boat
 	_trail = [Vector2(b.global_position.x, b.global_position.z)]
-	music.start(1.5)
+	b.boost = BOAT_BOOST
+	music.start()
 	if send:
 		game.mp.send({"t": "retki", "on": true})
 	game.toast("Tutkimusmatka viinakätkölle! Souda länteen niemen kärjen ympäri – porukka uimassa vanavedessä. "
@@ -174,6 +183,7 @@ func _end(send: bool) -> void:
 		return
 	active = false
 	state = ""
+	game.boat.boost = 1.0
 	music.fade_out(4.0)
 	if send:
 		game.mp.send({"t": "retki", "on": false})
@@ -201,16 +211,17 @@ func _take_crew() -> void:
 		if b.global_position.distance_to(game.world.mokki.points.ranta_vesi) < 60.0:
 			f.path = game.world.mokki.route(b.global_position, "ranta_vesi")
 		b.brain = f
+		b.swim_boost = SWIM_BOOST
 		_brains[j] = f
-		var line: String = LINES_JUKKA.pick_random() if Porukka.CREW[j].name == "Jukka" else LINES_START.pick_random()
 		if not said or randf() < 0.5:
 			said = true
-			game.chat.ai_say(j, line)
+			game.chat.ai_say(j, LINES_START.pick_random())
 
 
 func _release_crew() -> void:
 	for j in _brains:
 		var b: CharacterBody3D = game.crew[j]
+		b.swim_boost = 1.0
 		if b.brain == _brains[j] and game.crew_modes[j] == "ai":
 			b.brain = Ai.new(b, game.world.mokki, game.sun, Porukka.CREW[j].name)
 	_brains.clear()
@@ -251,6 +262,7 @@ func _physics_process(delta: float) -> void:
 	# Hahmo vaihtui pelaajalle tai toiselle koneelle kesken matkan: jätetään jonosta.
 	for j in _brains.keys():
 		if (game.crew[j] as CharacterBody3D).brain != _brains[j]:
+			(game.crew[j] as CharacterBody3D).swim_boost = 1.0
 			_brains.erase(j)
 	if state == "matka" and bp.distance_to(LANDING) < ARRIVE_DIST:
 		_arrive()
@@ -265,6 +277,7 @@ func _physics_process(delta: float) -> void:
 func _arrive() -> void:
 	state = "perilla"
 	_party_t = 0.0
+	create_tween().tween_property(game.boat, "boost", 1.0, 2.0)  # rantaudutaan hiljentäen
 	game.toast("Perillä! Viinakätkö rinteessä rannan yläpuolella. E: olut · Q: huikka viinaa.", 6.0)
 	Sfx.play("win", -6.0)
 	music.arrive()  # viimeinen teema juhlien ajaksi

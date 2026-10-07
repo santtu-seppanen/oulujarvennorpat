@@ -1,7 +1,7 @@
 extends SceneTree
 ## Tutkimusmatkan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/retkitesti.gd
-## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi, tietokoneen hahmot lähtevät
-## vanaveteen. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) niemen ympäri kätkölle: vene ei jää
+## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja ympäristöäänet hiljenevät,
+## tietokoneen hahmot lähtevät vanaveteen. Soutu kestää alle minuutin ja koko matka noin minuutin. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) niemen ympäri kätkölle: vene ei jää
 ## matalikkoon, ja uimarit pysyvät jonossa veneen perässä. Perillä porukka nousee kätkölle, pelaaja kävelee
 ## kätkölle ja ottaa huikan (Q), ja matka päättyy. Lisäksi kumiveneen rakenne: soutajan jalat pohjan
 ## yläpuolella ja veneen sisällä, pohja vedenpinnan yläpuolella.
@@ -128,6 +128,7 @@ func _process(delta: float) -> bool:
 				check(pl.boat == boat, "pelaaja veneessä")
 				_check_boat_build()
 				key(KEY_Q)
+				set_meta("start_clock", clock)
 				ts = 0.0
 				step = 3
 		3:
@@ -135,6 +136,8 @@ func _process(delta: float) -> bool:
 				check(retki.active and retki.state == "matka", "tutkimusmatka alkoi")
 				check(retki.music.playing, "musiikki soi (%s)" % ("syntetisoitu" if retki.music.synth else "tiedosto"))
 				check(followers().size() == 3, "kolme tietokoneen hahmoa mukana (%d)" % followers().size())
+				var duck: AudioEffectAmplify = retki.music._duck
+				check(duck != null and duck.volume_db < -10.0, "ympäristöäänet hiljennetty (%.1f dB)" % (duck.volume_db if duck else 0.0))
 				pilot = Pilot.new()
 				pilot.boat = boat
 				pilot.path = R.ROUTE.duplicate()
@@ -147,7 +150,7 @@ func _process(delta: float) -> bool:
 			var bp := boat.global_position
 			stuck_t = stuck_t + delta if bp.distance_to(last_bp) < 0.2 * delta else 0.0
 			last_bp = bp
-			if ts > 30.0:
+			if ts > 12.0:
 				for j in followers():
 					var b: CharacterBody3D = main.crew[j]
 					var lag: float = Vector2(b.global_position.x - bp.x, b.global_position.z - bp.z).length()
@@ -158,17 +161,19 @@ func _process(delta: float) -> bool:
 				check(false, "vene jumissa kohdassa %s" % bp)
 				return _finish()
 			if retki.state == "perilla":
-				check(true, "perillä %.0f s soutamisen jälkeen" % ts)
+				check(ts < 50.0, "perillä %.0f s soutamisen jälkeen" % ts)
 				check(retki.music.playing, "musiikki soi vielä perillä")
+				check(retki.music.synth or retki.music.section == "finale", "viimeinen fraasi perillä (%s)" % retki.music.section)
+				set_meta("row_t", ts)
 				check(lag_n > 0 and lag_sum / lag_n < 14.0, "uimarit vanavedessä: keskimäärin %.1f m veneestä" % (lag_sum / maxf(1, lag_n)))
 				check(max_lag < 30.0, "kukaan ei jäänyt jälkeen (enintään %.1f m)" % max_lag)
 				ts = 0.0
 				step = 5
-			elif ts > 400.0:
-				check(false, "ei perillä 400 s:ssa (vene %s, kätkölle %.0f m)" % [bp, Vector2(bp.x, bp.z).distance_to(R.STASH)])
+			elif ts > 120.0:
+				check(false, "ei perillä 120 s:ssa (vene %s, kätkölle %.0f m)" % [bp, Vector2(bp.x, bp.z).distance_to(R.STASH)])
 				return _finish()
 		5:
-			if ts > 25.0:
+			if ts > 15.0:
 				var near := 0
 				for j in followers():
 					var b: CharacterBody3D = main.crew[j]
@@ -206,7 +211,8 @@ func _process(delta: float) -> bool:
 				step = 9
 		9:
 			if not retki.active:
-				check(true, "matka päättyi, musiikki häipyy")
+				var total: float = clock - float(get_meta("start_clock"))
+				check(total < 75.0, "matka päättyi %.0f s:ssa, musiikki häipyy" % total)
 				var back := 0
 				var Ai: GDScript = load("res://scripts/ai.gd")
 				for j in 4:

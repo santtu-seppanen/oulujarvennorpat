@@ -29,8 +29,7 @@ const CREW := [
 	},
 	{
 		"name": "Jukka",
-		"desc": "Tumma lyhyt tukka ja sänkiparta, iloinen virne. Laihtunut 9,8 kg. Grillimestari.",
-		# Laihtunut 9,8 kg: maha ja vartalo pienempinä kuin ennen (belly 0.55, bulk 0.25).
+		"desc": "Tumma lyhyt tukka ja sänkiparta, iloinen virne. Grillimestari.",
 		"look": {"hair": "Hair_Buzzed", "hair_color": Color(0.17, 0.12, 0.09), "beard": true, "height": 1.77,
 			"belly": 0.35, "bulk": 0.12, "shoulders": 0.15, "skin": Color(1.0, 0.85, 0.76),
 			"pants": Color(0.26, 0.33, 0.18), "shoes": Color(0.86, 0.64, 0.52)},

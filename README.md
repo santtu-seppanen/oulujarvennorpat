@@ -110,15 +110,20 @@ kahlaavat veteen ja uivat jonossa veneen perässä sen kulkemaa reittiä (vanave
 Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
 - Reitti: mökin edestä ensin ulos lohkareiden ohi, lahden yli länteen, niemen kärjen ympäri ja etelään
-  rantaan. Soutu kestää noin neljä minuuttia, ja vettä riittää koko matkalla.
+  rantaan. Vettä riittää koko matkalla.
+- Koko matka kestää noin minuutin: matkalla vene kulkee vauhdilla (soutu n. 40 s) ja uimarit pysyvät perässä,
+  ja matalikossa vene liukuu rantaa pitkin. Musiikki soi kovaa ja ympäristöäänet hiljenevät matkan ajaksi.
 - Perillä porukka nousee 24 m rinnettä ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
-  kätkö, ehtymätön (E olut, Q viina). Hetken päästä musiikki häipyy, ja tietokoneen hahmot palaavat omiin puuhiinsa.
+  kätkö, ehtymätön (E olut, Q viina). Kappaleen loputtua (n. 22 s) musiikki häipyy, ja tietokoneen hahmot
+  palaavat omiin puuhiinsa.
 - Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
   soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
-- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna matkaan. Matka alkaa intron kanssa;
-  jos soutu venyy, ennen loppuhäivytystä (3:16) palataan ristihäivytyksellä täyden teeman alkuun (1:07), ja
-  perillä siirrytään viimeiseen teemaan (2:49), joka soi juhlien ajan kappaleen omaan häivytykseen. Silmukan
-  kohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
+- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna noin minuutin matkaan. Matka alkaa
+  intron viimeisestä iskusta (0:20), ja pianoteeman kohdalla (0:29) siirrytään suoraan täyden teeman alkuun
+  (1:07), joka soi soudun ajan. Jos soutu venyy, ennen loppuhäivytystä (3:16) palataan täyden teeman alkuun, ja
+  perillä siirrytään viimeiseen fraasiin (3:03), joka soi juhlien ajan kappaleen omaan häivytykseen.
+  Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
+  Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan +6 dB, ja Ambience-väylä vaimenee 15 dB.
   - Äänite: `assets/music/chariots_of_fire.ogg` (OGG Vorbis q2, 2,5 MB, hiljainen häntä leikattu), mukana
     kaikissa buildeissa ja selainversiossa. Tehty alkuperäisestä mp3:sta: `afconvert -f WAVE -d LEI16@44100`,
     leikkaus 210 s:iin ja `oggenc -q 2`.
@@ -208,8 +213,7 @@ päikkärien jälkeen porukan kahville: kupit ovat keittiön pöydässä.
 
 Porukka (`scripts/porukka.gd`, `scripts/ai.gd`): tietokoneen ohjaamat hahmot istuvat pöydän ääressä ja
 juttelevat, grillaavat, käyvät saunassa ja uimassa, nukkuvat päikkärit ylämökissä (paitsi Jukka, joka keittää
-kahvit) ja käyvät huussissa, ja kerääntyvät laiturille ja etuterassille katsomaan auringonlaskua. Jukka on
-laihtunut 9,8 kg: maha ja vartalo ovat aiempaa pienemmät, ja tutkimusmatkalla hän kehuu kelluvansa kevyempänä.
+kahvit) ja käyvät huussissa, ja kerääntyvät laiturille ja etuterassille katsomaan auringonlaskua.
 
 Aurinko (`scripts/sun.gd`) lasketaan NOAA:n algoritmilla aloituspaikalle pelin päivämäärän ja kellonajan
 mukaan (Suomen aika, kesäaika huomioiden), ilmakehän taittuminen mukana. Pelivuorokausi kestää 24 minuuttia ja

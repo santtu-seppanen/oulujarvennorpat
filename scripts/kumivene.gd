@@ -31,6 +31,8 @@ const INBOARD := 0.42  # kädensijasta hankaimeen
 
 var rower: Node3D = null  # on_foot.gd, kun joku soutaa
 var speed := 0.0
+## Tutkimusmatkalla (tutkimusmatka.gd) vene kulkee vauhdilla: työntö, huippunopeus ja kääntö kerrottuina.
+var boost := 1.0
 var yaw_rate := 0.0
 var phase := 0.0
 ## Moninpeli: veneen paikka tulee verkosta soutajan (tai, kun kukaan ei souda, hostin) koneelta.
@@ -117,19 +119,27 @@ func _drive(throttle: float, steer: float, rowing: bool, delta: float) -> void:
 	# Vedon aikana työntö, muuten veden vastus.
 	if rowing and phase < DRIVE:
 		var pull := sin(phase / DRIVE * PI)
-		speed += throttle * pull * 2.4 * delta
-		yaw_rate += steer * pull * 2.6 * delta
+		speed += throttle * pull * 2.4 * boost * delta
+		yaw_rate += steer * pull * 2.6 * sqrt(boost) * delta
 	speed -= speed * 0.55 * delta
 	yaw_rate -= yaw_rate * 2.2 * delta
-	speed = clampf(speed, -MAX_SPEED * 0.6, MAX_SPEED)
+	speed = clampf(speed, -MAX_SPEED * 0.6 * boost, MAX_SPEED * boost)
 	rotation.y += yaw_rate * delta
 	var fwd := -global_transform.basis.z
 	velocity = Vector3(fwd.x, 0, fwd.z) * speed
-	# Matalikko: keula tai perä karilla -> pysähtyy siihen suuntaan.
+	# Matalikko: keula tai perä karilla -> pysähtyy siihen suuntaan. Vauhdissa (boost) vene liukuu rantaa
+	# pitkin: rinteen suuntainen osa nopeudesta jää pois.
 	var probe := global_position + Vector3(fwd.x, 0, fwd.z) * signf(speed) * (LENGTH * 0.5 + 0.1)
 	if Terrain.h(probe.x, probe.z) > -0.06 and absf(speed) > 0.01:
-		velocity = Vector3.ZERO
-		speed *= 0.3
+		var up := Vector3(Terrain.h(probe.x + 0.5, probe.z) - Terrain.h(probe.x - 0.5, probe.z), 0,
+			Terrain.h(probe.x, probe.z + 0.5) - Terrain.h(probe.x, probe.z - 0.5))
+		if boost > 1.0 and up.length() > 0.001:
+			up = up.normalized()
+			velocity -= up * maxf(0.0, velocity.dot(up))
+			speed *= 1.0 - 1.5 * delta
+		else:
+			velocity = Vector3.ZERO
+			speed *= 0.3
 	move_and_slide()
 	if get_slide_collision_count() > 0:
 		speed *= 0.8

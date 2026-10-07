@@ -1,10 +1,14 @@
 extends Node
 ## Tutkimusmatkan musiikki: Vangeliksen Chariots of Fire (assets/music/chariots_of_fire.ogg, OGG Vorbis q2,
-## 2,5 MB, hiljainen häntä leikattu). Kappale sovitetaan matkaan:
-## - Matka alkaa intron kanssa, kun porukka kahlaa veteen.
-## - Jos soutu venyy, ennen loppuhäivytystä (LOOP_FROM) palataan täyden teeman alkuun (LOOP_TO). Kohdat on haettu
-##   iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
-## - Perillä (arrive) siirrytään viimeiseen teemaan (FINALE), joka soi juhlien ajan kappaleen omaan häivytykseen.
+## 2,5 MB, hiljainen häntä leikattu). Kappale sovitetaan noin minuutin matkaan:
+## - Matka alkaa intron viimeisestä iskusta (START, 0:20), ja kun pianoteema alkaisi (0:29), siirrytään suoraan
+##   täyden teeman alkuun (INTRO_FROM -> INTRO_TO, 1:07), joka soi soudun ajan (n. 30 s).
+## - Jos soutu venyy, ennen loppuhäivytystä (LOOP_FROM) palataan täyden teeman alkuun (LOOP_TO).
+## - Perillä (arrive) siirrytään viimeiseen fraasiin (FINALE, 3:03), joka soi juhlien ajan kappaleen omaan
+##   häivytykseen (n. 22 s, tutkimusmatka.gd PARTY_T).
+## Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
+## Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan (VOLUME_DB). Matkan ajan ympäristöäänet
+## (Ambience-väylä) hiljenevät (DUCK_DB) musiikin voimakkuuden mukaan.
 ## Kaksi soitinta vuorotellen ristihäivytystä varten. Ilman tiedostoa soi syntetisoitu kappale samassa hengessä
 ## (Des-duuri, 69 bpm): sykkivä pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen
 ## ja kellot. Syntetisoidaan reaaliajassa (AudioStreamGenerator), joten toimii myös selaimessa ilman säikeitä.
@@ -12,14 +16,20 @@ extends Node
 const FILES := ["res://assets/music/chariots_of_fire.ogg", "res://assets/music/chariots_of_fire.mp3",
 	"res://assets/music/chariots_of_fire.wav"]
 ## Kappaleen kohdat (s): tahti 3,52 s (68 bpm), mutta tempo liukuu hieman, joten kohdat on sovitettu iskuihin.
+const START := 20.2        # intron viimeinen isku (0:20,3)
+const INTRO_FROM := 28.42  # pianoteeman alku (isku 0:28,82) ...
+const INTRO_TO := 67.05    # ... vastaa täyden teeman alkua (isku 1:07,45)
 const LOOP_FROM := 196.2   # ennen loppuhäivytystä (3:21) ...
 const LOOP_TO := 67.45     # ... takaisin täyden teeman alkuun
-const FINALE := 168.93     # viimeinen teema: n. 40 s kappaleen loppuun, juhlien (tutkimusmatka.gd PARTY_T) ajan
+const FINALE := 182.98     # viimeinen fraasi: n. 22 s kappaleen loppuun, juhlien (tutkimusmatka.gd PARTY_T) ajan
+const XFADE_INTRO := 0.8   # introsta täyteen teemaan
 const XFADE := 2.5         # silmukan ristihäivytys
-const XFADE_FINALE := 1.2  # perillä viimeiseen teemaan
+const XFADE_FINALE := 1.2  # perillä viimeiseen fraasiin
 const RATE := 22050.0
 const BPM := 69.0
-const VOLUME_DB := -3.0
+const VOLUME_DB := 6.0     # tiedosto: huippu n. -5 dBFS
+const SYNTH_DB := 0.0      # syntetisoitu kappale (näytteet jo rajattu -1..1)
+const DUCK_DB := -15.0     # ympäristöäänet matkan ajan
 ## Soinnut tahdeittain (MIDI): Des, Ges/Des, Des, As/C, b, Ges, Assus4, As.
 const CHORDS := [[49, 56, 61, 65], [49, 54, 58, 61], [49, 56, 61, 65], [48, 56, 60, 63], [46, 53, 58, 61],
 	[42, 54, 58, 61], [44, 56, 61, 63], [44, 56, 60, 63]]
@@ -47,6 +57,7 @@ var _comb_l := PackedFloat32Array()
 var _comb_r := PackedFloat32Array()
 var _ci := 0
 var _tw: Tween
+var _duck: AudioEffectAmplify  # Ambience-väylällä
 
 
 func _ready() -> void:
@@ -71,28 +82,41 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	_cur = _players[0]
+	var bus := AudioServer.get_bus_index("Ambience")
+	if bus >= 0:
+		_duck = AudioEffectAmplify.new()
+		AudioServer.add_bus_effect(bus, _duck)
 
 
-## Alusta, häivyttäen sisään.
-func start(fade := 1.0) -> void:
+func _exit_tree() -> void:
+	var bus := AudioServer.get_bus_index("Ambience")
+	for i in (AudioServer.get_bus_effect_count(bus) if bus >= 0 else 0):
+		if AudioServer.get_bus_effect(bus, i) == _duck:
+			AudioServer.remove_bus_effect(bus, i)
+			break
+
+
+## Intron viimeisestä iskusta, häivyttäen sisään.
+func start(fade := 0.15) -> void:
 	for p in _players:
 		p.stop()
 	_old = null
 	_xf_t = 0.0
 	_cur = _players[0]
 	_t = 0.0
-	_cur.play()
 	if synth:
+		_cur.play()
 		_pb = _cur.get_stream_playback()
 		_fill()
 	else:
-		section = "matka"
+		_cur.play(START)
+		section = "intro"
 	_fade_to(1.0, fade)
 
 
 ## Perillä: viimeiseen teemaan, ellei se jo soi.
 func arrive() -> void:
-	if synth or not playing or section != "matka":
+	if synth or not playing or section == "finale":
 		return
 	section = "finale"
 	if _cur.get_playback_position() < FINALE - 4.0:
@@ -134,9 +158,13 @@ func _process(delta: float) -> void:
 	if synth:
 		if playing and _pb != null:
 			_fill()
-	elif playing:
-		if section == "matka" and _xf_t <= 0.0 and _cur.get_playback_position() >= LOOP_FROM:
-			_cross(LOOP_TO, XFADE)
+	elif playing and _xf_t <= 0.0:
+		var pos := _cur.get_playback_position()
+		if section == "intro" and pos >= INTRO_FROM:
+			section = "matka"
+			_cross(INTRO_TO + pos - INTRO_FROM, XFADE_INTRO)
+		elif section == "matka" and pos >= LOOP_FROM:
+			_cross(LOOP_TO + pos - LOOP_FROM, XFADE)
 	var k := 1.0
 	if _xf_t > 0.0:
 		_xf_t = maxf(0.0, _xf_t - delta)
@@ -146,8 +174,11 @@ func _process(delta: float) -> void:
 			if _xf_t <= 0.0:
 				_old.stop()
 				_old = null
+	var gain := SYNTH_DB if synth else VOLUME_DB
 	if _cur != null:
-		_cur.volume_db = linear_to_db(maxf(master * sin(k * PI * 0.5), 1e-4)) + VOLUME_DB
+		_cur.volume_db = linear_to_db(maxf(master * sin(k * PI * 0.5), 1e-4)) + gain
+	if _duck != null:
+		_duck.volume_db = linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if playing else 0.0))
 
 
 static func _hz(midi: float) -> float:
