@@ -1,12 +1,22 @@
-extends AudioStreamPlayer
-## Tutkimusmatkan musiikki: Vangeliksen Chariots of Fire. Äänite ei ole vapaasti levitettävä, joten sitä ei ole
-## pelin mukana: oman kopion voi lisätä tiedostoon assets/music/chariots_of_fire.ogg (tai .mp3/.wav), ja se soi
-## silmukkana. Ilman tiedostoa soi syntetisoitu kappale samassa hengessä (Des-duuri, 69 bpm): sykkivä
-## pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot. Syntetisoidaan
-## reaaliajassa (AudioStreamGenerator), joten toimii myös selaimessa ilman säikeitä.
+extends Node
+## Tutkimusmatkan musiikki: Vangeliksen Chariots of Fire (assets/music/chariots_of_fire.ogg, OGG Vorbis q2,
+## 2,5 MB, hiljainen häntä leikattu). Kappale sovitetaan matkaan:
+## - Matka alkaa intron kanssa, kun porukka kahlaa veteen.
+## - Jos soutu venyy, ennen loppuhäivytystä (LOOP_FROM) palataan täyden teeman alkuun (LOOP_TO). Kohdat on haettu
+##   iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
+## - Perillä (arrive) siirrytään viimeiseen teemaan (FINALE), joka soi juhlien ajan kappaleen omaan häivytykseen.
+## Kaksi soitinta vuorotellen ristihäivytystä varten. Ilman tiedostoa soi syntetisoitu kappale samassa hengessä
+## (Des-duuri, 69 bpm): sykkivä pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen
+## ja kellot. Syntetisoidaan reaaliajassa (AudioStreamGenerator), joten toimii myös selaimessa ilman säikeitä.
 
 const FILES := ["res://assets/music/chariots_of_fire.ogg", "res://assets/music/chariots_of_fire.mp3",
 	"res://assets/music/chariots_of_fire.wav"]
+## Kappaleen kohdat (s): tahti 3,52 s (68 bpm), mutta tempo liukuu hieman, joten kohdat on sovitettu iskuihin.
+const LOOP_FROM := 196.2   # ennen loppuhäivytystä (3:21) ...
+const LOOP_TO := 67.45     # ... takaisin täyden teeman alkuun
+const FINALE := 168.93     # viimeinen teema: n. 40 s kappaleen loppuun, juhlien (tutkimusmatka.gd PARTY_T) ajan
+const XFADE := 2.5         # silmukan ristihäivytys
+const XFADE_FINALE := 1.2  # perillä viimeiseen teemaan
 const RATE := 22050.0
 const BPM := 69.0
 const VOLUME_DB := -3.0
@@ -15,8 +25,18 @@ const CHORDS := [[49, 56, 61, 65], [49, 54, 58, 61], [49, 56, 61, 65], [48, 56, 
 	[42, 54, 58, 61], [44, 56, 61, 63], [44, 56, 60, 63]]
 
 var synth := false  # soiko syntetisoitu (ei tiedostoa)
+var section := ""   # "" | matka | finale (tiedostolla)
+var playing: bool:
+	get:
+		return _cur != null and _cur.playing
+var master := 0.0   # kokonaisvoimakkuus 0..1 (häivytykset)
+var _cur: AudioStreamPlayer
+var _old: AudioStreamPlayer  # ristihäivytyksessä vaimeneva
+var _players: Array[AudioStreamPlayer] = []
+var _xf_t := 0.0
+var _xf_len := 1.0
 var _pb: AudioStreamGeneratorPlayback
-var _t := 0.0  # kappaleen aika (s)
+var _t := 0.0  # syntetisoidun kappaleen aika (s)
 var _pad_f := [0.0, 0.0, 0.0, 0.0]
 var _pad_ph := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var _lp := 0.0
@@ -30,57 +50,104 @@ var _tw: Tween
 
 
 func _ready() -> void:
-	bus = "Music"
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var st: AudioStream = null
 	for f in FILES:
 		if ResourceLoader.exists(f):
-			var st: AudioStream = load(f)
-			if st is AudioStreamOggVorbis or st is AudioStreamMP3:
-				st.loop = true
-			elif st is AudioStreamWAV:
-				st.loop_mode = AudioStreamWAV.LOOP_FORWARD
-				st.loop_end = int(st.get_length() * st.mix_rate)
-			stream = st
-			return
-	synth = true
-	var g := AudioStreamGenerator.new()
-	g.mix_rate = RATE
-	g.buffer_length = 0.35
-	stream = g
-	_comb_l.resize(int(RATE * 0.0437))
-	_comb_r.resize(int(RATE * 0.0511))
+			st = load(f)
+			break
+	if st is AudioStreamOggVorbis or st is AudioStreamMP3:
+		st.loop = false
+	if st == null:
+		synth = true
+		var g := AudioStreamGenerator.new()
+		g.mix_rate = RATE
+		g.buffer_length = 0.35
+		st = g
+	for k in (1 if synth else 2):
+		var p := AudioStreamPlayer.new()
+		p.bus = "Music"
+		p.stream = st
+		add_child(p)
+		_players.append(p)
+	_cur = _players[0]
 
 
 ## Alusta, häivyttäen sisään.
 func start(fade := 1.0) -> void:
-	if _tw != null:
-		_tw.kill()
+	for p in _players:
+		p.stop()
+	_old = null
+	_xf_t = 0.0
+	_cur = _players[0]
 	_t = 0.0
-	volume_db = -30.0
-	play()
+	_cur.play()
 	if synth:
-		_pb = get_stream_playback()
+		_pb = _cur.get_stream_playback()
 		_fill()
-	_tw = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_tw.tween_property(self, "volume_db", VOLUME_DB, fade)
+	else:
+		section = "matka"
+	_fade_to(1.0, fade)
+
+
+## Perillä: viimeiseen teemaan, ellei se jo soi.
+func arrive() -> void:
+	if synth or not playing or section != "matka":
+		return
+	section = "finale"
+	if _cur.get_playback_position() < FINALE - 4.0:
+		_cross(FINALE, XFADE_FINALE)
 
 
 ## Häivyttää pois ja pysäyttää.
 func fade_out(fade := 4.0) -> void:
 	if not playing:
 		return
-	if _tw != null:
-		_tw.kill()
-	_tw = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_tw.tween_property(self, "volume_db", -40.0, fade)
-	_tw.tween_callback(func() -> void:
-		stop()
+	_fade_to(0.0, fade, func() -> void:
+		for p in _players:
+			p.stop()
+		section = ""
 		_pb = null)
 
 
-func _process(_delta: float) -> void:
-	if synth and playing and _pb != null:
-		_fill()
+func _fade_to(v: float, secs: float, done := Callable()) -> void:
+	if _tw != null:
+		_tw.kill()
+	_tw = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_tw.tween_property(self, "master", v, secs)
+	if done.is_valid():
+		_tw.tween_callback(done)
+
+
+## Toinen soitin alkaa kohdasta at, ja nykyinen vaimenee secs sekunnissa (tasatehoinen ristihäivytys).
+func _cross(at: float, secs: float) -> void:
+	if _old != null:
+		_old.stop()
+	_old = _cur
+	_cur = _players[1] if _cur == _players[0] else _players[0]
+	_cur.play(at)
+	_xf_len = secs
+	_xf_t = secs
+
+
+func _process(delta: float) -> void:
+	if synth:
+		if playing and _pb != null:
+			_fill()
+	elif playing:
+		if section == "matka" and _xf_t <= 0.0 and _cur.get_playback_position() >= LOOP_FROM:
+			_cross(LOOP_TO, XFADE)
+	var k := 1.0
+	if _xf_t > 0.0:
+		_xf_t = maxf(0.0, _xf_t - delta)
+		k = 1.0 - _xf_t / _xf_len
+		if _old != null:
+			_old.volume_db = linear_to_db(maxf(master * cos(k * PI * 0.5), 1e-4)) + VOLUME_DB
+			if _xf_t <= 0.0:
+				_old.stop()
+				_old = null
+	if _cur != null:
+		_cur.volume_db = linear_to_db(maxf(master * sin(k * PI * 0.5), 1e-4)) + VOLUME_DB
 
 
 static func _hz(midi: float) -> float:
@@ -93,7 +160,7 @@ func _fill() -> void:
 		_pb.push_buffer(render(n))
 
 
-## Seuraavat n stereonäytettä.
+## Seuraavat n stereonäytettä syntetisoitua kappaletta.
 func render(n: int) -> PackedVector2Array:
 	if _comb_l.is_empty():
 		_comb_l.resize(int(RATE * 0.0437))

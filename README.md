@@ -115,11 +115,15 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
   kätkö, ehtymätön (E olut, Q viina). Hetken päästä musiikki häipyy, ja tietokoneen hahmot palaavat omiin puuhiinsa.
 - Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
   soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
-- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire -äänite ei ole vapaasti levitettävä, joten sitä ei
-  ole pelin mukana. Oman kopion voi lisätä tiedostoon `assets/music/chariots_of_fire.ogg` (tai `.mp3`/`.wav`),
-  ja se soi silmukkana. Ilman tiedostoa soi reaaliajassa syntetisoitu kappale samassa hengessä (Des-duuri,
-  69 bpm: pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot), mutta ei
-  Vangeliksen melodiaa.
+- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna matkaan. Matka alkaa intron kanssa;
+  jos soutu venyy, ennen loppuhäivytystä (3:16) palataan ristihäivytyksellä täyden teeman alkuun (1:07), ja
+  perillä siirrytään viimeiseen teemaan (2:49), joka soi juhlien ajan kappaleen omaan häivytykseen. Silmukan
+  kohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
+  - Äänite: `assets/music/chariots_of_fire.ogg` (OGG Vorbis q2, 2,5 MB, hiljainen häntä leikattu), mukana
+    kaikissa buildeissa ja selainversiossa. Tehty alkuperäisestä mp3:sta: `afconvert -f WAVE -d LEI16@44100`,
+    leikkaus 210 s:iin ja `oggenc -q 2`.
+  - Varalla, jos tiedostoa ei ole, soi reaaliajassa syntetisoitu kappale samassa hengessä (Des-duuri, 69 bpm:
+    pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot).
 
 Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
 vanavedessä, porukka nousee kätkölle ja pelaaja ottaa huikan; lisäksi kumiveneen rakenne (soutajan jalat

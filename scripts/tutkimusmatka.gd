@@ -41,7 +41,7 @@ var game: Node3D
 var stash_pos := Vector3.ZERO
 var active := false
 var state := ""  # matka | perilla
-var music: AudioStreamPlayer
+var music: Node  # retkimusiikki.gd
 var _trail: Array = []  # veneen kulkema reitti (uusin ensin), uimarit seuraavat sitä
 var _brains := {}  # tämän koneen ohjaamat tietokoneen hahmot matkalla: indeksi -> Follow
 var _party_t := 0.0
@@ -267,6 +267,7 @@ func _arrive() -> void:
 	_party_t = 0.0
 	game.toast("Perillä! Viinakätkö rinteessä rannan yläpuolella. E: olut · Q: huikka viinaa.", 6.0)
 	Sfx.play("win", -6.0)
+	music.arrive()  # viimeinen teema juhlien ajaksi
 	var said := false
 	for j in _brains:
 		var f: Follow = _brains[j]
