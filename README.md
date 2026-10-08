@@ -105,34 +105,41 @@ Testi: `tools/testit/rantatesti.gd` (`--headless --fixed-fps 60`), kuvakaappauks
 
 Lahden lounaisrannalla on viinakätkö (**64.431793 N, 26.884539 E**, n. 100 m mökiltä lounaaseen),
 jonne ei kulje polkua: sinne mennään kumiveneellä (`scripts/tutkimusmatka.gd`). Veneessä Q aloittaa
-tutkimusmatkan. Vangeliksen Chariots of Fire soi, ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot
+tutkimusmatkan. Alkuun soi pätkä Vangeliksen Chariots of Firea ja sitten samanhenkinen generoitu jatko, ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot
 kahlaavat veteen ja uivat jonossa veneen perässä sen kulkemaa reittiä (vanavedessä jaksaa, kunto ei kulu).
 Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
 - Reitti: mökin edestä ensin ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen (n. 115 m, soutu
   runsas minuutti tavallista vauhtia). Vettä riittää koko matkalla.
-- Kun Vangelis soi, taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat. Alussa huudetaan ja
-  jutellaan (n. 10 s), sitten hiljennytään kuuntelemaan pelkkää Vangelista. Perillä ensimmäinen huutaa
-  "Maata näkyvissä!", kappaleen viimeinen fraasi soi loppuun, ja kätköllä keskustelu jatkuu.
+- Kun musiikki soi, taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat. Alussa huudetaan ja
+  jutellaan (n. 10 s), sitten hiljennytään kuuntelemaan pelkkää musiikkia. Perillä ensimmäinen huutaa
+  "Maata näkyvissä!", musiikki soittaa loppukadenssin, ja kätköllä keskustelu jatkuu.
 - Perillä porukka nousee 11 m rantaa ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
-  kätkö, ehtymätön (E olut, Q viina). Juhlien (n. 45 s) jälkeen tietokoneen hahmot palaavat omiin puuhiinsa,
-  ja mökille tullaan tavallisessa äänimaisemassa ilman musiikkia.
-- Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
+  kätkö, ehtymätön (E olut, Q viina).
+- Juhlien (n. 45 s) jälkeen paluu porukassa: tietokoneen hahmot kahlaavat takaisin veteen ja uivat taas jonossa
+  veneen perässä, kun vene soudetaan mökille, nyt tavallisessa äänimaisemassa ilman musiikkia. Kun vene on
+  lähtöpaikalla, matka päättyy ja hahmot palaavat omiin puuhiinsa (myös 4 min jälkeen, jos kukaan ei souda).
+- Veneessä uudelleen Q keskeyttää matkan (myös paluun). Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
   soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
-- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna matkaan. Matka alkaa
-  intron viimeisestä iskusta (0:20), ja pianoteeman kohdalla (0:29) siirrytään suoraan täyden teeman alkuun
-  (1:07), joka soi soudun ajan. Jos soutu venyy, ennen loppuhäivytystä (3:16) palataan täyden teeman alkuun, ja
-  perillä siirrytään viimeiseen fraasiin (3:03), joka soi kappaleen omaan häivytykseen.
-  Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
-  Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan +6 dB.
-  - Äänite: `assets/music/chariots_of_fire.ogg` (OGG Vorbis q2, 2,5 MB, hiljainen häntä leikattu), mukana
-    kaikissa buildeissa ja selainversiossa. Tehty alkuperäisestä mp3:sta: `afconvert -f WAVE -d LEI16@44100`,
-    leikkaus 210 s:iin ja `oggenc -q 2`.
-  - Varalla, jos tiedostoa ei ole, soi reaaliajassa syntetisoitu kappale samassa hengessä (Des-duuri, 69 bpm:
-    pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot).
+- **Musiikki** (`scripts/retkimusiikki.gd`): alkuun n. 23 s Chariots of Firea, sitten peli jatkaa
+  samanhenkisellä generoidulla musiikilla perille asti.
+  - Pätkä: `assets/music/chariots_of_fire_alku.ogg` (24 s, OGG Vorbis q5, 450 kt, normalisoitu -3 dBFS:ään,
+    ei vahvistusta pelissä). Intron viimeisestä iskusta (0:20) pianoteeman kohdalla (0:29) ristihäivytyksellä
+    täyden teeman alkuun (1:07) ja neljä tahtia teemaa; fraasin lopussa (22,7 s) generoitu jatko alkaa omalla
+    iskullaan ja pätkä häipyy 1,6 s:ssa. Leikattu aiemmasta koko kappaleen tiedostosta (`oggdec`, Python,
+    `oggenc -q 5`). Jos pätkää ei ole, generoitu soi alusta asti.
+  - Generoitu: Des-duuri, 69 bpm, teeman sointukierto jatkuu pätkän jälkeen viidennestä tahdista: pianon
+    kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot joka toisella tahdilla.
+    Perillä seuraavasta tahdista loppukadenssi (Ges, Assus4, As, Des), ja viimeinen sointu häipyy.
+  - Tehokas: soittimien äänet lasketaan kerran lyhyiksi näytteiksi (yhteensä n. 10 ms, yksi ruutua kohden),
+    ja ne soitetaan sävelinä `AudioStreamPolyphonic`illa sävelkorkeutta skaalaamalla; matto liukuu sointuihin
+    sävelkorkeutta muuttamalla. Ruutua kohden vain ajastus ja neljä voimakkuutta; ruudun rajalta myöhästynyt
+    sävel aloitetaan näytteen keskeltä, joten rytmi pysyy tasaisena. Kaiku on väylän efekti
+    (`Retkimusiikki` -> `Music`).
 
 Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
-vanavedessä, porukka nousee kätkölle ja pelaaja ottaa huikan; lisäksi kumiveneen rakenne (soutajan jalat
+vanavedessä, porukka nousee kätkölle ja pelaaja ottaa huikan, Vangelis-pätkän jälkeen generoitu musiikki jatkaa,
+ja paluulla porukka ui vanavedessä mökille tavallisessa äänimaisemassa; lisäksi kumiveneen rakenne (soutajan jalat
 veneen sisällä pohjan päällä).
 
 ## Rantatennis ylämökin edessä

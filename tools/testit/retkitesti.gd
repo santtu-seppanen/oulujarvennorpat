@@ -1,10 +1,12 @@
 extends SceneTree
 ## Tutkimusmatkan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/retkitesti.gd
-## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja muut äänet vaikenevat, alun huutojen jälkeen puhekin,
+## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi (Vangelis-pätkän jälkeen generoitu) ja muut
+## äänet vaikenevat, alun huutojen jälkeen puhekin,
 ## tietokoneen hahmot lähtevät vanaveteen. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) n. 100 m päähän
 ## kätkölle: vene ei jää
 ## matalikkoon, ja uimarit pysyvät jonossa veneen perässä. Perillä porukka nousee kätkölle, pelaaja kävelee
-## kätkölle ja ottaa huikan (Q), ja matka päättyy. Lisäksi kumiveneen rakenne: soutajan jalat pohjan
+## kätkölle ja ottaa huikan (Q) ja palaa veneeseen. Juhlien jälkeen paluu: porukka ui taas vanavedessä, kun
+## autopilotti soutaa takaisin lähtöpaikalle tavallisessa äänimaisemassa, ja matka päättyy mökillä. Lisäksi kumiveneen rakenne: soutajan jalat pohjan
 ## yläpuolella ja veneen sisällä, pohja vedenpinnan yläpuolella.
 
 ## Soutaa veneen reittipisteitä pitkin samoilla syötteillä kuin pelaaja.
@@ -163,6 +165,12 @@ func _process(delta: float) -> bool:
 			if stuck_t > 8.0:
 				check(false, "vene jumissa kohdassa %s" % bp)
 				return _finish()
+			if ts > 30.0 and retki.state == "matka" and not has_meta("gen"):
+				# Vangelis-pätkän jälkeen generoitu musiikki jatkaa: matto (4 ääntä) ja ostinato soivat.
+				set_meta("gen", true)
+				var m: Node = retki.music
+				check(m.playing and m._g > 0.0 and m._voices.size() == 4 and m._next_e > 8,
+					"pätkän jälkeen generoitu musiikki (%.1f s, %d iskua)" % [m._g, m._next_e])
 			if ts > 12.0 and retki.state == "matka" and not has_meta("quiet"):
 				set_meta("quiet", true)
 				check(not retki.allows_speech("Kippis!") and retki.allows_speech(R.LAND), "soudun aikana hiljaa")
@@ -214,13 +222,65 @@ func _process(delta: float) -> bool:
 		8:
 			if ts > 0.5:
 				check(pl.drinks == int(get_meta("d0")) + 1, "huikka viinaa kätköltä")
+				# Takaisin veneelle (veneen kätkön puolelle).
+				var w := Walk.new()
+				w.body = pl
+				var to: Vector3 = retki.stash_pos - boat.global_position
+				w.goal = boat.global_position + Vector3(to.x, 0.0, to.z).normalized() * 1.5
+				pl.brain = w
 				ts = 0.0
 				step = 9
 		9:
+			var g: Vector3 = pl.brain.goal if pl.brain is Walk else pl.global_position
+			if Vector2(pl.global_position.x - g.x, pl.global_position.z - g.z).length() < 0.8 or ts > 30.0:
+				pl.brain = null
+				key(KEY_E)
+				ts = 0.0
+				step = 10
+		10:
+			if ts > 0.5 and not has_meta("boarded"):
+				set_meta("boarded", true)
+				check(pl.boat == boat, "takaisin veneessä")
+			if retki.state == "paluu":
+				check(retki.active and followers().size() == 3, "paluu porukassa (%d)" % followers().size())
+				check(retki.allows_speech("Kippis!"), "paluulla saa puhua")
+				pilot = Pilot.new()
+				pilot.boat = boat
+				pilot.path = [Vector2(-90.0, 5.0), Vector2(-60.0, -20.0), Vector2(-15.0, -21.0), retki._home]
+				pl.brain = pilot
+				last_bp = boat.global_position
+				stuck_t = 0.0
+				max_lag = 0.0
+				lag_sum = 0.0
+				lag_n = 0
+				ts = 0.0
+				step = 11
+			elif ts > 60.0:
+				check(false, "paluu ei alkanut (%s)" % retki.state)
+				return _finish()
+		11:
+			# Soudetaan takaisin: musiikki on häipynyt ja muut äänet palanneet, uimarit pysyvät perässä.
+			var bp := boat.global_position
+			stuck_t = stuck_t + delta if bp.distance_to(last_bp) < 0.2 * delta else 0.0
+			last_bp = bp
+			if ts > 6.0 and not has_meta("quiet_back"):
+				set_meta("quiet_back", true)
+				var ducks: Array = retki.music._ducks
+				check(not retki.music.playing and ducks.all(func(d: AudioEffectAmplify) -> bool: return d.volume_db > -0.5),
+					"paluulla tavallinen äänimaisema ilman musiikkia")
+			if ts > 15.0 and retki.active:
+				for j in followers():
+					var b: CharacterBody3D = main.crew[j]
+					var lag: float = Vector2(b.global_position.x - bp.x, b.global_position.z - bp.z).length()
+					max_lag = maxf(max_lag, lag)
+					lag_sum += lag
+					lag_n += 1
 			if not retki.active:
-				var total: float = clock - float(get_meta("start_clock"))
-				check(total < 160.0, "matka päättyi %.0f s:ssa" % total)
-				check(not retki.music.playing, "takaisin ilman musiikkia")
+				var home: Vector2 = retki._home
+				check(Vector2(bp.x, bp.z).distance_to(home) < R.HOME_DIST + 1.0, "paluu päättyi mökillä %.0f s:ssa" % ts)
+				check(lag_n > 0 and lag_sum / lag_n < 14.0, "paluulla uimarit vanavedessä: keskimäärin %.1f m veneestä" % (lag_sum / maxf(1, lag_n)))
+				check(max_lag < 30.0, "paluulla kukaan ei jäänyt jälkeen (enintään %.1f m)" % max_lag)
+				check(not retki.music.playing, "mökillä ei musiikkia")
 				var back := 0
 				var Ai: GDScript = load("res://scripts/ai.gd")
 				for j in 4:
@@ -228,8 +288,11 @@ func _process(delta: float) -> bool:
 						back += 1
 				check(back == 3, "tietokoneen hahmot omiin puuhiinsa (%d/3)" % back)
 				return _finish()
-			if ts > 60.0:
-				check(false, "matka ei päättynyt")
+			if stuck_t > 8.0:
+				check(false, "vene jumissa paluulla kohdassa %s" % bp)
+				return _finish()
+			if ts > 150.0:
+				check(false, "paluu ei päättynyt 150 s:ssa (mökille %.0f m)" % Vector2(bp.x, bp.z).distance_to(retki._home))
 				return _finish()
 	return false
 

@@ -1,88 +1,92 @@
 extends Node
-## Tutkimusmatkan musiikki: Vangeliksen Chariots of Fire (assets/music/chariots_of_fire.ogg, OGG Vorbis q2,
-## 2,5 MB, hiljainen häntä leikattu). Kappale sovitetaan noin minuutin matkaan:
-## - Matka alkaa intron viimeisestä iskusta (START, 0:20), ja kun pianoteema alkaisi (0:29), siirrytään suoraan
-##   täyden teeman alkuun (INTRO_FROM -> INTRO_TO, 1:07), joka soi soudun ajan (n. 30 s).
-## - Jos soutu venyy, ennen loppuhäivytystä (LOOP_FROM) palataan täyden teeman alkuun (LOOP_TO).
-## - Perillä (arrive) siirrytään viimeiseen fraasiin (FINALE, 3:03), joka soi juhlien ajan kappaleen omaan
-##   häivytykseen (n. 22 s); sen jälkeen kätköllä jutellaan ilman musiikkia (tutkimusmatka.gd PARTY_T).
-## Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
-## Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan (VOLUME_DB). Kun kappale soi, muut äänet
-## (Ambience- ja SFX-väylät: taustaäänet ja efektit) vaiennetaan (DUCK_DB) musiikin voimakkuuden mukaan.
-## Kaksi soitinta vuorotellen ristihäivytystä varten. Ilman tiedostoa soi syntetisoitu kappale samassa hengessä
-## (Des-duuri, 69 bpm): sykkivä pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen
-## ja kellot. Syntetisoidaan reaaliajassa (AudioStreamGenerator), joten toimii myös selaimessa ilman säikeitä.
+## Tutkimusmatkan musiikki: alkuun pätkä Vangeliksen Chariots of Firea, sitten peli jatkaa samanhenkisellä
+## generoidulla musiikilla perille asti.
+## - Pätkä (assets/music/chariots_of_fire_alku.ogg, 24 s, OGG Vorbis q5, normalisoitu -3 dBFS:ään): intron
+##   viimeisestä iskusta (0:20) pianoteeman kohdalla ristihäivytyksellä täyden teeman alkuun (1:07) ja neljä
+##   tahtia teemaa. Fraasin lopussa (HANDOFF) generoitu musiikki alkaa omalla iskullaan, ja pätkä häipyy pois.
+## - Generoitu: Des-duuri, 69 bpm, teeman sointukierto (CHORDS) jatkuu pätkän jälkeen viidennestä tahdista:
+##   pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot.
+## - Perillä (arrive) seuraavasta tahdista loppukadenssi (FINALE) ja sointu jää soimaan häipyen.
+## Tehokas: soittimien äänet (piano, matto, kello) lasketaan kerran lyhyiksi näytteiksi (AudioStreamWAV, yksi
+## soitin ruutua kohden), ja ne soitetaan sävelinä AudioStreamPolyphonicilla sävelkorkeutta skaalaamalla.
+## Ruutua kohden vain ajastus ja muutama voimakkuus; kaiku on väylän efekti (BUS -> Music).
+## Kun musiikki soi, muut äänet (Ambience- ja SFX-väylät: taustaäänet ja efektit) vaiennetaan (DUCK_DB).
 
-const FILES := ["res://assets/music/chariots_of_fire.ogg", "res://assets/music/chariots_of_fire.mp3",
-	"res://assets/music/chariots_of_fire.wav"]
-## Kappaleen kohdat (s): tahti 3,52 s (68 bpm), mutta tempo liukuu hieman, joten kohdat on sovitettu iskuihin.
-const START := 20.2        # intron viimeinen isku (0:20,3)
-const INTRO_FROM := 28.42  # pianoteeman alku (isku 0:28,82) ...
-const INTRO_TO := 67.05    # ... vastaa täyden teeman alkua (isku 1:07,45)
-const LOOP_FROM := 196.2   # ennen loppuhäivytystä (3:21) ...
-const LOOP_TO := 67.45     # ... takaisin täyden teeman alkuun
-const FINALE := 182.98     # viimeinen fraasi: n. 22 s kappaleen loppuun perillä
-const XFADE_INTRO := 0.8   # introsta täyteen teemaan
-const XFADE := 2.5         # silmukan ristihäivytys
-const XFADE_FINALE := 1.2  # perillä viimeiseen fraasiin
-const RATE := 22050.0
-const BPM := 69.0
-const VOLUME_DB := 6.0     # tiedosto: huippu n. -5 dBFS
-const SYNTH_DB := 0.0      # syntetisoitu kappale (näytteet jo rajattu -1..1)
+const CLIP := "res://assets/music/chariots_of_fire_alku.ogg"
+const HANDOFF := 22.67     # pätkän fraasin loppu: generoitu alkaa tästä (pätkä häipyy 1,6 s)
+const CLIP_DB := 0.0       # pätkä on jo normalisoitu
+const GEN_DB := -2.0       # generoitu kokonaisuutena (varaa: soittimien huiput yhteensä alle 0 dBFS)
+const PAD_DB := -18.0      # maton ääni (4 ääntä)
+const PIANO_DB := -7.0
+const BELL_DB := -16.0
 const DUCK_DB := -80.0     # muut äänet (DUCK_BUSES) kappaleen ajan: hiljaa
 const DUCK_BUSES := ["Ambience", "SFX"]
-## Soinnut tahdeittain (MIDI): Des, Ges/Des, Des, As/C, b, Ges, Assus4, As.
+const BUS := "Retkimusiikki"  # generoidun musiikin väylä (kaiku), lähtee Music-väylään
+const RATE := 22050
+const BPM := 69.0
+## Soinnut tahdeittain (MIDI): Des, Ges/Des, Des, As/C, b, Ges, Assus4, As. Pätkässä soi neljä ensimmäistä.
 const CHORDS := [[49, 56, 61, 65], [49, 54, 58, 61], [49, 56, 61, 65], [48, 56, 60, 63], [46, 53, 58, 61],
 	[42, 54, 58, 61], [44, 56, 61, 63], [44, 56, 60, 63]]
+const FIRST_BAR := 4       # generoitu jatkaa pätkän jälkeen tästä tahdista
+const FINALE := [5, 6, 7, 0]  # loppukadenssi: Ges, Assus4, As, Des (jää soimaan)
+const FINALE_FADE := 8.0   # viimeinen sointu häipyy
+## Näytteiden perustaajuudet: matossa kaksi saha-aaltoa 139 ja 140 Hz, joten 1 s silmukka on saumaton.
+const PAD_F := 139.5
+const PIANO_F := 87.307    # F2
+const BELL_F := 659.255    # E5
 
-var synth := false  # soiko syntetisoitu (ei tiedostoa)
-var section := ""   # "" | matka | finale (tiedostolla)
+var synth := false  # pätkä puuttuu: generoitu alusta asti
+var section := ""   # "" | alku | matka | finale
 var playing: bool:
 	get:
-		return _cur != null and _cur.playing
+		return _on
 var master := 0.0   # kokonaisvoimakkuus 0..1 (häivytykset)
-var _cur: AudioStreamPlayer
-var _old: AudioStreamPlayer  # ristihäivytyksessä vaimeneva
-var _players: Array[AudioStreamPlayer] = []
-var _xf_t := 0.0
-var _xf_len := 1.0
-var _pb: AudioStreamGeneratorPlayback
-var _t := 0.0  # syntetisoidun kappaleen aika (s)
-var _pad_f := [0.0, 0.0, 0.0, 0.0]
-var _pad_ph := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-var _lp := 0.0
-var _pulse_ph := 0.0
-var _bell_ph := 0.0
-var _bell_f := 0.0
-var _comb_l := PackedFloat32Array()
-var _comb_r := PackedFloat32Array()
-var _ci := 0
+var _on := false
+var _clip: AudioStreamPlayer
+var _gen: AudioStreamPlayer
+var _pb: AudioStreamPlaybackPolyphonic
+var _pad: AudioStreamWAV
+var _piano: AudioStreamWAV
+var _bell: AudioStreamWAV
+var _build_step := 0  # näytteet lasketaan ruutu kerrallaan (0..3)
+var _clip_t := 0.0    # aikaa pätkän alusta (oma kello: soittokohta ei etene ilman äänilaitetta)
+var _g := -1.0        # generoidun aika (s), < 0: ei vielä alkanut
+var _next_e := 0      # seuraava kahdeksasosa
+var _voices: Array[int] = []  # maton äänet
+var _bar := -1
+var _finale_at := -1  # tahti, josta loppukadenssi alkaa
 var _tw: Tween
 var _ducks: Array[AudioEffectAmplify] = []  # DUCK_BUSES-väylillä
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var st: AudioStream = null
-	for f in FILES:
-		if ResourceLoader.exists(f):
-			st = load(f)
-			break
-	if st is AudioStreamOggVorbis or st is AudioStreamMP3:
-		st.loop = false
-	if st == null:
-		synth = true
-		var g := AudioStreamGenerator.new()
-		g.mix_rate = RATE
-		g.buffer_length = 0.35
-		st = g
-	for k in (1 if synth else 2):
-		var p := AudioStreamPlayer.new()
-		p.bus = "Music"
-		p.stream = st
-		add_child(p)
-		_players.append(p)
-	_cur = _players[0]
+	if ResourceLoader.exists(CLIP):
+		var st: AudioStream = load(CLIP)
+		if st is AudioStreamOggVorbis:
+			st.loop = false
+		_clip = AudioStreamPlayer.new()
+		_clip.bus = "Music"
+		_clip.stream = st
+		add_child(_clip)
+	synth = _clip == null
+	if AudioServer.get_bus_index(BUS) < 0:
+		AudioServer.add_bus()
+		var i := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(i, BUS)
+		AudioServer.set_bus_send(i, "Music" if AudioServer.get_bus_index("Music") >= 0 else "Master")
+		var rv := AudioEffectReverb.new()
+		rv.room_size = 0.6
+		rv.damping = 0.4
+		rv.wet = 0.22
+		rv.dry = 0.9
+		AudioServer.add_bus_effect(i, rv)
+	var poly := AudioStreamPolyphonic.new()
+	poly.polyphony = 16
+	_gen = AudioStreamPlayer.new()
+	_gen.bus = BUS
+	_gen.stream = poly
+	add_child(_gen)
 	for name: String in DUCK_BUSES:
 		var bus := AudioServer.get_bus_index(name)
 		if bus >= 0:
@@ -99,42 +103,47 @@ func _exit_tree() -> void:
 				AudioServer.remove_bus_effect(bus, i)
 
 
-## Intron viimeisestä iskusta, häivyttäen sisään.
+## Pätkän alusta (intron viimeinen isku), häivyttäen sisään.
 func start(fade := 0.15) -> void:
-	for p in _players:
-		p.stop()
-	_old = null
-	_xf_t = 0.0
-	_cur = _players[0]
-	_t = 0.0
+	_stop_all()
+	_on = true
+	_finale_at = -1
 	if synth:
-		_cur.play()
-		_pb = _cur.get_stream_playback()
-		_fill()
+		section = "matka"
+		_build_all()
+		_start_gen(0.0)
 	else:
-		_cur.play(START)
-		section = "intro"
+		section = "alku"
+		_clip_t = 0.0
+		_clip.play(0.0)
 	_fade_to(1.0, fade)
 
 
-## Perillä: viimeiseen teemaan, ellei se jo soi.
+## Perillä: seuraavasta tahdista loppukadenssi (pätkän aikana heti generoidun alkaessa).
 func arrive() -> void:
-	if synth or not playing or section == "finale":
+	if not _on or section == "finale":
 		return
 	section = "finale"
-	if _cur.get_playback_position() < FINALE - 4.0:
-		_cross(FINALE, XFADE_FINALE)
+	_finale_at = _bar + 1 if _g >= 0.0 else 0
 
 
 ## Häivyttää pois ja pysäyttää.
 func fade_out(fade := 4.0) -> void:
-	if not playing:
+	if not _on:
 		return
-	_fade_to(0.0, fade, func() -> void:
-		for p in _players:
-			p.stop()
-		section = ""
-		_pb = null)
+	_fade_to(0.0, fade, _stop_all)
+
+
+func _stop_all() -> void:
+	if _clip != null:
+		_clip.stop()
+	_gen.stop()
+	_pb = null
+	_voices.clear()
+	_g = -1.0
+	_bar = -1
+	_on = false
+	section = ""
 
 
 func _fade_to(v: float, secs: float, done := Callable()) -> void:
@@ -146,112 +155,168 @@ func _fade_to(v: float, secs: float, done := Callable()) -> void:
 		_tw.tween_callback(done)
 
 
-## Toinen soitin alkaa kohdasta at, ja nykyinen vaimenee secs sekunnissa (tasatehoinen ristihäivytys).
-func _cross(at: float, secs: float) -> void:
-	if _old != null:
-		_old.stop()
-	_old = _cur
-	_cur = _players[1] if _cur == _players[0] else _players[0]
-	_cur.play(at)
-	_xf_len = secs
-	_xf_t = secs
+## Generoitu alkaa: aika g (myöhästyminen ruudun rajalta) kahdeksasosien ajastusta varten.
+func _start_gen(g: float) -> void:
+	_gen.play()
+	_pb = _gen.get_stream_playback()
+	_g = g
+	_next_e = 0
+	_bar = -1
+	if section == "alku":
+		section = "matka"
 
 
 func _process(delta: float) -> void:
-	if synth:
-		if playing and _pb != null:
-			_fill()
-	elif playing and _xf_t <= 0.0:
-		var pos := _cur.get_playback_position()
-		if section == "intro" and pos >= INTRO_FROM:
-			section = "matka"
-			_cross(INTRO_TO + pos - INTRO_FROM, XFADE_INTRO)
-		elif section == "matka" and pos >= LOOP_FROM:
-			_cross(LOOP_TO + pos - LOOP_FROM, XFADE)
-	var k := 1.0
-	if _xf_t > 0.0:
-		_xf_t = maxf(0.0, _xf_t - delta)
-		k = 1.0 - _xf_t / _xf_len
-		if _old != null:
-			_old.volume_db = linear_to_db(maxf(master * cos(k * PI * 0.5), 1e-4)) + VOLUME_DB
-			if _xf_t <= 0.0:
-				_old.stop()
-				_old = null
-	var gain := SYNTH_DB if synth else VOLUME_DB
-	if _cur != null:
-		_cur.volume_db = linear_to_db(maxf(master * sin(k * PI * 0.5), 1e-4)) + gain
-	var duck := linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if playing else 0.0))
+	if _on and _build_step < 3:
+		_build_next()
+	if _on and _g < 0.0 and _clip != null:
+		_clip_t += delta
+		if _clip_t >= HANDOFF and _build_step >= 3:
+			_start_gen(minf(_clip_t - HANDOFF, 0.25))
+	if _g >= 0.0 and _pb != null:
+		_g += delta
+		_sequence()
+	var lin := maxf(master, 1e-4)
+	if _clip != null:
+		_clip.volume_db = linear_to_db(lin) + CLIP_DB
+	_gen.volume_db = linear_to_db(lin) + GEN_DB
+	var duck := linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if _on else 0.0))
 	for fx in _ducks:
 		fx.volume_db = duck
+
+
+## Soittaa erääntyneet kahdeksasosat. Ruudun rajalta myöhästynyt sävel aloitetaan näytteen kohdasta, jossa se
+## olisi nyt, joten rytmi pysyy tasaisena ruutunopeudesta riippumatta.
+func _sequence() -> void:
+	var eighth := 30.0 / BPM
+	while _g >= _next_e * eighth:
+		var late := _g - _next_e * eighth
+		var e := _next_e
+		_next_e += 1
+		if late > 0.25:
+			continue  # pitkä katko (esim. tauko): ei kasata säveliä
+		var bar := e / 8
+		var ei := e % 8
+		var chord := _chord(bar)
+		if chord.is_empty():
+			continue  # kadenssin jälkeen vain viimeinen sointu soi
+		if ei == 0:
+			_bar = bar
+			_set_pad(chord, late)
+			if bar % 2 == 0 or _finale_at >= 0 and bar >= _finale_at + FINALE.size() - 1:
+				var p := _hz(chord[3] + 12.0) / BELL_F
+				_pb.play_stream(_bell, late * p, BELL_DB, p, 0, BUS)
+		if _finale_at >= 0 and bar >= _finale_at + FINALE.size() - 1:
+			continue  # viimeinen sointu: ei ostinatoa
+		var root: float = chord[0] - (12.0 if ei % 2 == 0 else 0.0)
+		var pp := _hz(root) / PIANO_F
+		_pb.play_stream(_piano, late * pp, PIANO_DB - (0.0 if ei % 4 == 0 else 3.0), pp, 0, BUS)
+	# Matto hengittää tahdin mukana: puhallus tahdin alussa, hiipuu loppua kohti.
+	var bar_len := eighth * 8.0
+	var in_bar := fmod(_g, bar_len)
+	var swell := 0.55 + 0.45 * smoothstep(0.0, 0.6, in_bar) * (1.0 - 0.35 * smoothstep(bar_len * 0.6, bar_len, in_bar))
+	var last := _finale_at >= 0 and _bar >= _finale_at + FINALE.size() - 1
+	if last:
+		swell *= 1.0 - clampf((_g - (_finale_at + FINALE.size() - 1) * bar_len) / FINALE_FADE, 0.0, 1.0)
+		if swell <= 0.0:
+			_stop_all()
+			master = 0.0
+			return
+	for id in _voices:
+		_pb.set_stream_volume(id, PAD_DB + linear_to_db(maxf(swell, 1e-4)))
+
+
+## Tahdin sointu: teeman kierto FIRST_BAR:sta, perillä loppukadenssi, sen jälkeen tyhjä (viimeinen jää soimaan).
+func _chord(bar: int) -> Array:
+	if _finale_at >= 0 and bar >= _finale_at:
+		var k := bar - _finale_at
+		return CHORDS[FINALE[k]] if k < FINALE.size() else []
+	return CHORDS[(FIRST_BAR + bar) % CHORDS.size()]
+
+
+## Maton neljä ääntä: ensimmäisellä kerralla alkavat, sitten liukuvat uuteen sointuun.
+func _set_pad(chord: Array, late: float) -> void:
+	for v in 4:
+		var p := _hz(chord[v]) / PAD_F
+		if _voices.size() <= v:
+			_voices.append(_pb.play_stream(_pad, late * p, PAD_DB, p, 0, BUS))
+		else:
+			_pb.set_stream_pitch_scale(_voices[v], p)
 
 
 static func _hz(midi: float) -> float:
 	return 440.0 * pow(2.0, (midi - 69.0) / 12.0)
 
 
-func _fill() -> void:
-	var n := _pb.get_frames_available()
-	if n > 0:
-		_pb.push_buffer(render(n))
+func _build_all() -> void:
+	while _build_step < 3:
+		_build_next()
 
 
-## Seuraavat n stereonäytettä syntetisoitua kappaletta.
-func render(n: int) -> PackedVector2Array:
-	if _comb_l.is_empty():
-		_comb_l.resize(int(RATE * 0.0437))
-		_comb_r.resize(int(RATE * 0.0511))
-	var beat := 60.0 / BPM
-	var bar_len := beat * 4.0
-	var dt := 1.0 / RATE
-	var glide := 1.0 - exp(-dt / 0.09)  # CS-80:n liuku soinnusta toiseen
-	var buf := PackedVector2Array()
-	buf.resize(n)
-	for s in n:
-		var bar := int(_t / bar_len)
-		var in_bar := fmod(_t, bar_len)
-		var chord: Array = CHORDS[bar % CHORDS.size()]
-		# Messinkimatto: neljä ääntä, kaksi hieman epävireistä saha-aaltoa kussakin, alipäästö avautuu tahdin
-		# alussa (puhallus) ja hengittää.
-		var pad := 0.0
-		for v in 4:
-			var target := _hz(chord[v])
-			if _pad_f[v] == 0.0:
-				_pad_f[v] = target
-			_pad_f[v] += (target - _pad_f[v]) * glide
-			for d in 2:
-				var k := v * 2 + d
-				_pad_ph[k] = fmod(_pad_ph[k] + _pad_f[v] * (1.0 + (0.004 if d == 0 else -0.004)) * dt, 1.0)
-				pad += _pad_ph[k] * 2.0 - 1.0
-		pad *= 0.06
-		var swell := 0.55 + 0.45 * smoothstep(0.0, 0.6, in_bar) * (1.0 - 0.35 * smoothstep(bar_len * 0.6, bar_len, in_bar))
-		var cutoff := 500.0 + 2200.0 * swell
-		var a := 1.0 - exp(-TAU * cutoff * dt)
-		_lp += (pad * swell - _lp) * a
-		# Pianon ostinato: kahdeksasosat soinnun pohjasävelellä, vuorotellen matala ja oktaavia ylempi.
-		var eighth := beat * 0.5
-		var ei := int(in_bar / eighth)
-		var et := fmod(in_bar, eighth)
-		var root: float = chord[0] - (12.0 if ei % 2 == 0 else 0.0)
-		_pulse_ph = fmod(_pulse_ph + _hz(root) * dt, 1.0)
-		var pe := exp(-et * 7.0) * (1.0 if ei % 4 == 0 else 0.7)
-		var pulse := (sin(_pulse_ph * TAU) + 0.35 * sin(_pulse_ph * TAU * 2.0) + 0.12 * sin(_pulse_ph * TAU * 3.0)) * pe * 0.2
-		if et < dt * 1.5:
-			_pulse_ph = 0.0
-		# Kello kahden tahdin välein: soinnun ylin sävel kaksi oktaavia ylempänä, hidas sammuminen.
-		var bt := fmod(_t, bar_len * 2.0)
-		if bt < dt * 1.5:
-			_bell_f = _hz(chord[3] + 12.0)
-		_bell_ph += _bell_f * dt
-		var bell := (sin(_bell_ph * TAU) + 0.4 * sin(_bell_ph * TAU * 2.76)) * exp(-bt * 1.1) * 0.07
-		var dry := _lp + pulse + bell
-		# Kaiku: kaksi takaisinkytkettyä viivettä, eri pituiset vasemmalla ja oikealla.
-		var il := _ci % _comb_l.size()
-		var ir := _ci % _comb_r.size()
-		var wl := _comb_l[il]
-		var wr := _comb_r[ir]
-		_comb_l[il] = dry + wl * 0.72
-		_comb_r[ir] = dry + wr * 0.72
-		_ci += 1
-		buf[s] = Vector2(dry + wl * 0.28, dry + wr * 0.28).clampf(-1.0, 1.0)
-		_t += dt
-	return buf
+## Seuraava näyte (yksi ruutua kohden, ettei aloitus nyki).
+func _build_next() -> void:
+	match _build_step:
+		0:
+			_pad = _render_pad()
+		1:
+			_piano = _render_piano()
+		2:
+			_bell = _render_bell()
+	_build_step += 1
+
+
+static func _wav(s: PackedFloat32Array, loop := false) -> AudioStreamWAV:
+	var data := PackedByteArray()
+	data.resize(s.size() * 2)
+	for i in s.size():
+		data.encode_s16(i * 2, int(clampf(s[i], -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = RATE
+	w.data = data
+	if loop:
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = 0
+		w.loop_end = s.size()
+	return w
+
+
+## Messinkimatto: kaksi hieman epävireistä saha-aaltoa (139 ja 140 Hz), alipäästö; 1 s saumaton silmukka
+## (suodin lämmitetään kierroksella, jotta silmukan alku ja loppu täsmäävät).
+static func _render_pad() -> AudioStreamWAV:
+	var s := PackedFloat32Array()
+	s.resize(RATE)
+	var a := 1.0 - exp(-TAU * 1600.0 / RATE)
+	var lp := 0.0
+	var lp2 := 0.0
+	for _pass in 2:
+		for i in RATE:
+			var x := fmod(i * 139.0 / RATE, 1.0) + fmod(i * 140.0 / RATE, 1.0) - 1.0
+			lp += (x - lp) * a
+			lp2 += (lp - lp2) * a
+			s[i] = lp2 * 0.8
+	return _wav(s, true)
+
+
+## Pianon isku: perussävel ja kaksi yläsäveltä, nopea sammuminen (kahdeksasosan mittainen).
+static func _render_piano() -> AudioStreamWAV:
+	var n := int(RATE * 0.7)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in n:
+		var t := float(i) / RATE
+		var ph := TAU * PIANO_F * t
+		s[i] = (sin(ph) + 0.35 * sin(ph * 2.0) + 0.12 * sin(ph * 3.0)) * exp(-t * 7.0) * minf(1.0, t * 300.0) * 0.6
+	return _wav(s)
+
+
+## Kello: perussävel ja epäharmoninen yläsävel, hidas sammuminen.
+static func _render_bell() -> AudioStreamWAV:
+	var n := int(RATE * 1.8)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in n:
+		var t := float(i) / RATE
+		var ph := TAU * BELL_F * t
+		s[i] = (sin(ph) + 0.4 * sin(ph * 2.76)) * exp(-t * 1.6) * minf(1.0, t * 500.0) * 0.6
+	return _wav(s)

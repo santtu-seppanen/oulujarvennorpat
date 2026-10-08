@@ -348,10 +348,10 @@ func _near_beach_stash() -> bool:
 
 
 ## Viinakätköosoitin: kompassin keltainen merkki lähimpään kätköön (saunan takana, rannan rinteessä tai
-## tutkimusmatkan kätkö); tutkimusmatkalla aina matkan kätköön.
+## tutkimusmatkan kätkö); tutkimusmatkalla aina matkan kätköön (paluulla taas lähimpään).
 func _point_to_stash(p: Vector3) -> void:
 	var best := Vector2.INF
-	var list: Array = [retki.stash_pos] if retki.active else [world.mokki.stash_pos, world.ranta.stash_pos, retki.stash_pos]
+	var list: Array = [retki.stash_pos] if retki.active and retki.state != "paluu" else [world.mokki.stash_pos, world.ranta.stash_pos, retki.stash_pos]
 	for s: Vector3 in list:
 		var q := Vector2(s.x, s.z)
 		if q.distance_to(Vector2(p.x, p.z)) < best.distance_to(Vector2(p.x, p.z)):

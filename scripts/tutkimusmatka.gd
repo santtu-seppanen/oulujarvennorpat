@@ -2,14 +2,17 @@ extends Node3D
 ## Tutkimusmatka kumiveneellä viinakätkölle (64.431793 N, 26.884539 E): kätkö on lahden lounaisrannalla,
 ## n. 100 m mökiltä. Soudetaan: mökin edestä ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen
 ## rantautumispaikalle (LANDING), josta kätkölle on 11 m rantaa ylös.
-## - Veneessä Q aloittaa tutkimusmatkan: Vangeliksen Chariots of Fire soi (retkimusiikki.gd), ja koko porukka
-##   tulee veneen vanavedessä: tietokoneen hahmot kahlaavat veteen ja uivat jonossa veneen perässä sen
-##   kulkemaa reittiä (vanavedessä jaksaa uida, kunto ei kulu). Kompassin kätköosoitin näyttää kätkön.
+## - Veneessä Q aloittaa tutkimusmatkan: alkuun pätkä Chariots of Firea, sitten generoitu jatko (retkimusiikki.gd),
+##   ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot kahlaavat veteen ja uivat jonossa veneen
+##   perässä sen kulkemaa reittiä (vanavedessä jaksaa uida, kunto ei kulu). Kompassin kätköosoitin näyttää kätkön.
 ## - Soutu kestää runsaan minuutin. Alussa huudetaan ja jutellaan (CHAT_T), sitten hiljennytään kuuntelemaan
-##   pelkkää Vangelista. Perillä ensimmäinen huutaa "Maata näkyvissä!", kappaleen viimeinen fraasi soi loppuun ja
-##   kätköllä keskustelu jatkuu (PARTY_T); takaisin mökille tullaan tavallisessa äänimaisemassa ilman musiikkia.
-## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan; kappaleen loputtua musiikki häipyy
-##   ja tietokoneen hahmot palaavat omiin puuhiinsa (uiden takaisin mökille). Veneessä Q keskeyttää matkan.
+##   pelkkää musiikkia. Perillä ensimmäinen huutaa "Maata näkyvissä!", musiikki soittaa loppukadenssin ja
+##   kätköllä keskustelu jatkuu (PARTY_T).
+## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan; musiikki häipyy kadenssin jälkeen.
+## - Juhlien jälkeen paluu (paluu): porukka kahlaa takaisin veteen ja ui taas jonossa veneen perässä, kun vene
+##   soudetaan mökille, nyt tavallisessa äänimaisemassa ilman musiikkia. Kun vene on lähtöpaikalla (HOME_DIST),
+##   matka päättyy ja tietokoneen hahmot palaavat omiin puuhiinsa (myös RETURN_MAX_T:n jälkeen, jos venettä ei
+##   souda kukaan). Veneessä Q keskeyttää matkan.
 ## - Kätkö: lahonnut puulaatikko havujen alla kuten rannan kätkö (ranta.gd), ehtymätön (E olut, Q viina).
 ## Moninpeli: aloitus ja keskeytys lähtevät kaikille (viesti "retki"), joten musiikki soi kaikilla; hostin
 ## tietokone ohjaa vapaita hahmoja. Perillepääsyn kukin kone huomaa itse veneen paikasta.
@@ -31,7 +34,9 @@ const SHORE_PATH := [Vector2(-96.0, 27.0), Vector2(-94.0, 30.0)]
 ## Vettä koko matkalla vähintään 0,22 m, matkaa n. 115 m.
 const ROUTE := [Vector2(-15.0, -21.0), Vector2(-60.0, -20.0), Vector2(-90.0, 5.0), LANDING]
 const ARRIVE_DIST := 12.0  # vene näin lähellä rantautumispaikkaa: perillä
-const PARTY_T := 45.0  # kätköllä juhlitaan ennen paluuta; kappaleen viimeinen fraasi (n. 22 s) soi loppuun
+const PARTY_T := 45.0  # kätköllä juhlitaan ennen paluuta; loppukadenssi (n. 22 s) soi loppuun
+const HOME_DIST := 10.0  # paluulla vene näin lähellä lähtöpaikkaa: perillä mökillä
+const RETURN_MAX_T := 240.0  # paluu päättyy viimeistään (porukka ei jää odottamaan vedessä loputtomiin)
 const MUSIC_END_T := 25.0  # perillä kappale loppuu viimeistään tässä
 const CHAT_T := 10.0  # matkan alussa näin kauan saa huutaa ja jutella, sitten hiljaisuus perille asti
 const GAP := 2.2  # uimarien väli jonossa
@@ -41,15 +46,18 @@ const LAND := "Maata näkyvissä!"
 const LINES_STASH := ["Kätkö löytyi! Kippis tutkimusmatkalle!", "Tämä on historiallinen hetki.",
 	"Olipa soutu. Vangelis tiesi mitä teki.", "Löytöretki onnistui!", "Kuka soutaa takaisin?",
 	"Täältähän näkee mökille asti."]
+const LINES_HOME := ["Takaisin mökille!", "Kaikki veneen perään taas!", "Saunaan tästä suoraan.",
+	"Paluumatka on aina lyhyempi.", "Kuka jäi kätkölle? Ei kukaan? Hyvä."]
 
 var game: Node3D
 var stash_pos := Vector3.ZERO
 var active := false
-var state := ""  # matka | perilla
+var state := ""  # matka | perilla | paluu
 var music: Node  # retkimusiikki.gd
 var _trail: Array = []  # veneen kulkema reitti (uusin ensin), uimarit seuraavat sitä
 var _brains := {}  # tämän koneen ohjaamat tietokoneen hahmot matkalla: indeksi -> Follow
-var _party_t := 0.0
+var _party_t := 0.0  # aikaa perillä (paluulla aikaa paluun alusta)
+var _home := Vector2.ZERO  # veneen lähtöpaikka: paluun määränpää
 var _t := 0.0  # aikaa matkan alusta
 
 
@@ -153,8 +161,9 @@ func near_stash(p: Vector3) -> bool:
 ## Veneessä Q: aloittaa tai keskeyttää tutkimusmatkan (kaikilla koneilla).
 func toggle() -> void:
 	if active:
+		var back := state == "paluu"
 		_end(true)
-		game.toast("Tutkimusmatka keskeytettiin.", 3.0)
+		game.toast("Paluu keskeytettiin: porukka ui omia aikojaan." if back else "Tutkimusmatka keskeytettiin.", 3.0)
 	else:
 		_begin(true)
 
@@ -171,7 +180,8 @@ func _begin(send: bool) -> void:
 	_party_t = 0.0
 	_t = 0.0
 	var b: Node3D = game.boat
-	_trail = [Vector2(b.global_position.x, b.global_position.z)]
+	_home = Vector2(b.global_position.x, b.global_position.z)
+	_trail = [_home]
 	music.start()
 	if send:
 		game.mp.send({"t": "retki", "on": true})
@@ -266,8 +276,15 @@ func _physics_process(delta: float) -> void:
 	elif state == "perilla":
 		_party_t += delta
 		if _party_t >= PARTY_T:
+			_return()
+	elif state == "paluu":
+		_party_t += delta
+		if bp.distance_to(_home) < HOME_DIST:
 			_end(false)
-			game.toast("Tutkimusmatka päättyi. Porukka ui takaisin mökille.", 4.0)
+			game.toast("Takaisin mökillä! Tutkimusmatka päättyi.", 4.0)
+		elif _party_t >= RETURN_MAX_T:
+			_end(false)
+			game.toast("Tutkimusmatka päättyi. Porukka ui omia aikojaan mökille.", 4.0)
 
 
 ## Perillä: porukka rinnettä ylös kätkölle juhlimaan.
@@ -275,7 +292,7 @@ func _arrive() -> void:
 	state = "perilla"
 	_party_t = 0.0
 	game.toast("Perillä! Viinakätkö rinteessä rannan yläpuolella. E: olut · Q: huikka viinaa.", 6.0)
-	music.arrive()  # viimeinen teema juhlien ajaksi
+	music.arrive()  # loppukadenssi
 	for j in _brains:
 		var f: Follow = _brains[j]
 		# Kätkön ympärille, rannan puoli vapaaksi tulijoille.
@@ -288,7 +305,7 @@ func _arrive() -> void:
 		f.at_stash = false
 	if _host():
 		_talk([LAND], LAND, 0.0, "perilla")
-	# Kappaleen viimeinen fraasi loppuu: varmuudeksi häivytys, takaisin tullaan ilman musiikkia.
+	# Loppukadenssi häipyy itse: varmuudeksi häivytys, takaisin tullaan ilman musiikkia.
 	get_tree().create_timer(MUSIC_END_T).timeout.connect(func() -> void:
 		if active and state == "perilla":
 			music.fade_out(3.0))
@@ -305,6 +322,28 @@ func _arrive() -> void:
 			if f.at_stash:
 				f.body.drink(0.45)
 				f.body.pose = "Idle_Talking")
+
+
+## Juhlien jälkeen paluu: porukka kätköltä rantaa alas veteen ja taas jonoon veneen perään (slot); vanavesi
+## alkaa veneen nykyisestä paikasta. Musiikki on jo häipynyt, joten äänimaisema on tavallinen.
+func _return() -> void:
+	state = "paluu"
+	_party_t = 0.0
+	music.fade_out(3.0)
+	var b: Node3D = game.boat
+	_trail = [Vector2(b.global_position.x, b.global_position.z)]
+	for j in _brains:
+		var f: Follow = _brains[j]
+		f.path = []
+		for i in range(SHORE_PATH.size() - 1, -1, -1):
+			var q: Vector2 = SHORE_PATH[i]
+			f.path.append(Vector3(q.x, Terrain.h(q.x, q.y), q.y))
+		f.spot = Vector3.INF
+		f.at_stash = false
+		f.body.pose = ""
+	game.toast("Juhlat ohi! Souda takaisin mökille – porukka ui vanavedessä.", 5.0)
+	if _host():
+		_talk(LINES_HOME, LINES_HOME[0], 2.5, "paluu")
 
 
 ## Puhesynteesi (chat.gd): matkalla hiljaisuus alun huutojen (CHAT_T) jälkeen, kunnes ollaan perillä.
@@ -333,7 +372,9 @@ func _talk(lines: Array, first: String, gap: float, want: String) -> void:
 
 ## Kehote veneessä.
 func prompt() -> String:
+	var bp := Vector2(game.boat.global_position.x, game.boat.global_position.z)
+	if active and state == "paluu":
+		return "mökille %d m · Q lopettaa" % roundi(bp.distance_to(_home))
 	if active:
-		return "kätkölle %d m · Q keskeyttää" % roundi(Vector2(game.boat.global_position.x,
-			game.boat.global_position.z).distance_to(STASH))
+		return "kätkölle %d m · Q keskeyttää" % roundi(bp.distance_to(STASH))
 	return "Q: tutkimusmatka viinakätkölle"
