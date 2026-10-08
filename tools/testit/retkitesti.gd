@@ -1,6 +1,6 @@
 extends SceneTree
 ## Tutkimusmatkan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/retkitesti.gd
-## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja muut äänet ja puhe vaikenevat (lähtöhuutoa lukuun ottamatta),
+## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja muut äänet vaikenevat, alun huutojen jälkeen puhekin,
 ## tietokoneen hahmot lähtevät vanaveteen. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) n. 100 m päähän
 ## kätkölle: vene ei jää
 ## matalikkoon, ja uimarit pysyvät jonossa veneen perässä. Perillä porukka nousee kätkölle, pelaaja kävelee
@@ -140,8 +140,7 @@ func _process(delta: float) -> bool:
 				var ducks: Array = retki.music._ducks
 				check(ducks.size() == 2 and ducks.all(func(d: AudioEffectAmplify) -> bool: return d.volume_db < -60.0),
 					"taustaäänet ja efektit vaiennettu (%s dB)" % [ducks.map(func(d: AudioEffectAmplify) -> int: return roundi(d.volume_db))])
-				check(retki.allows_speech(R.SHOUT) and not retki.allows_speech("Kippis!"),
-					"musiikin aikana puhutaan ääneen vain lähtöhuuto")
+				check(retki.allows_speech("Kaikki veneen perään!"), "alussa saa huutaa ja jutella")
 				pilot = Pilot.new()
 				pilot.boat = boat
 				pilot.path = R.ROUTE.duplicate()
@@ -164,7 +163,11 @@ func _process(delta: float) -> bool:
 			if stuck_t > 8.0:
 				check(false, "vene jumissa kohdassa %s" % bp)
 				return _finish()
+			if ts > 12.0 and retki.state == "matka" and not has_meta("quiet"):
+				set_meta("quiet", true)
+				check(not retki.allows_speech("Kippis!") and retki.allows_speech(R.LAND), "soudun aikana hiljaa")
 			if retki.state == "perilla":
+				check(retki.allows_speech("Kippis!"), "perillä keskustelu jatkuu")
 				check(ts < 100.0, "perillä %.0f s soutamisen jälkeen" % ts)
 				check(retki.music.playing, "musiikki soi vielä perillä")
 				check(retki.music.synth or retki.music.section == "finale", "viimeinen fraasi perillä (%s)" % retki.music.section)
@@ -200,7 +203,7 @@ func _process(delta: float) -> bool:
 		7:
 			if retki.near_stash(pl.global_position) or ts > 30.0:
 				pl.brain = null
-				check(retki.near_stash(pl.global_position), "pelaaja kätköllä")
+				check(retki.near_stash(pl.global_position), "pelaaja kätköllä %s -> %s" % [pl.global_position, retki.stash_pos])
 				var it: Dictionary = main._interaction()
 				check(String(it.get("text", "")).contains("Viinakätkö"), "kätkön kehote: " + String(it.get("text", "")))
 				var d0: int = pl.drinks
@@ -216,7 +219,8 @@ func _process(delta: float) -> bool:
 		9:
 			if not retki.active:
 				var total: float = clock - float(get_meta("start_clock"))
-				check(total < 130.0, "matka päättyi %.0f s:ssa, musiikki häipyy" % total)
+				check(total < 160.0, "matka päättyi %.0f s:ssa" % total)
+				check(not retki.music.playing, "takaisin ilman musiikkia")
 				var back := 0
 				var Ai: GDScript = load("res://scripts/ai.gd")
 				for j in 4:

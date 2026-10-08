@@ -7,8 +7,8 @@ extends Node
 ## Tietokoneen hahmojen puheet (ai_say) näkyvät hostilla ja lähtevät hostilta kaikille (viesti "chat_ai"); vain
 ## host ohjaa tietokoneen hahmoja. Puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetus "tts"),
 ## suomenkielisellä äänellä, jos sellainen on: kullakin hahmolla oma äänenkorkeus ja voimakkuus hiljenee
-## etäisyyden mukaan. Tutkimusmatkan musiikin aikana ei puhuta ääneen (tutkimusmatka.gd allows_speech), vain
-## lähtöhuuto kuuluu.
+## etäisyyden mukaan. Tutkimusmatkalla alun huutojen jälkeen ei puhuta ääneen ennen perillä oloa (tutkimusmatka.gd
+## allows_speech).
 
 const MAX_LEN := 120
 const LOG_LINES := 7
@@ -143,12 +143,6 @@ func ai_say(i: int, text: String) -> void:
 	show_message(i, text)
 	if game.mp.online() and game.mp.net.is_host():
 		game.mp.send({"t": "chat_ai", "i": i, "m": text.strip_edges().left(MAX_LEN)})
-
-
-## Keskeyttää meneillään olevan puheen (tutkimusmatkan alussa).
-func hush() -> void:
-	if Settings.get_v("tts") and DisplayServer.get_name() != "headless":
-		DisplayServer.tts_stop()
 
 
 ## Puhesynteesi: viesti ääneen hahmon omalla äänellä, hiljempaa kauempana kamerasta.

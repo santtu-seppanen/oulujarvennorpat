@@ -111,17 +111,18 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
 - Reitti: mökin edestä ensin ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen (n. 115 m, soutu
   runsas minuutti tavallista vauhtia). Vettä riittää koko matkalla.
-- Kun Vangelis soi, muuta ei kuulu: taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat, eikä
-  puhesynteesi lue puheita ääneen. Vain ensimmäinen mukaan lähtevä hahmo huutaa "Tutkimusmatka!".
+- Kun Vangelis soi, taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat. Alussa huudetaan ja
+  jutellaan (n. 10 s), sitten hiljennytään kuuntelemaan pelkkää Vangelista. Perillä ensimmäinen huutaa
+  "Maata näkyvissä!", kappaleen viimeinen fraasi soi loppuun, ja kätköllä keskustelu jatkuu.
 - Perillä porukka nousee 11 m rantaa ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
-  kätkö, ehtymätön (E olut, Q viina). Kappaleen loputtua (n. 22 s) musiikki häipyy, ja tietokoneen hahmot
-  palaavat omiin puuhiinsa.
+  kätkö, ehtymätön (E olut, Q viina). Juhlien (n. 45 s) jälkeen tietokoneen hahmot palaavat omiin puuhiinsa,
+  ja mökille tullaan tavallisessa äänimaisemassa ilman musiikkia.
 - Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
   soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
 - **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna matkaan. Matka alkaa
   intron viimeisestä iskusta (0:20), ja pianoteeman kohdalla (0:29) siirrytään suoraan täyden teeman alkuun
   (1:07), joka soi soudun ajan. Jos soutu venyy, ennen loppuhäivytystä (3:16) palataan täyden teeman alkuun, ja
-  perillä siirrytään viimeiseen fraasiin (3:03), joka soi juhlien ajan kappaleen omaan häivytykseen.
+  perillä siirrytään viimeiseen fraasiin (3:03), joka soi kappaleen omaan häivytykseen.
   Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
   Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan +6 dB.
   - Äänite: `assets/music/chariots_of_fire.ogg` (OGG Vorbis q2, 2,5 MB, hiljainen häntä leikattu), mukana

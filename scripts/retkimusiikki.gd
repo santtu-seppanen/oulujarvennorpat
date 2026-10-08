@@ -5,7 +5,7 @@ extends Node
 ##   täyden teeman alkuun (INTRO_FROM -> INTRO_TO, 1:07), joka soi soudun ajan (n. 30 s).
 ## - Jos soutu venyy, ennen loppuhäivytystä (LOOP_FROM) palataan täyden teeman alkuun (LOOP_TO).
 ## - Perillä (arrive) siirrytään viimeiseen fraasiin (FINALE, 3:03), joka soi juhlien ajan kappaleen omaan
-##   häivytykseen (n. 22 s, tutkimusmatka.gd PARTY_T).
+##   häivytykseen (n. 22 s); sen jälkeen kätköllä jutellaan ilman musiikkia (tutkimusmatka.gd PARTY_T).
 ## Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
 ## Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan (VOLUME_DB). Kun kappale soi, muut äänet
 ## (Ambience- ja SFX-väylät: taustaäänet ja efektit) vaiennetaan (DUCK_DB) musiikin voimakkuuden mukaan.
@@ -21,7 +21,7 @@ const INTRO_FROM := 28.42  # pianoteeman alku (isku 0:28,82) ...
 const INTRO_TO := 67.05    # ... vastaa täyden teeman alkua (isku 1:07,45)
 const LOOP_FROM := 196.2   # ennen loppuhäivytystä (3:21) ...
 const LOOP_TO := 67.45     # ... takaisin täyden teeman alkuun
-const FINALE := 182.98     # viimeinen fraasi: n. 22 s kappaleen loppuun, juhlien (tutkimusmatka.gd PARTY_T) ajan
+const FINALE := 182.98     # viimeinen fraasi: n. 22 s kappaleen loppuun perillä
 const XFADE_INTRO := 0.8   # introsta täyteen teemaan
 const XFADE := 2.5         # silmukan ristihäivytys
 const XFADE_FINALE := 1.2  # perillä viimeiseen fraasiin
