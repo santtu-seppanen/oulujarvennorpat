@@ -5,10 +5,12 @@ extends Node3D
 ## - Veneessä Q aloittaa tutkimusmatkan: alkuun pätkä Chariots of Firea, sitten generoitu jatko (retkimusiikki.gd),
 ##   ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot kahlaavat veteen ja uivat jonossa veneen
 ##   perässä sen kulkemaa reittiä (vanavedessä jaksaa uida, kunto ei kulu). Kompassin kätköosoitin näyttää kätkön.
-## - Soutu kestää runsaan minuutin. Alussa huudetaan ja jutellaan (CHAT_T), sitten hiljennytään kuuntelemaan
-##   pelkkää musiikkia. Perillä ensimmäinen huutaa "Maata näkyvissä!", musiikki soittaa loppukadenssin ja
-##   kätköllä keskustelu jatkuu (PARTY_T).
-## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan; musiikki häipyy kadenssin jälkeen.
+## - Soutu kestää runsaan minuutin. Alussa huudetaan (puhesynteesi lukee huudot), ja musiikki alkaa vasta
+##   huutojen jälkeen (START_TALK_T, kun puhesynteesi on vaiennut). Soudun aikana porukka juttelee puhekuplin
+##   (ROW_CHAT_T välein), mutta musiikin aikana niitä ei lueta ääneen (allows_speech). Perillä musiikki
+##   häivytetään, ja sen jälkeen ensimmäinen huutaa "Maata näkyvissä!" ja kätköllä keskustelu jatkuu ääneen
+##   (PARTY_T).
+## - Kun vene on rannassa kätkön kohdalla, porukka nousee kätkölle juhlimaan.
 ## - Juhlien jälkeen paluu (paluu): porukka kahlaa takaisin veteen ja ui taas jonossa veneen perässä, kun vene
 ##   soudetaan mökille, nyt tavallisessa äänimaisemassa ilman musiikkia. Kun vene on lähtöpaikalla (HOME_DIST),
 ##   matka päättyy ja tietokoneen hahmot palaavat omiin puuhiinsa (myös RETURN_MAX_T:n jälkeen, jos venettä ei
@@ -34,14 +36,20 @@ const SHORE_PATH := [Vector2(-96.0, 27.0), Vector2(-94.0, 30.0)]
 ## Vettä koko matkalla vähintään 0,22 m, matkaa n. 115 m.
 const ROUTE := [Vector2(-15.0, -21.0), Vector2(-60.0, -20.0), Vector2(-90.0, 5.0), LANDING]
 const ARRIVE_DIST := 12.0  # vene näin lähellä rantautumispaikkaa: perillä
-const PARTY_T := 45.0  # kätköllä juhlitaan ennen paluuta; loppukadenssi (n. 22 s) soi loppuun
+const PARTY_T := 45.0  # kätköllä juhlitaan ennen paluuta
 const HOME_DIST := 10.0  # paluulla vene näin lähellä lähtöpaikkaa: perillä mökillä
 const RETURN_MAX_T := 240.0  # paluu päättyy viimeistään (porukka ei jää odottamaan vedessä loputtomiin)
-const MUSIC_END_T := 25.0  # perillä kappale loppuu viimeistään tässä
-const CHAT_T := 10.0  # matkan alussa näin kauan saa huutaa ja jutella, sitten hiljaisuus perille asti
+const START_TALK_T := 8.0  # alun huutojen aika ennen musiikkia
+const START_TALK_MAX := 14.0  # musiikki alkaa viimeistään, vaikka puhesynteesi puhuisi vielä
+const LAND_FADE := 1.5  # perillä musiikin häivytys ennen puheita
+const ROW_CHAT_T := 14.0  # soudun aikana porukka juttelee näin usein
 const GAP := 2.2  # uimarien väli jonossa
 const LINES_START := ["Tutkimusmatka!", "Kaikki veneen perään!", "Viinakätkö odottaa – uidaan perässä!",
 	"Kohti tuntematonta! Ja kätköä.", "Vanavedessä jaksaa uida vaikka Kajaaniin."]
+const LINES_ROW := ["Vauhtia, soutaja!", "Vesi on lämmintä – tai ainakin märkää.", "Näkyykö jo maata?",
+	"Tämä musiikki tekee uimisesta juhlavaa.", "Kuka muisti ottaa mukit?", "Joku kutittaa varpaita. Hauki?",
+	"Vanavedessä on kuin liukuhihnalla.", "Kohta ollaan perillä!", "Pää pinnalla, porukka!",
+	"Tästä tehdään vielä elokuva."]
 const LAND := "Maata näkyvissä!"
 const LINES_STASH := ["Kätkö löytyi! Kippis tutkimusmatkalle!", "Tämä on historiallinen hetki.",
 	"Olipa soutu. Vangelis tiesi mitä teki.", "Löytöretki onnistui!", "Kuka soutaa takaisin?",
@@ -59,6 +67,8 @@ var _brains := {}  # tämän koneen ohjaamat tietokoneen hahmot matkalla: indeks
 var _party_t := 0.0  # aikaa perillä (paluulla aikaa paluun alusta)
 var _home := Vector2.ZERO  # veneen lähtöpaikka: paluun määränpää
 var _t := 0.0  # aikaa matkan alusta
+var _row_chat := 0.0  # seuraava soudunaikainen juttelukierros (_t)
+var _music_on := false  # musiikki aloitettu tällä matkalla
 
 
 ## Tietokoneen hahmo tutkimusmatkalla: ensin mökin reittipisteitä veteen, sitten oma paikka jonossa veneen
@@ -179,10 +189,12 @@ func _begin(send: bool) -> void:
 	state = "matka"
 	_party_t = 0.0
 	_t = 0.0
+	_row_chat = ROW_CHAT_T
 	var b: Node3D = game.boat
 	_home = Vector2(b.global_position.x, b.global_position.z)
 	_trail = [_home]
-	music.start()
+	_music_on = false
+	music.prepare()  # musiikki alkaa huutojen jälkeen (_physics_process)
 	if send:
 		game.mp.send({"t": "retki", "on": true})
 	game.toast("Tutkimusmatka viinakätkölle! Souda länteen ja rantaa pitkin lounaaseen – porukka uimassa vanavedessä. "
@@ -223,7 +235,7 @@ func _take_crew() -> void:
 			f.path = game.world.mokki.route(b.global_position, "ranta_vesi")
 		b.brain = f
 		_brains[j] = f
-	_talk(LINES_START, LINES_START[0], 2.5, "matka")  # alun huudot, CHAT_T:n jälkeen hiljaisuus
+	_talk(LINES_START, LINES_START[0], 2.5, "matka")  # alun huudot
 
 
 func _release_crew() -> void:
@@ -271,8 +283,16 @@ func _physics_process(delta: float) -> void:
 		if (game.crew[j] as CharacterBody3D).brain != _brains[j]:
 			_brains.erase(j)
 	_t += delta
+	if state == "matka" and not _music_on and _t >= START_TALK_T \
+			and (_t >= START_TALK_MAX or not DisplayServer.tts_is_speaking()):
+		_music_on = true
+		music.start()
 	if state == "matka" and bp.distance_to(LANDING) < ARRIVE_DIST:
 		_arrive()
+	elif state == "matka" and _t >= _row_chat:
+		_row_chat = _t + ROW_CHAT_T
+		if _host():
+			_talk(LINES_ROW, "", 3.0, "matka")
 	elif state == "perilla":
 		_party_t += delta
 		if _party_t >= PARTY_T:
@@ -292,7 +312,7 @@ func _arrive() -> void:
 	state = "perilla"
 	_party_t = 0.0
 	game.toast("Perillä! Viinakätkö rinteessä rannan yläpuolella. E: olut · Q: huikka viinaa.", 6.0)
-	music.arrive()  # loppukadenssi
+	music.fade_out(LAND_FADE)  # musiikki pois, sitten puheet
 	for j in _brains:
 		var f: Follow = _brains[j]
 		# Kätkön ympärille, rannan puoli vapaaksi tulijoille.
@@ -304,14 +324,9 @@ func _arrive() -> void:
 		f.spot = Vector3(at.x, Terrain.h(at.x, at.y), at.y)
 		f.at_stash = false
 	if _host():
-		_talk([LAND], LAND, 0.0, "perilla")
-	# Loppukadenssi häipyy itse: varmuudeksi häivytys, takaisin tullaan ilman musiikkia.
-	get_tree().create_timer(MUSIC_END_T).timeout.connect(func() -> void:
-		if active and state == "perilla":
-			music.fade_out(3.0))
-	if _host():
-		# Kätköllä keskustelu jatkuu, kun kappale on soinut loppuun.
-		for t in [16.0, 30.0]:
+		_talk([LAND], LAND, 0.0, "perilla", LAND_FADE)
+		# Kätköllä keskustelu jatkuu.
+		for t in [6.0, 20.0]:
 			get_tree().create_timer(t).timeout.connect(func() -> void:
 				if active and state == "perilla":
 					_talk(LINES_STASH, "", 4.0, "perilla"))
@@ -346,20 +361,15 @@ func _return() -> void:
 		_talk(LINES_HOME, LINES_HOME[0], 2.5, "paluu")
 
 
-## Puhesynteesi (chat.gd): matkalla hiljaisuus alun huutojen (CHAT_T) jälkeen, kunnes ollaan perillä.
-func allows_speech(text: String) -> bool:
-	return not active or state != "matka" or _t < CHAT_T or text == LAND
-
-
-## Host: hahmot sanovat vuorotellen repliikit lines (ensimmäinen first), väli gap sekuntia, kun matka on vielä
-## tilassa want.
-func _talk(lines: Array, first: String, gap: float, want: String) -> void:
+## Host: hahmot sanovat vuorotellen repliikit lines (ensimmäinen first) delay sekunnin päästä, väli gap sekuntia,
+## kun matka on vielä tilassa want.
+func _talk(lines: Array, first: String, gap: float, want: String, delay := 0.0) -> void:
 	var pool := lines.duplicate()
 	pool.shuffle()
 	pool.erase(first)
 	if first != "":
 		pool.push_front(first)
-	var t := 0.0
+	var t := delay
 	for j in _brains.keys():
 		if pool.is_empty():
 			break
@@ -368,6 +378,12 @@ func _talk(lines: Array, first: String, gap: float, want: String) -> void:
 			if active and state == want and _brains.has(j):
 				game.chat.ai_say(j, line))
 		t += gap
+
+
+## Puhesynteesi (chat.gd): soudun aikana ääneen vain alun huudot ennen musiikkia; perillä ("Maata näkyvissä!")
+## ja siitä eteenpäin kaikki puheet ääneen heti, vaikka musiikki vielä häipyisi.
+func allows_speech() -> bool:
+	return not active or state != "matka" or not _music_on
 
 
 ## Kehote veneessä.

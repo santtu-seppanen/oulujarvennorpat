@@ -31,6 +31,8 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 }
+## Väylien tilapäinen vaimennus (dB) asetuksen päälle, esim. tutkimusmatkan musiikin aikana (set_duck).
+var _duck := {}
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
 
@@ -105,9 +107,26 @@ func apply() -> void:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if values.vsync else DisplayServer.VSYNC_DISABLED)
 	win.scaling_3d_scale = values.render_scale
 	win.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][values.quality]
-	for b in [["Master", "vol_master"], ["SFX", "vol_sfx"], ["Ambience", "vol_ambience"], ["Music", "vol_music"]]:
-		var i := AudioServer.get_bus_index(b[0])
-		if i >= 0:
-			AudioServer.set_bus_volume_db(i, linear_to_db(maxf(values[b[1]], 0.0001)))
-			AudioServer.set_bus_mute(i, values[b[1]] <= 0.001)
+	for b in BUSES:
+		_apply_bus(b)
 	changed.emit()
+
+
+const BUSES := {"Master": "vol_master", "SFX": "vol_sfx", "Ambience": "vol_ambience", "Music": "vol_music"}
+
+
+## Väylän voimakkuus: asetus ja tilapäinen vaimennus. Väyläefektejä ei käytetä, koska selaimen näytetoisto
+## (Godotin oletus selaimessa) ei tue niitä.
+func _apply_bus(bus: String) -> void:
+	var i := AudioServer.get_bus_index(bus)
+	if i >= 0:
+		var v: float = values[BUSES[bus]]
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)) + _duck.get(bus, 0.0))
+		AudioServer.set_bus_mute(i, v <= 0.001)
+
+
+## Tilapäinen vaimennus väylälle (0 dB = ei vaimennusta).
+func set_duck(bus: String, db: float) -> void:
+	if not is_equal_approx(_duck.get(bus, 0.0), db):
+		_duck[bus] = db
+		_apply_bus(bus)

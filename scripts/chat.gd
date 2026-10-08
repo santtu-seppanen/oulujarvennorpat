@@ -6,11 +6,13 @@ extends Node
 ##
 ## Tietokoneen hahmojen puheet (ai_say) näkyvät hostilla ja lähtevät hostilta kaikille (viesti "chat_ai"); vain
 ## host ohjaa tietokoneen hahmoja. Puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetus "tts"),
-## suomenkielisellä äänellä, jos sellainen on: kullakin hahmolla oma äänenkorkeus ja voimakkuus hiljenee
-## etäisyyden mukaan. Tutkimusmatkalla alun huutojen jälkeen ei puhuta ääneen ennen perillä oloa (tutkimusmatka.gd
-## allows_speech).
+## suomenkielisellä äänellä, jos sellainen on: kullakin hahmolla oma äänenkorkeus. Voimakkuus: asetus "Puhe"
+## (oletus 80 % = täysi voimakkuus), kaukana kamerasta hieman hiljempaa. Puhesynteesin voimakkuutta ei voi
+## nostaa yli täyden, joten puheen ajaksi pelin muut äänet (Master-väylä) hiljennetään (SPEECH_DUCK_DB). Selaimessa äänet latautuvat vasta
+## sivun avauduttua, joten ääniä haetaan uudelleen, kunnes niitä löytyy. Tutkimusmatkan musiikin aikana ei puhuta ääneen (tutkimusmatka.gd allows_speech).
 
 const MAX_LEN := 120
+const SPEECH_DUCK_DB := -12.0  # pelin äänet puheen ajan
 const LOG_LINES := 7
 const LOG_SECS := 20.0  # historian rivi häipyy näin kauan viestin jälkeen (kirjoittaessa näkyy aina)
 ## Puhesynteesi hahmoittain: toivottu ääni (osa äänen tunnusta, macOS:n suomenkieliset äänet), äänenkorkeus ja
@@ -27,7 +29,7 @@ var _edit: LineEdit
 var _bubbles := {}  # hahmon indeksi -> [Label3D, jäljellä oleva aika]
 var _lines: Array = []  # [Label, aika]
 var _voices: Array = []  # käytettävissä olevat äänet (tyhjä = ei puhesynteesiä)
-var _voices_read := false
+var _speech_duck := 0.0  # Master-väylän vaimennus nyt (dB)
 
 
 func _ready() -> void:
@@ -42,6 +44,8 @@ func _ready() -> void:
 		if i >= 0 and i < game.crew.size() and from == game.mp.net.host_id and game.crew_modes[i] != "player":
 			show_message(i, str(d.get("m", ""))))
 	_build_ui()
+	if Settings.get_v("tts") and DisplayServer.get_name() != "headless":
+		_read_voices()  # selaimessa käynnistää äänilistan latauksen
 
 
 func _build_ui() -> void:
@@ -147,25 +151,29 @@ func ai_say(i: int, text: String) -> void:
 
 ## Puhesynteesi: viesti ääneen hahmon omalla äänellä, hiljempaa kauempana kamerasta.
 func _speak(i: int, text: String) -> void:
-	if not Settings.get_v("tts") or DisplayServer.get_name() == "headless" or not game.retki.allows_speech(text):
+	if not Settings.get_v("tts") or DisplayServer.get_name() == "headless" or not game.retki.allows_speech():
 		return
-	if not _voices_read:
-		_voices_read = true
-		_voices = Array(DisplayServer.tts_get_voices_for_language("fi"))
-		if _voices.is_empty():
-			_voices = Array(DisplayServer.tts_get_voices_for_language("en"))
 	if _voices.is_empty():
-		return
+		_read_voices()
+		if _voices.is_empty():
+			return
 	var b: CharacterBody3D = game.crew[i]
 	var cam := get_viewport().get_camera_3d()
 	var dist: float = b.global_position.distance_to(cam.global_position) if cam != null else 0.0
-	var vol: float = Settings.get_v("vol_speech") * Settings.get_v("vol_master") * clampf(1.0 - dist / 60.0, 0.2, 1.0)
+	var vol: float = minf(1.0, Settings.get_v("vol_speech") * 1.25) * clampf(1.0 - dist / 200.0, 0.9, 1.0)
 	var vp: Array = VOICE.get(game.Porukka.CREW[i].name, ["", 1.0, 1.0])
 	var voice: String = _voices[0]
 	for v: String in _voices:
 		if vp[0] != "" and v.contains(vp[0]):
 			voice = v
-	DisplayServer.tts_speak(text, voice, int(vol * 100.0), vp[1], vp[2])
+	DisplayServer.tts_speak(text, voice, roundi(vol * 100.0), vp[1], vp[2])
+
+
+## Suomenkieliset äänet, muuten englanninkieliset (selaimessa lista voi olla aluksi tyhjä).
+func _read_voices() -> void:
+	_voices = Array(DisplayServer.tts_get_voices_for_language("fi"))
+	if _voices.is_empty():
+		_voices = Array(DisplayServer.tts_get_voices_for_language("en"))
 
 
 ## Viesti hahmolta i: puhekupla pään yläpuolelle ja rivi historiaan.
@@ -216,7 +224,16 @@ func _show_log() -> void:
 		e[0].modulate.a = 1.0
 
 
+func _exit_tree() -> void:
+	Settings.set_duck("Master", 0.0)
+
+
 func _process(delta: float) -> void:
+	# Puheen ajaksi muut äänet hiljemmalle (nopeasti alas, rauhallisesti takaisin).
+	var speaking: bool = _voices.size() > 0 and Settings.get_v("tts") and DisplayServer.tts_is_speaking()
+	var want := SPEECH_DUCK_DB if speaking else 0.0
+	_speech_duck = move_toward(_speech_duck, want, (60.0 if speaking else 15.0) * delta)
+	Settings.set_duck("Master", _speech_duck)
 	for i in _bubbles.keys():
 		var e: Array = _bubbles[i]
 		e[1] -= delta

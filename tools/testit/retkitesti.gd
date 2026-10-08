@@ -1,7 +1,8 @@
 extends SceneTree
 ## Tutkimusmatkan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/retkitesti.gd
-## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi (Vangelis-pätkän jälkeen generoitu) ja muut
-## äänet vaikenevat, alun huutojen jälkeen puhekin,
+## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): ensin huudot, sitten musiikki soi (Vangelis-pätkän
+## jälkeen valmiiksi laskettu generoitu silmukka tiedostosta, pätkä pois muistista) ja muut äänet vaikenevat (porukka juttelee
+## puhekuplin, ääneen ei puhuta musiikin aikana), perillä musiikki häivytetään ja muut äänet palaavat,
 ## tietokoneen hahmot lähtevät vanaveteen. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) n. 100 m päähän
 ## kätkölle: vene ei jää
 ## matalikkoon, ja uimarit pysyvät jonossa veneen perässä. Perillä porukka nousee kätkölle, pelaaja kävelee
@@ -69,6 +70,8 @@ var lag_sum := 0.0
 var stuck_t := 0.0
 var last_bp := Vector3.ZERO
 var pilot: Pilot
+var frame_us := 0  # edellisen ruudun alku (µs)
+var max_frame := 0  # pisin ruutu matkan alusta musiikin alkuun (µs)
 
 
 func _initialize() -> void:
@@ -102,10 +105,19 @@ func followers() -> Array:
 
 func _process(delta: float) -> bool:
 	clock += delta
+	var now := Time.get_ticks_usec()
+	if step == 4 and not has_meta("gen"):
+		max_frame = maxi(max_frame, now - frame_us)
+	frame_us = now
 	ts += delta
 	var retki: Node3D = main.retki
 	var boat: Node3D = main.boat
 	var pl: CharacterBody3D = main.player
+	if step >= 5 and not retki.music.playing and not has_meta("ambience_back"):
+		# Musiikki häivytettiin perillä: muut äänet palaavat ja puheet luetaan taas ääneen.
+		set_meta("ambience_back", true)
+		check(retki.state == "perilla" and retki.music.duck_db > -0.5,
+			"musiikin loputtua maailman äänet palaavat (%.0f s perillä)" % retki._party_t)
 	match step:
 		0:
 			if ts > 2.0:
@@ -137,12 +149,8 @@ func _process(delta: float) -> bool:
 		3:
 			if ts > 1.0:
 				check(retki.active and retki.state == "matka", "tutkimusmatka alkoi")
-				check(retki.music.playing, "musiikki soi (%s)" % ("syntetisoitu" if retki.music.synth else "tiedosto"))
+				check(not retki.music.playing and retki.allows_speech(), "alussa huudot ennen musiikkia")
 				check(followers().size() == 3, "kolme tietokoneen hahmoa mukana (%d)" % followers().size())
-				var ducks: Array = retki.music._ducks
-				check(ducks.size() == 2 and ducks.all(func(d: AudioEffectAmplify) -> bool: return d.volume_db < -60.0),
-					"taustaäänet ja efektit vaiennettu (%s dB)" % [ducks.map(func(d: AudioEffectAmplify) -> int: return roundi(d.volume_db))])
-				check(retki.allows_speech("Kaikki veneen perään!"), "alussa saa huutaa ja jutella")
 				pilot = Pilot.new()
 				pilot.boat = boat
 				pilot.path = R.ROUTE.duplicate()
@@ -165,20 +173,31 @@ func _process(delta: float) -> bool:
 			if stuck_t > 8.0:
 				check(false, "vene jumissa kohdassa %s" % bp)
 				return _finish()
-			if ts > 30.0 and retki.state == "matka" and not has_meta("gen"):
-				# Vangelis-pätkän jälkeen generoitu musiikki jatkaa: matto (4 ääntä) ja ostinato soivat.
+			if ts > R.START_TALK_MAX and retki.state == "matka" and not has_meta("music_on"):
+				set_meta("music_on", true)
+				check(retki.music.playing and not retki.allows_speech(),
+					"huutojen jälkeen musiikki soi (%s), ääneen ei puhuta" % ("syntetisoitu" if retki.music.synth else "tiedosto"))
+				var sfx := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("SFX"))
+				var amb := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Ambience"))
+				check(retki.music.duck_db < -60.0 and sfx < -60.0 and amb < -60.0,
+					"taustaäänet ja efektit vaiennettu (SFX %d dB, Ambience %d dB)" % [roundi(sfx), roundi(amb)])
+			if ts > 42.0 and retki.state == "matka" and not has_meta("gen"):
+				# Vangelis-pätkän jälkeen valmiiksi laskettu generoitu silmukka soi, ja pätkä on vapautettu muistista.
 				set_meta("gen", true)
+				# Ei raskasta laskentaa matkan alussa (selaimessa ääni miksataan pääsäikeessä: pitkä ruutu rikkoo äänen).
+				check(max_frame < 40000, "matkan alussa ei pitkiä ruutuja (pisin %.1f ms)" % (max_frame / 1000.0))
 				var m: Node = retki.music
-				check(m.playing and m._g > 0.0 and m._voices.size() == 4 and m._next_e > 8,
-					"pätkän jälkeen generoitu musiikki (%.1f s, %d iskua)" % [m._g, m._next_e])
-			if ts > 12.0 and retki.state == "matka" and not has_meta("quiet"):
-				set_meta("quiet", true)
-				check(not retki.allows_speech("Kippis!") and retki.allows_speech(R.LAND), "soudun aikana hiljaa")
+				var o: AudioStreamOggVorbis = m._gen.stream
+				check(m.playing and m._g > 0.0 and m.section == "matka" and o != null and o.loop and o.loop_offset == 0.0,
+					"pätkän jälkeen generoitu silmukka (%.1f s soinut, kierto %.1f s)" % [m._g, o.get_length() if o != null else 0.0])
+				check(m.synth or m._clip.stream == null, "Vangelis-pätkä vapautettu muistista")
+			if ts > 20.0 and retki.state == "matka" and not has_meta("row_chat"):
+				# Soudun aikana porukka juttelee (ROW_CHAT_T): puhekuplia näkyy.
+				set_meta("row_chat", true)
+				check(not main.chat._bubbles.is_empty(), "soudun aikana porukka juttelee (%d kuplaa)" % main.chat._bubbles.size())
 			if retki.state == "perilla":
-				check(retki.allows_speech("Kippis!"), "perillä keskustelu jatkuu")
 				check(ts < 100.0, "perillä %.0f s soutamisen jälkeen" % ts)
-				check(retki.music.playing, "musiikki soi vielä perillä")
-				check(retki.music.synth or retki.music.section == "finale", "viimeinen fraasi perillä (%s)" % retki.music.section)
+				check(retki.allows_speech(), "perillä puheet ääneen heti (\"Maata näkyvissä!\" musiikin häipyessä)")
 				set_meta("row_t", ts)
 				check(lag_n > 0 and lag_sum / lag_n < 14.0, "uimarit vanavedessä: keskimäärin %.1f m veneestä" % (lag_sum / maxf(1, lag_n)))
 				check(max_lag < 30.0, "kukaan ei jäänyt jälkeen (enintään %.1f m)" % max_lag)
@@ -243,7 +262,6 @@ func _process(delta: float) -> bool:
 				check(pl.boat == boat, "takaisin veneessä")
 			if retki.state == "paluu":
 				check(retki.active and followers().size() == 3, "paluu porukassa (%d)" % followers().size())
-				check(retki.allows_speech("Kippis!"), "paluulla saa puhua")
 				pilot = Pilot.new()
 				pilot.boat = boat
 				pilot.path = [Vector2(-90.0, 5.0), Vector2(-60.0, -20.0), Vector2(-15.0, -21.0), retki._home]
@@ -265,8 +283,7 @@ func _process(delta: float) -> bool:
 			last_bp = bp
 			if ts > 6.0 and not has_meta("quiet_back"):
 				set_meta("quiet_back", true)
-				var ducks: Array = retki.music._ducks
-				check(not retki.music.playing and ducks.all(func(d: AudioEffectAmplify) -> bool: return d.volume_db > -0.5),
+				check(not retki.music.playing and retki.music.duck_db > -0.5,
 					"paluulla tavallinen äänimaisema ilman musiikkia")
 			if ts > 15.0 and retki.active:
 				for j in followers():

@@ -111,9 +111,12 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
 - Reitti: mökin edestä ensin ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen (n. 115 m, soutu
   runsas minuutti tavallista vauhtia). Vettä riittää koko matkalla.
-- Kun musiikki soi, taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat. Alussa huudetaan ja
-  jutellaan (n. 10 s), sitten hiljennytään kuuntelemaan pelkkää musiikkia. Perillä ensimmäinen huutaa
-  "Maata näkyvissä!", musiikki soittaa loppukadenssin, ja kätköllä keskustelu jatkuu.
+- Puheet ja musiikki eivät soi päällekkäin: alussa huudetaan (puhesynteesi lukee huudot), ja musiikki alkaa
+  vasta huutojen jälkeen (n. 8 s, kun puhesynteesi on vaiennut). Soudun aikana porukka juttelee puhekuplin
+  (n. 14 s välein), mutta niitä ei lueta ääneen musiikin aikana. Perillä musiikki häivytetään (1,5 s), sitten
+  ensimmäinen huutaa "Maata näkyvissä!" ja kätköllä keskustelu jatkuu ääneen.
+- Kun musiikki soi, taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat; kun musiikki häivytetään, ne
+  palaavat samassa tahdissa.
 - Perillä porukka nousee 11 m rantaa ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
   kätkö, ehtymätön (E olut, Q viina).
 - Juhlien (n. 45 s) jälkeen paluu porukassa: tietokoneen hahmot kahlaavat takaisin veteen ja uivat taas jonossa
@@ -128,18 +131,21 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
     täyden teeman alkuun (1:07) ja neljä tahtia teemaa; fraasin lopussa (22,7 s) generoitu jatko alkaa omalla
     iskullaan ja pätkä häipyy 1,6 s:ssa. Leikattu aiemmasta koko kappaleen tiedostosta (`oggdec`, Python,
     `oggenc -q 5`). Jos pätkää ei ole, generoitu soi alusta asti.
-  - Generoitu: Des-duuri, 69 bpm, teeman sointukierto jatkuu pätkän jälkeen viidennestä tahdista: pianon
-    kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen ja kellot joka toisella tahdilla.
-    Perillä seuraavasta tahdista loppukadenssi (Ges, Assus4, As, Des), ja viimeinen sointu häipyy.
-  - Tehokas: soittimien äänet lasketaan kerran lyhyiksi näytteiksi (yhteensä n. 10 ms, yksi ruutua kohden),
-    ja ne soitetaan sävelinä `AudioStreamPolyphonic`illa sävelkorkeutta skaalaamalla; matto liukuu sointuihin
-    sävelkorkeutta muuttamalla. Ruutua kohden vain ajastus ja neljä voimakkuutta; ruudun rajalta myöhästynyt
-    sävel aloitetaan näytteen keskeltä, joten rytmi pysyy tasaisena. Kaiku on väylän efekti
-    (`Retkimusiikki` -> `Music`).
+  - Generoitu: `assets/music/retkimusiikki_silmukka.ogg` (n. 28 s saumaton silmukka, 22 kHz mono, OGG Vorbis
+    q3, 145 kt). Des-duuri, 69 bpm, teeman sointukierto jatkuu pätkän jälkeen viidennestä tahdista: pianon
+    kahdeksasosaostinato, CS-80-tyylinen messinkimatto ja kellot joka toisella tahdilla, ei kaikua.
+  - Kevyt: generoitu silmukka lasketaan valmiiksi työkalulla
+    `godot --headless --path . -s tools/retkimusiikki.gd` (vaatii `oggenc`:n, `brew install vorbis-tools`),
+    joten pelin aikana ei lasketa mitään eikä väylillä ole efektejä. Selaimessa äänet soitetaan selaimen omalla
+    Web Audiolla (Godotin näytetoisto, oletus selaimessa): aiemmin ääni miksattiin säikeettömässä buildissa
+    pääsäikeessä, jolloin jokainen pitkä ruutu (käynnistys, tutkimusmatka) säröytti äänen. Näytetoisto ei tue
+    väyläefektejä, joten musiikin aikana muut väylät vaiennetaan väylän voimakkuudella (Settings.set_duck). Pätkä ja silmukka ladataan taustalla huutojen aikana ja vapautetaan muistista heti, kun ne
+    ovat soineet. Ääniajuri soittaa silmukkaa näytteen tarkkuudella, joten rytmi ei riipu ruutunopeudesta.
 
 Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
-vanavedessä, porukka nousee kätkölle ja pelaaja ottaa huikan, Vangelis-pätkän jälkeen generoitu musiikki jatkaa,
-ja paluulla porukka ui vanavedessä mökille tavallisessa äänimaisemassa; lisäksi kumiveneen rakenne (soutajan jalat
+vanavedessä ja juttelevat soudun aikana, porukka nousee kätkölle ja pelaaja ottaa huikan, Vangelis-pätkän jälkeen
+generoitu silmukka jatkaa ja pätkä on vapautettu muistista, matkan alussa ei ole pitkiä ruutuja, alussa huudot ennen musiikkia ja musiikin aikana ei
+puhuta ääneen, perillä puheet ääneen heti, musiikin häivyttyä maailman äänet palaavat, ja paluulla porukka ui vanavedessä mökille tavallisessa äänimaisemassa; lisäksi kumiveneen rakenne (soutajan jalat
 veneen sisällä pohjan päällä).
 
 ## Rantatennis ylämökin edessä
@@ -183,7 +189,11 @@ päikkärikutsu ja Jukan kahvihuuto) näkyvät myös kaikilla: hostin tietokone 
 **Puhesynteesi:** puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetukset → Ääni → Puhesynteesi
 ja Puhe-voimakkuus). Kullakin hahmolla on oma suomenkielinen ääni, jos sellainen on asennettu (macOS:ssa
 Santtu Eddy, Marko Rocko, Jaakko Reed ja Jukka Grandpa); muuten ensimmäinen suomenkielinen ääni hahmon omalla
-äänenkorkeudella. Kauempana olevan puhe kuuluu hiljempaa.
+äänenkorkeudella. Puhe-voimakkuuden oletus (80 %) on puhesynteesin täysi voimakkuus, ja kaukana olevan
+puhe kuuluu vain hieman hiljempaa. Puhesynteesiä ei voi nostaa täyttä kovemmalle, joten puheen ajaksi pelin muut
+äänet hiljenevät 12 dB. Tutkimusmatkalla alun huudot luetaan ääneen ennen Vangelista, soudun aikana ei puhuta
+ääneen, ja perillä "Maata näkyvissä!" ja kaikki sen jälkeiset puheet luetaan taas ääneen. Selaimessa äänet latautuvat vasta sivun avauduttua, joten ääniä haetaan
+uudelleen, kunnes niitä löytyy (suomenkielinen ääni, jos selain tai käyttöjärjestelmä tarjoaa sellaisen).
 
 Välityspalvelin on `server/`-hakemistossa: Cloudflare Worker ja yksi Durable Object per huone
 (`wss://norpat.santtu-seppane.workers.dev/huone/<KOODI>`). Pelaajat lähettävät ohjaamiensa hahmojen ja
@@ -275,7 +285,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/mokki.gd`, `shaders/mokki.gdshader` | mökkipiha: rakennukset, terassit, portaat, laituri, maaston kaivu, reittipisteet |
 | `scripts/sun.gd`, `shaders/sky.gdshader` | aurinko ja kello, taivas, iltarusko ja tähdet |
 | `scripts/kumivene.gd` | kumivene ja soutaminen |
-| `scripts/tutkimusmatka.gd`, `scripts/retkimusiikki.gd` | tutkimusmatka kumiveneellä viinakätkölle porukka vanavedessä; Chariots of Fire (oma tiedosto) tai syntetisoitu musiikki |
+| `scripts/tutkimusmatka.gd`, `scripts/retkimusiikki.gd` | tutkimusmatka kumiveneellä viinakätkölle porukka vanavedessä; Chariots of Fire -pätkä ja valmiiksi laskettu generoitu silmukka |
 | `scripts/ranta.gd` | hiekkaranta ja viinakätkö rannan rinteessä |
 | `scripts/kahvi.gd`, `scripts/mustikat.gd` | Jukan aamukahvit liedellä; mustikkamättäät, jotka pidentävät virtsauskaarta |
 | `scripts/pallopeli.gd`, `scripts/rantatennis.gd`, `scripts/amerikanpallo.gd` | yhteiset pallopelit: pohja (osallistujat, moninpeli, lentorata, tekoäly, ennätys), rantatennis ylämökin edessä ja amerikkalaisen jalkapallon heittely vedessä |
