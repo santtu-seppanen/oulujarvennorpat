@@ -7,8 +7,8 @@ extends Node
 ## - Perillä (arrive) siirrytään viimeiseen fraasiin (FINALE, 3:03), joka soi juhlien ajan kappaleen omaan
 ##   häivytykseen (n. 22 s, tutkimusmatka.gd PARTY_T).
 ## Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla, joten isku jatkuu ristihäivytyksen yli tasaisena.
-## Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan (VOLUME_DB). Matkan ajan ympäristöäänet
-## (Ambience-väylä) hiljenevät (DUCK_DB) musiikin voimakkuuden mukaan.
+## Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan (VOLUME_DB). Kun kappale soi, muut äänet
+## (Ambience- ja SFX-väylät: taustaäänet ja efektit) vaiennetaan (DUCK_DB) musiikin voimakkuuden mukaan.
 ## Kaksi soitinta vuorotellen ristihäivytystä varten. Ilman tiedostoa soi syntetisoitu kappale samassa hengessä
 ## (Des-duuri, 69 bpm): sykkivä pianon kahdeksasosaostinato, CS-80-tyylinen messinkimatto liukuvine sointuineen
 ## ja kellot. Syntetisoidaan reaaliajassa (AudioStreamGenerator), joten toimii myös selaimessa ilman säikeitä.
@@ -29,7 +29,8 @@ const RATE := 22050.0
 const BPM := 69.0
 const VOLUME_DB := 6.0     # tiedosto: huippu n. -5 dBFS
 const SYNTH_DB := 0.0      # syntetisoitu kappale (näytteet jo rajattu -1..1)
-const DUCK_DB := -15.0     # ympäristöäänet matkan ajan
+const DUCK_DB := -80.0     # muut äänet (DUCK_BUSES) kappaleen ajan: hiljaa
+const DUCK_BUSES := ["Ambience", "SFX"]
 ## Soinnut tahdeittain (MIDI): Des, Ges/Des, Des, As/C, b, Ges, Assus4, As.
 const CHORDS := [[49, 56, 61, 65], [49, 54, 58, 61], [49, 56, 61, 65], [48, 56, 60, 63], [46, 53, 58, 61],
 	[42, 54, 58, 61], [44, 56, 61, 63], [44, 56, 60, 63]]
@@ -57,7 +58,7 @@ var _comb_l := PackedFloat32Array()
 var _comb_r := PackedFloat32Array()
 var _ci := 0
 var _tw: Tween
-var _duck: AudioEffectAmplify  # Ambience-väylällä
+var _ducks: Array[AudioEffectAmplify] = []  # DUCK_BUSES-väylillä
 
 
 func _ready() -> void:
@@ -82,18 +83,20 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	_cur = _players[0]
-	var bus := AudioServer.get_bus_index("Ambience")
-	if bus >= 0:
-		_duck = AudioEffectAmplify.new()
-		AudioServer.add_bus_effect(bus, _duck)
+	for name: String in DUCK_BUSES:
+		var bus := AudioServer.get_bus_index(name)
+		if bus >= 0:
+			var fx := AudioEffectAmplify.new()
+			AudioServer.add_bus_effect(bus, fx)
+			_ducks.append(fx)
 
 
 func _exit_tree() -> void:
-	var bus := AudioServer.get_bus_index("Ambience")
-	for i in (AudioServer.get_bus_effect_count(bus) if bus >= 0 else 0):
-		if AudioServer.get_bus_effect(bus, i) == _duck:
-			AudioServer.remove_bus_effect(bus, i)
-			break
+	for name: String in DUCK_BUSES:
+		var bus := AudioServer.get_bus_index(name)
+		for i in range((AudioServer.get_bus_effect_count(bus) if bus >= 0 else 0) - 1, -1, -1):
+			if AudioServer.get_bus_effect(bus, i) in _ducks:
+				AudioServer.remove_bus_effect(bus, i)
 
 
 ## Intron viimeisestä iskusta, häivyttäen sisään.
@@ -177,8 +180,9 @@ func _process(delta: float) -> void:
 	var gain := SYNTH_DB if synth else VOLUME_DB
 	if _cur != null:
 		_cur.volume_db = linear_to_db(maxf(master * sin(k * PI * 0.5), 1e-4)) + gain
-	if _duck != null:
-		_duck.volume_db = linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if playing else 0.0))
+	var duck := linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if playing else 0.0))
+	for fx in _ducks:
+		fx.volume_db = duck
 
 
 static func _hz(midi: float) -> float:

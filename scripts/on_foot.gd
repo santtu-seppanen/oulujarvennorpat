@@ -51,8 +51,6 @@ var speed := 0.0
 var stamina := 100.0
 var exhausted := false
 var swimming := false
-## Uinnin ja kahlauksen nopeuden kerroin (tutkimusmatkan vanavedessä pysytään veneen vauhdissa, tutkimusmatka.gd).
-var swim_boost := 1.0
 ## Veden syvyys pelaajan kohdalla (0 = kuivalla tai laiturilla).
 var water_depth := 0.0
 var on_wood := false
@@ -381,10 +379,10 @@ func _physics_process(delta: float) -> void:
 
 	if swimming:
 		tire(fast, false, delta, SWIM_DRAIN)
-		var want := throttle * (SWIM_FAST if fast else SWIM) * swim_boost
+		var want := throttle * (SWIM_FAST if fast else SWIM)
 		if throttle < 0.0:
 			want *= 0.5
-		speed = move_toward(speed, want, 3.0 * swim_boost * delta)
+		speed = move_toward(speed, want, 3.0 * delta)
 		velocity.x = fwd.x * speed
 		velocity.z = fwd.z * speed
 		# Kelluu: vartalo hakeutuu pinnan alle niin, että pää jää pinnalle.
@@ -399,7 +397,7 @@ func _physics_process(delta: float) -> void:
 	tire(running, absf(speed) < 0.2, delta, RUN_DRAIN)
 	var gmul := 1.0
 	if water_depth > 0.05:
-		gmul = clampf(1.0 - water_depth * 0.55, 0.35, 1.0) * swim_boost  # kahlaus
+		gmul = clampf(1.0 - water_depth * 0.55, 0.35, 1.0)  # kahlaus
 	elif surface == Terrain.BOG and not on_wood:
 		gmul = 0.75
 	elif surface == Terrain.SAND and not on_wood:
@@ -487,7 +485,7 @@ func _animate(delta: float) -> void:
 	_slide = _slide.move_toward(Vector3.ZERO, delta * 3.0)
 	_body.position = _slide + Vector3.UP * (0.16 if lying else 0.0)
 	if swimming:
-		_body.play("Swim_Fwd" if s > 0.2 else "Swim_Idle", 0.3, maxf(0.6, s / (SWIM * swim_boost)))
+		_body.play("Swim_Fwd" if s > 0.2 else "Swim_Idle", 0.3, maxf(0.6, s / SWIM))
 		_step_t += delta
 		if _step_t > (0.9 if s > 0.2 else 2.2):
 			_step_t = 0.0

@@ -103,27 +103,26 @@ Testi: `tools/testit/rantatesti.gd` (`--headless --fixed-fps 60`), kuvakaappauks
 
 ## Tutkimusmatka kumiveneellä
 
-Äpätin länsipuolen niemen länsirannalla on viinakätkö (**64.431850 N, 26.880575 E**, n. 290 m mökiltä länteen),
+Lahden lounaisrannalla on viinakätkö (**64.431793 N, 26.884539 E**, n. 100 m mökiltä lounaaseen),
 jonne ei kulje polkua: sinne mennään kumiveneellä (`scripts/tutkimusmatka.gd`). Veneessä Q aloittaa
 tutkimusmatkan. Vangeliksen Chariots of Fire soi, ja koko porukka tulee veneen vanavedessä: tietokoneen hahmot
 kahlaavat veteen ja uivat jonossa veneen perässä sen kulkemaa reittiä (vanavedessä jaksaa, kunto ei kulu).
 Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
-- Reitti: mökin edestä ensin ulos lohkareiden ohi, lahden yli länteen, niemen kärjen ympäri ja etelään
-  rantaan. Vettä riittää koko matkalla.
-- Koko matka kestää noin minuutin: matkalla vene kulkee vauhdilla (soutu n. 40 s) ja uimarit pysyvät perässä,
-  ja matalikossa vene liukuu rantaa pitkin. Musiikki soi kovaa ja ympäristöäänet hiljenevät matkan ajaksi.
-- Perillä porukka nousee 24 m rinnettä ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
+- Reitti: mökin edestä ensin ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen (n. 115 m, soutu
+  runsas minuutti tavallista vauhtia). Vettä riittää koko matkalla.
+- Kun Vangelis soi, muuta ei kuulu: taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat.
+- Perillä porukka nousee 11 m rantaa ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
   kätkö, ehtymätön (E olut, Q viina). Kappaleen loputtua (n. 22 s) musiikki häipyy, ja tietokoneen hahmot
   palaavat omiin puuhiinsa.
 - Veneessä uudelleen Q keskeyttää matkan. Moninpelissä aloitus ja keskeytys lähtevät kaikille, joten musiikki
   soi kaikilla, ja hostin tietokone ohjaa vapaita hahmoja.
-- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna noin minuutin matkaan. Matka alkaa
+- **Musiikki** (`scripts/retkimusiikki.gd`): Chariots of Fire sovitettuna matkaan. Matka alkaa
   intron viimeisestä iskusta (0:20), ja pianoteeman kohdalla (0:29) siirrytään suoraan täyden teeman alkuun
   (1:07), joka soi soudun ajan. Jos soutu venyy, ennen loppuhäivytystä (3:16) palataan täyden teeman alkuun, ja
   perillä siirrytään viimeiseen fraasiin (3:03), joka soi juhlien ajan kappaleen omaan häivytykseen.
   Siirtokohdat on haettu iskujen verhokäyrän ristikorrelaatiolla (tahti 3,52 s, tempo liukuu hieman).
-  Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan +6 dB, ja Ambience-väylä vaimenee 15 dB.
+  Tiedosto on hiljainen (huippu -11 dBFS), joten sitä vahvistetaan +6 dB.
   - Äänite: `assets/music/chariots_of_fire.ogg` (OGG Vorbis q2, 2,5 MB, hiljainen häntä leikattu), mukana
     kaikissa buildeissa ja selainversiossa. Tehty alkuperäisestä mp3:sta: `afconvert -f WAVE -d LEI16@44100`,
     leikkaus 210 s:iin ja `oggenc -q 2`.
