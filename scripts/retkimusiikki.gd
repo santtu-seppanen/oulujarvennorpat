@@ -9,17 +9,13 @@ extends Node
 ##   joten pelin aikana ei lasketa mitään eikä väylällä ole kaikuefektiä: selaimessa ääni miksataan pääsäikeessä,
 ##   ja raskas laskenta tai efekti rikkoi äänen.
 ## Molemmat ladataan taustalla (prepare) huutojen aikana ja vapautetaan muistista heti, kun ne ovat soineet.
-## Kun musiikki soi, muut äänet (Ambience- ja SFX-väylät: taustaäänet ja efektit) vaiennetaan (DUCK_DB) väylän
-## voimakkuudella (Settings.set_duck; selaimen näytetoisto ei tue väyläefektejä); kun musiikki häivytetään, ne
-## palaavat samassa tahdissa.
+## Musiikin aikana vain puhesynteesi on hiljaa (tutkimusmatka.gd allows_speech); taustaäänet ja efektit soivat.
 
 const CLIP := "res://assets/music/chariots_of_fire_alku.ogg"
 const LOOP := "res://assets/music/retkimusiikki_silmukka.ogg"
 const HANDOFF := 22.67     # pätkän fraasin loppu: generoitu alkaa tästä (pätkä häipyy 1,6 s)
 const CLIP_DB := 0.0       # pätkä on jo normalisoitu
 const GEN_DB := -2.0       # generoitu (normalisoitu -1 dBFS:ään)
-const DUCK_DB := -80.0     # muut äänet (DUCK_BUSES) kappaleen ajan: hiljaa
-const DUCK_BUSES := ["Ambience", "SFX"]
 
 var synth := false  # pätkä puuttuu: generoitu alusta asti
 var section := ""   # "" | alku | matka
@@ -35,7 +31,6 @@ var _clip_len := 0.0
 var _clip_t := 0.0    # aikaa pätkän alusta (oma kello: soittokohta ei etene ilman äänilaitetta)
 var _g := -1.0        # generoidun aika (s), < 0: ei vielä alkanut
 var _tw: Tween
-var duck_db := 0.0   # DUCK_BUSES-väylien vaimennus nyt
 
 
 func _ready() -> void:
@@ -51,8 +46,6 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_drop_requests()
-	for bus: String in DUCK_BUSES:
-		Settings.set_duck(bus, 0.0)
 
 
 ## Valmistelu ennen soittoa (esim. huutojen aikana): pätkä ja silmukka latautuvat taustalla.
@@ -149,8 +142,3 @@ func _process(delta: float) -> void:
 	var lin := maxf(master, 1e-4)
 	_clip.volume_db = linear_to_db(lin) + CLIP_DB
 	_gen.volume_db = linear_to_db(lin) + GEN_DB
-	var duck := linear_to_db(lerpf(1.0, db_to_linear(DUCK_DB), master if _on else 0.0))
-	if absf(duck - duck_db) > 0.05 or (duck == 0.0 and duck_db != 0.0):
-		duck_db = duck
-		for bus: String in DUCK_BUSES:
-			Settings.set_duck(bus, duck_db)

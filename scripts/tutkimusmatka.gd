@@ -380,10 +380,10 @@ func _talk(lines: Array, first: String, gap: float, want: String, delay := 0.0) 
 		t += gap
 
 
-## Puhesynteesi (chat.gd): soudun aikana ääneen vain alun huudot ennen musiikkia; perillä ("Maata näkyvissä!")
-## ja siitä eteenpäin kaikki puheet ääneen heti, vaikka musiikki vielä häipyisi.
+## Puhesynteesi (chat.gd): Vangeliksen ajan puhe on hiljaa (muut äänet soivat). Ääneen taas, kun musiikki loppuu,
+## ja viimeistään perillä ("Maata näkyvissä!"), vaikka musiikki vielä häipyisi.
 func allows_speech() -> bool:
-	return not active or state != "matka" or not _music_on
+	return not active or state != "matka" or not _music_on or not music.playing
 
 
 ## Kehote veneessä.

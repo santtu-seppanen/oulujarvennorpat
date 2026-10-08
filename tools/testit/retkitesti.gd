@@ -114,10 +114,10 @@ func _process(delta: float) -> bool:
 	var boat: Node3D = main.boat
 	var pl: CharacterBody3D = main.player
 	if step >= 5 and not retki.music.playing and not has_meta("ambience_back"):
-		# Musiikki häivytettiin perillä: muut äänet palaavat ja puheet luetaan taas ääneen.
+		# Musiikki häivytettiin perillä: puheet luetaan taas ääneen.
 		set_meta("ambience_back", true)
-		check(retki.state == "perilla" and retki.music.duck_db > -0.5,
-			"musiikin loputtua maailman äänet palaavat (%.0f s perillä)" % retki._party_t)
+		check(retki.state == "perilla" and retki.allows_speech(),
+			"musiikin loputtua puheet ääneen (%.0f s perillä)" % retki._party_t)
 	match step:
 		0:
 			if ts > 2.0:
@@ -179,8 +179,8 @@ func _process(delta: float) -> bool:
 					"huutojen jälkeen musiikki soi (%s), ääneen ei puhuta" % ("syntetisoitu" if retki.music.synth else "tiedosto"))
 				var sfx := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("SFX"))
 				var amb := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Ambience"))
-				check(retki.music.duck_db < -60.0 and sfx < -60.0 and amb < -60.0,
-					"taustaäänet ja efektit vaiennettu (SFX %d dB, Ambience %d dB)" % [roundi(sfx), roundi(amb)])
+				check(sfx > -20.0 and amb > -20.0,
+					"musiikin aikana taustaäänet ja efektit soivat (SFX %d dB, Ambience %d dB)" % [roundi(sfx), roundi(amb)])
 			if ts > 42.0 and retki.state == "matka" and not has_meta("gen"):
 				# Vangelis-pätkän jälkeen valmiiksi laskettu generoitu silmukka soi, ja pätkä on vapautettu muistista.
 				set_meta("gen", true)
@@ -283,7 +283,7 @@ func _process(delta: float) -> bool:
 			last_bp = bp
 			if ts > 6.0 and not has_meta("quiet_back"):
 				set_meta("quiet_back", true)
-				check(not retki.music.playing and retki.music.duck_db > -0.5,
+				check(not retki.music.playing and retki.allows_speech(),
 					"paluulla tavallinen äänimaisema ilman musiikkia")
 			if ts > 15.0 and retki.active:
 				for j in followers():

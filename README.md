@@ -139,7 +139,7 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
     joten pelin aikana ei lasketa mitään eikä väylillä ole efektejä. Selaimessa äänet soitetaan selaimen omalla
     Web Audiolla (Godotin näytetoisto, oletus selaimessa): aiemmin ääni miksattiin säikeettömässä buildissa
     pääsäikeessä, jolloin jokainen pitkä ruutu (käynnistys, tutkimusmatka) säröytti äänen. Näytetoisto ei tue
-    väyläefektejä, joten musiikin aikana muut väylät vaiennetaan väylän voimakkuudella (Settings.set_duck). Pätkä ja silmukka ladataan taustalla huutojen aikana ja vapautetaan muistista heti, kun ne
+    väyläefektejä. Musiikin aikana vain puhesynteesi on hiljaa; taustaäänet ja efektit soivat. Pätkä ja silmukka ladataan taustalla huutojen aikana ja vapautetaan muistista heti, kun ne
     ovat soineet. Ääniajuri soittaa silmukkaa näytteen tarkkuudella, joten rytmi ei riipu ruutunopeudesta.
 
 Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
