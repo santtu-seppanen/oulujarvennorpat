@@ -7,12 +7,11 @@ extends Node
 ## Tietokoneen hahmojen puheet (ai_say) näkyvät hostilla ja lähtevät hostilta kaikille (viesti "chat_ai"); vain
 ## host ohjaa tietokoneen hahmoja. Puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetus "tts"),
 ## suomenkielisellä äänellä, jos sellainen on: kullakin hahmolla oma äänenkorkeus. Voimakkuus: asetus "Puhe"
-## (oletus 80 % = täysi voimakkuus), kaukana kamerasta hieman hiljempaa. Puhesynteesin voimakkuutta ei voi
-## nostaa yli täyden, joten puheen ajaksi pelin muut äänet (Master-väylä) hiljennetään (SPEECH_DUCK_DB). Selaimessa äänet latautuvat vasta
+## (oletus 80 % = täysi voimakkuus), kaukana kamerasta hieman hiljempaa. Puheen aikana muita ääniä ei säädetä.
+## Selaimessa äänet latautuvat vasta
 ## sivun avauduttua, joten ääniä haetaan uudelleen, kunnes niitä löytyy. Tutkimusmatkan musiikin aikana ei puhuta ääneen (tutkimusmatka.gd allows_speech).
 
 const MAX_LEN := 120
-const SPEECH_DUCK_DB := -12.0  # pelin äänet puheen ajan
 const LOG_LINES := 7
 const LOG_SECS := 20.0  # historian rivi häipyy näin kauan viestin jälkeen (kirjoittaessa näkyy aina)
 ## Puhesynteesi hahmoittain: toivottu ääni (osa äänen tunnusta, macOS:n suomenkieliset äänet), äänenkorkeus ja
@@ -29,7 +28,6 @@ var _edit: LineEdit
 var _bubbles := {}  # hahmon indeksi -> [Label3D, jäljellä oleva aika]
 var _lines: Array = []  # [Label, aika]
 var _voices: Array = []  # käytettävissä olevat äänet (tyhjä = ei puhesynteesiä)
-var _speech_duck := 0.0  # Master-väylän vaimennus nyt (dB)
 
 
 func _ready() -> void:
@@ -224,16 +222,7 @@ func _show_log() -> void:
 		e[0].modulate.a = 1.0
 
 
-func _exit_tree() -> void:
-	Settings.set_duck("Master", 0.0)
-
-
 func _process(delta: float) -> void:
-	# Puheen ajaksi muut äänet hiljemmalle (nopeasti alas, rauhallisesti takaisin).
-	var speaking: bool = _voices.size() > 0 and Settings.get_v("tts") and DisplayServer.tts_is_speaking()
-	var want := SPEECH_DUCK_DB if speaking else 0.0
-	_speech_duck = move_toward(_speech_duck, want, (60.0 if speaking else 15.0) * delta)
-	Settings.set_duck("Master", _speech_duck)
 	for i in _bubbles.keys():
 		var e: Array = _bubbles[i]
 		e[1] -= delta

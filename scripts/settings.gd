@@ -31,8 +31,6 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 }
-## Väylien tilapäinen vaimennus (dB) asetuksen päälle, esim. tutkimusmatkan musiikin aikana (set_duck).
-var _duck := {}
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
 
@@ -115,20 +113,16 @@ func apply() -> void:
 
 
 const BUSES := {"Master": "vol_master", "SFX": "vol_sfx", "Ambience": "vol_ambience", "Music": "vol_music"}
+## Kiinteä tasonsäätö (dB) asetuksen päälle: taustaäänet ja efektit hieman hiljemmalle, jotta puhe ja musiikki
+## erottuvat. Ei muutu pelin aikana.
+const BUS_TRIM := {"SFX": -4.0, "Ambience": -4.0}
 
 
-## Väylän voimakkuus: asetus ja tilapäinen vaimennus. Väyläefektejä ei käytetä, koska selaimen näytetoisto
+## Väylän voimakkuus: asetus ja kiinteä tasonsäätö. Väyläefektejä ei käytetä, koska selaimen näytetoisto
 ## (Godotin oletus selaimessa) ei tue niitä.
 func _apply_bus(bus: String) -> void:
 	var i := AudioServer.get_bus_index(bus)
 	if i >= 0:
 		var v: float = values[BUSES[bus]]
-		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)) + _duck.get(bus, 0.0))
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)) + BUS_TRIM.get(bus, 0.0))
 		AudioServer.set_bus_mute(i, v <= 0.001)
-
-
-## Tilapäinen vaimennus väylälle (0 dB = ei vaimennusta).
-func set_duck(bus: String, db: float) -> void:
-	if not is_equal_approx(_duck.get(bus, 0.0), db):
-		_duck[bus] = db
-		_apply_bus(bus)

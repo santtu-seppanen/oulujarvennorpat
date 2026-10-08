@@ -139,7 +139,7 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
     joten pelin aikana ei lasketa mitään eikä väylillä ole efektejä. Selaimessa äänet soitetaan selaimen omalla
     Web Audiolla (Godotin näytetoisto, oletus selaimessa): aiemmin ääni miksattiin säikeettömässä buildissa
     pääsäikeessä, jolloin jokainen pitkä ruutu (käynnistys, tutkimusmatka) säröytti äänen. Näytetoisto ei tue
-    väyläefektejä. Musiikin aikana vain puhesynteesi on hiljaa; taustaäänet ja efektit soivat. Pätkä ja silmukka ladataan taustalla huutojen aikana ja vapautetaan muistista heti, kun ne
+    väyläefektejä. Musiikin aikana vain puhesynteesi on hiljaa; taustaäänet ja efektit soivat ennallaan. Pätkä ja silmukka ladataan taustalla huutojen aikana ja vapautetaan muistista heti, kun ne
     ovat soineet. Ääniajuri soittaa silmukkaa näytteen tarkkuudella, joten rytmi ei riipu ruutunopeudesta.
 
 Testi: `tools/testit/retkitesti.gd` (`--headless --fixed-fps 60`): autopilotti soutaa reitin, uimarit pysyvät
@@ -190,8 +190,8 @@ päikkärikutsu ja Jukan kahvihuuto) näkyvät myös kaikilla: hostin tietokone 
 ja Puhe-voimakkuus). Kullakin hahmolla on oma suomenkielinen ääni, jos sellainen on asennettu (macOS:ssa
 Santtu Eddy, Marko Rocko, Jaakko Reed ja Jukka Grandpa); muuten ensimmäinen suomenkielinen ääni hahmon omalla
 äänenkorkeudella. Puhe-voimakkuuden oletus (80 %) on puhesynteesin täysi voimakkuus, ja kaukana olevan
-puhe kuuluu vain hieman hiljempaa. Puhesynteesiä ei voi nostaa täyttä kovemmalle, joten puheen ajaksi pelin muut
-äänet hiljenevät 12 dB. Tutkimusmatkalla alun huudot luetaan ääneen ennen Vangelista, soudun aikana ei puhuta
+puhe kuuluu vain hieman hiljempaa. Taustaäänet ja efektit ovat kiinteästi 4 dB asetusta hiljempana (Settings.BUS_TRIM),
+jotta puhe erottuu; puheen tai tutkimusmatkan aikana niitä ei säädetä. Tutkimusmatkalla alun huudot luetaan ääneen ennen Vangelista, soudun aikana ei puhuta
 ääneen, ja perillä "Maata näkyvissä!" ja kaikki sen jälkeiset puheet luetaan taas ääneen. Selaimessa äänet latautuvat vasta sivun avauduttua, joten ääniä haetaan
 uudelleen, kunnes niitä löytyy (suomenkielinen ääni, jos selain tai käyttöjärjestelmä tarjoaa sellaisen).
 
