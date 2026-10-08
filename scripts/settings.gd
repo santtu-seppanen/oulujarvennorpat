@@ -39,9 +39,11 @@ var renderer_auto_saved := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Väylät lisätään bus_countilla eikä add_bus():lla: selaimen näytetoistossa (Web Audio) add_bus() lisää väylän
+	# väärään kohtaan, jolloin väylien järjestys menee sekaisin ja esim. musiikki ei kuulu lainkaan.
 	for bus in ["SFX", "Ambience", "Music"]:
 		if AudioServer.get_bus_index(bus) < 0:
-			AudioServer.add_bus()
+			AudioServer.bus_count += 1
 			var i := AudioServer.bus_count - 1
 			AudioServer.set_bus_name(i, bus)
 			AudioServer.set_bus_send(i, "Master")
