@@ -1,6 +1,6 @@
 extends SceneTree
 ## Tutkimusmatkan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/retkitesti.gd
-## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja muut äänet vaikenevat,
+## Pelaaja nousee kumiveneeseen ja aloittaa tutkimusmatkan (Q): musiikki soi ja muut äänet ja puhe vaikenevat (lähtöhuutoa lukuun ottamatta),
 ## tietokoneen hahmot lähtevät vanaveteen. Autopilotti soutaa reitin (tutkimusmatka.gd ROUTE) n. 100 m päähän
 ## kätkölle: vene ei jää
 ## matalikkoon, ja uimarit pysyvät jonossa veneen perässä. Perillä porukka nousee kätkölle, pelaaja kävelee
@@ -140,6 +140,8 @@ func _process(delta: float) -> bool:
 				var ducks: Array = retki.music._ducks
 				check(ducks.size() == 2 and ducks.all(func(d: AudioEffectAmplify) -> bool: return d.volume_db < -60.0),
 					"taustaäänet ja efektit vaiennettu (%s dB)" % [ducks.map(func(d: AudioEffectAmplify) -> int: return roundi(d.volume_db))])
+				check(retki.allows_speech(R.SHOUT) and not retki.allows_speech("Kippis!"),
+					"musiikin aikana puhutaan ääneen vain lähtöhuuto")
 				pilot = Pilot.new()
 				pilot.boat = boat
 				pilot.path = R.ROUTE.duplicate()

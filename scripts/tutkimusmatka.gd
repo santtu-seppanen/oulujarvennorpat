@@ -31,10 +31,8 @@ const ROUTE := [Vector2(-15.0, -21.0), Vector2(-60.0, -20.0), Vector2(-90.0, 5.0
 const ARRIVE_DIST := 12.0  # vene näin lähellä rantautumispaikkaa: perillä
 const PARTY_T := 22.0  # kätköllä juhlitaan ennen paluuta: kappaleen viimeinen fraasi (retkimusiikki.gd FINALE)
 const GAP := 2.2  # uimarien väli jonossa
-const LINES_START := ["Tutkimusmatka! Kaikki veneen perään!", "Viinakätkö odottaa – uidaan perässä!",
-	"Kohti tuntematonta! Ja kätköä.", "Vanavedessä jaksaa uida vaikka Kajaaniin."]
-const LINES_ARRIVE := ["Kätkö löytyi! Kippis tutkimusmatkalle!", "Tämä on historiallinen hetki.",
-	"Vangelis soi ja viina virtaa.", "Löytöretki onnistui!"]
+## Ensimmäisen mukaan lähtevän hahmon huuto; sen jälkeen kukaan ei puhu musiikin aikana (allows_speech).
+const SHOUT := "Tutkimusmatka!"
 
 var game: Node3D
 var stash_pos := Vector3.ZERO
@@ -169,6 +167,7 @@ func _begin(send: bool) -> void:
 		game.mp.send({"t": "retki", "on": true})
 	game.toast("Tutkimusmatka viinakätkölle! Souda länteen ja rantaa pitkin lounaaseen – porukka uimassa vanavedessä. "
 		+ "Kompassi näyttää kätkön.", 6.0)
+	game.chat.hush()
 	if _host():
 		_take_crew()
 
@@ -206,9 +205,9 @@ func _take_crew() -> void:
 			f.path = game.world.mokki.route(b.global_position, "ranta_vesi")
 		b.brain = f
 		_brains[j] = f
-		if not said or randf() < 0.5:
+		if not said:
 			said = true
-			game.chat.ai_say(j, LINES_START.pick_random())
+			game.chat.ai_say(j, SHOUT)
 
 
 func _release_crew() -> void:
@@ -270,7 +269,6 @@ func _arrive() -> void:
 	_party_t = 0.0
 	game.toast("Perillä! Viinakätkö rinteessä rannan yläpuolella. E: olut · Q: huikka viinaa.", 6.0)
 	music.arrive()  # viimeinen teema juhlien ajaksi
-	var said := false
 	for j in _brains:
 		var f: Follow = _brains[j]
 		var a := TAU * f.k / maxf(1.0, _brains.size()) + 0.6
@@ -280,9 +278,6 @@ func _arrive() -> void:
 			f.path.append(Vector3(q.x, Terrain.h(q.x, q.y), q.y))
 		f.spot = Vector3(at.x, Terrain.h(at.x, at.y), at.y)
 		f.at_stash = false
-		if not said:
-			said = true
-			game.chat.ai_say(j, LINES_ARRIVE.pick_random())
 	# Kätköllä huikat (tietokoneen hahmot, kun ehtivät perille).
 	get_tree().create_timer(14.0).timeout.connect(func() -> void:
 		for j in _brains:
@@ -290,6 +285,11 @@ func _arrive() -> void:
 			if f.at_stash:
 				f.body.drink(0.45)
 				f.body.pose = "Idle_Talking")
+
+
+## Puhesynteesi (chat.gd): Vangeliksen soidessa vain lähtöhuuto luetaan ääneen.
+func allows_speech(text: String) -> bool:
+	return not music.playing or text == SHOUT
 
 
 ## Kehote veneessä.

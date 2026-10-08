@@ -111,7 +111,8 @@ Kompassin kätköosoitin näyttää matkan ajan tutkimusmatkan kätköä.
 
 - Reitti: mökin edestä ensin ulos lohkareiden ohi, länteen ja rantaa pitkin lounaaseen (n. 115 m, soutu
   runsas minuutti tavallista vauhtia). Vettä riittää koko matkalla.
-- Kun Vangelis soi, muuta ei kuulu: taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat.
+- Kun Vangelis soi, muuta ei kuulu: taustaäänet ja efektit (Ambience- ja SFX-väylät) vaikenevat, eikä
+  puhesynteesi lue puheita ääneen. Vain ensimmäinen mukaan lähtevä hahmo huutaa "Tutkimusmatka!".
 - Perillä porukka nousee 11 m rantaa ylös kätkölle juhlimaan: lahonnut puulaatikko havujen alla kuten rannan
   kätkö, ehtymätön (E olut, Q viina). Kappaleen loputtua (n. 22 s) musiikki häipyy, ja tietokoneen hahmot
   palaavat omiin puuhiinsa.
