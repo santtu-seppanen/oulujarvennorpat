@@ -24,6 +24,7 @@ var clock := 0.0  # pelin aika (headless --fixed-fps ajaa seinäkelloa nopeammin
 var ts := 0.0  # vaiheen alku
 var start_rot := 0.0
 var start_pos := Vector3.ZERO
+var tuppi_t := -1.0  # tupin alku (ristiseiskan jälkeen samassa pöydässä)
 
 
 func _initialize() -> void:
@@ -174,7 +175,7 @@ func _process(delta: float) -> bool:
 				main.start_activity("kortit")
 				check(main.kokkaus.annokset == 0 and p.stamina > 99.0, "pöydässä syötiin pyttipannua")
 				check(main.kortit._ui.visible, "korttinäkymä auki")
-				main.kortit.act()
+				main.kortit.deal()
 				check(main.kortit.logic.phase == "play", "kortit jaettu")
 				for j in [0, 2, 3]:
 					print("%s: %s" % [main.crew[j].display_name, main.crew[j].brain.activity])
@@ -182,6 +183,27 @@ func _process(delta: float) -> bool:
 		14:
 			var k = main.kortit
 			var L = k.logic
+			if tuppi_t >= 0.0:
+				var U = k.tuppi
+				var me: int = main.player_index
+				if U.actor() == me:
+					if U.phase == "bid":
+						k._on_card(U.bot_bid(me, k._rng))
+					else:
+						k._on_card(U.bot_play(me, k._rng))
+				if U.phase == "over" or t - tuppi_t > 120.0:
+					var tr: int = U.won[0] + U.won[1] + U.won[2] + U.won[3]
+					check(U.phase == "over" and tr == 13, "tupin jako pelattiin loppuun (%d tikkiä)" % tr)
+					check(U.gained[0] + U.gained[1] > 0 and (U.scores[0] == 0 or U.scores[1] == 0), "tupin pisteet")
+					print("tuppi: %s, tikit %d–%d, pisteet %s" % [U.mode, U.team_tricks(0), U.team_tricks(1), U.scores])
+					main.end_activity()
+					check(not main.kortit._ui.visible and main.activity == "", "pöydästä noustu")
+					check(not p.view_override_on, "ylänäkymä pois noustessa")
+					# Kätkölle saunan taakse.
+					_put(p, "katko", "sauna_ovi")
+					p.promille = 0.0
+					next()
+				return false
 			if L.phase != "over" and L.actor() == main.player_index:
 				if L.phase == "play":
 					k._on_card(L.bot_play(main.player_index, k._rng))
@@ -196,12 +218,19 @@ func _process(delta: float) -> bool:
 						near += 1
 				print("voittaja %s, keittiössä tietokoneen hahmoja %d" % [main.Porukka.CREW[L.finished[0]].name, near])
 				check(near >= 1, "tietokoneen hahmoja tuli pöytään")
-				main.end_activity()
-				check(not main.kortit._ui.visible and main.activity == "", "pöydästä noustu")
-				# Kätkölle saunan taakse.
-				_put(p, "katko", "sauna_ovi")
-				p.promille = 0.0
-				next()
+				# E: pöytä ylhäältä, kamera pöydän yläpuolella katse alas.
+				k.act()
+				check(p.view_override_on and k.top_view, "E näyttää pöydän ylhäältä")
+				var f: Transform3D = k._table.global_transform
+				var vo: Transform3D = p.view_override
+				check(vo.origin.distance_to(f.origin + Vector3.UP) < 0.05 and (-vo.basis.z).dot(Vector3.DOWN) > 0.99,
+					"ylänäkymä pöydän keskeltä alas")
+				# Tuppi samassa pöydässä.
+				k._request("muoto")
+				check(k.kind == "tuppi", "pelimuodoksi tuppi")
+				k.deal()
+				check(k.tuppi.phase == "bid", "tupin kortit jaettu, tarjous alkaa")
+				tuppi_t = t
 		15:
 			if t > 0.5:
 				check(main._near_stash() and main._interaction().get("text", "").begins_with("E: kylmä olut"), "kätkö saunan takana")

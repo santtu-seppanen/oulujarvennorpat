@@ -77,7 +77,7 @@ func think(delta: float) -> void:
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
-	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus", "kahvi"] and _state != "hidden":
+	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus", "kahvi", "oodi"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -113,6 +113,35 @@ func cards(i: int) -> void:
 
 func cards_end() -> void:
 	if activity == "kortit":
+		_timer = 0.0
+		if _state != "stay":
+			_done()
+
+
+## Keskiyön oodi (oodi.gd): etuterassin kaiteelle paikalle spot laulamaan, kasvot järvelle.
+func sing(spot: Vector3) -> void:
+	if activity == "oodi":
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_leave_seat()
+	if _stove == name:
+		_stove = ""
+	body.pose = ""
+	body.set_hidden_inside(false)
+	_next = ""
+	activity = "oodi"
+	_state = "walk"
+	_set_path(mokki.route(body.global_position, "etuterassi"))
+	_path.append(spot)
+
+
+func singing_ready() -> bool:
+	return activity == "oodi" and _state == "stay"
+
+
+func sing_end() -> void:
+	if activity == "oodi":
 		_timer = 0.0
 		if _state != "stay":
 			_done()
@@ -364,6 +393,9 @@ func _arrive() -> void:
 		"kortit":
 			body.sit_at(_card_seat[0], _card_seat[1])
 			_stay_for(1e9, "Sitting_Idle")
+		"oodi":
+			_face = body.global_position + _dir_yard(Vector2(0.0, 1.0))
+			_stay_for(1e9, "Idle_Talking")
 		"ylamokki":
 			_hide(rng.randf_range(25.0, 60.0))
 		"paikkarit":

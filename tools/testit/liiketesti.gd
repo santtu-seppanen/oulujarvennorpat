@@ -113,7 +113,7 @@ func _process(_delta: float) -> bool:
 			if t > 0.5:
 				main.kortit.bot_delay = 30.0  # tietokone ei pelaa ennen kuin kaikki ovat pöydässä
 				main.start_activity("kortit")
-				main.kortit.act()
+				main.kortit.deal()
 				for i in [1, 2, 3]:
 					last[i] = crew(i).body().global_position
 					jumps[i] = 0.0

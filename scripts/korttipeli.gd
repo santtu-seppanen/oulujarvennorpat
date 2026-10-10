@@ -1,21 +1,26 @@
 extends Node
-## Ristiseiska alamökin keittiön pöydässä (säännöt ristiseiska.gd). Kortit pelataan pöydälle: rivit näkyvät
-## pöydän keskellä ja kunkin pelaajan käsi kuvapuoli alaspäin hänen edessään, joten pöydän ääressä näkee, kuka
-## pelaa ja paljonko kortteja muilla on. Istuva pelaaja näkee oman kätensä ruudun alareunassa ja pelaa
-## klikkaamalla; A/D tai hiiren oikea nappi pohjassa kääntää katsetta pöydän ympäri. Mukana ovat aina kaikki
-## neljä mökkiläistä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta pelaa tietokone, ja tietokoneen
-## ohjaamat hahmot kävelevät pöytään.
+## Korttipelit alamökin keittiön pöydässä: ristiseiska (säännöt ristiseiska.gd) ja tuppi (tuppi.gd); pelimuoto
+## valitaan pöydässä ennen jakoa. Kortit pelataan pöydälle: ristiseiskan rivit tai tupin tikki näkyvät pöydän
+## keskellä ja kunkin pelaajan käsi kuvapuoli alaspäin hänen edessään, joten pöydän ääressä näkee, kuka pelaa
+## ja paljonko kortteja muilla on. Istuva pelaaja näkee oman kätensä ruudun alareunassa ja pelaa klikkaamalla;
+## A/D tai hiiren oikea nappi pohjassa kääntää katsetta pöydän ympäri, ja E näyttää pöydän suoraan ylhäältä.
+## Mukana ovat aina kaikki neljä mökkiläistä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta pelaa
+## tietokone, ja tietokoneen ohjaamat hahmot kävelevät pöytään.
 ##
 ## Moninpelissä pelitilaa pitää host: muut lähettävät siirtonsa ("rs") ja host jakaa tilan ("rs_tila").
 
 const R := preload("res://scripts/ristiseiska.gd")
+const T := preload("res://scripts/tuppi.gd")
 const Ui := preload("res://scripts/ui.gd")
 
 var bot_delay := 1.2  # tietokoneen siirron viive (testissä pienempi)
 const RED := Color(0.8, 0.08, 0.1)
 
 var game: Node3D
+var kind := "ristiseiska"  # ristiseiska | tuppi
 var logic := R.new()
+var tuppi := T.new()
+var top_view := false  # E: pöytä suoraan ylhäältä
 var humans := {}  # mökkiläisen indeksi -> pöydässä istuva ihminen (hostin tieto)
 var _rng := RandomNumberGenerator.new()
 var _bot_t := 0.0
@@ -24,6 +29,8 @@ var _seen_moves := -1
 var _seen_phase := ""
 
 var _ui: CanvasLayer
+var _title: Label
+var _kind_btn: Button
 var _hand: HBoxContainer
 var _status: Label
 var _players: Label
@@ -53,7 +60,9 @@ func _ready() -> void:
 			_handle(d, from))
 	game.mp.on("rs_tila", func(d: Dictionary, from: int) -> void:
 		if from == game.mp.net.host_id:
+			kind = d.k
 			logic.from_dict(d.s)
+			tuppi.from_dict(d.tu)
 			humans.clear()
 			for i in d.hu:
 				humans[int(i)] = true
@@ -84,22 +93,55 @@ func start() -> bool:
 	return true
 
 
+## E: pöytä ylhäältä tai takaisin omalle paikalle.
 func act() -> void:
-	if logic.phase == "idle" or logic.phase == "over":
+	top_view = not top_view
+	_update_view()
+
+
+## Jako (nappi tai välilyönti), kun peli ei ole käynnissä.
+func deal() -> void:
+	if not playing():
 		_request("jaa")
 
 
 func stop(_why := "") -> void:
 	_ui.visible = false
 	CamCtl.free_mouse = false
+	top_view = false
+	_update_view()
 	game.player.stand_up()
 	_request("nouse")
 
 
 func prompt() -> String:
-	if logic.phase == "idle" or logic.phase == "over":
-		return "E: jaa kortit (ristiseiska) · A/D: katso ympärille · W: nouse pöydästä"
-	return "Klikkaa korttia · A/D: katso ympärille · W: nouse pöydästä"
+	var look := "E: pöytä ylhäältä" if not top_view else "E: takaisin paikalle"
+	if not playing():
+		return "Välilyönti: jaa kortit (%s) · %s · W: nouse pöydästä" % [_kind_name(), look]
+	return "Klikkaa korttia · %s · A/D: katso ympärille · W: nouse pöydästä" % look
+
+
+func playing() -> bool:
+	if kind == "tuppi":
+		return tuppi.phase == "bid" or tuppi.phase == "play" or tuppi.phase == "trick"
+	return logic.phase == "play" or logic.phase == "give"
+
+
+func _kind_name() -> String:
+	return "tuppi" if kind == "tuppi" else "ristiseiska"
+
+
+## Ylhäältä katsottaessa oma paikka on ruudun alareunassa ja koko pöytä näkyy.
+func _update_view() -> void:
+	var p: Node3D = game.player
+	p.view_override_on = top_view
+	if not top_view:
+		return
+	var f := _table.global_transform
+	var mine := f.affine_inverse() * (game.world.mokki.table_seats[game.player_index][0] as Vector3)
+	var away := f.basis * Vector3(-signf(mine.x), 0.0, 0.0)
+	var eye := f * Vector3(0.0, 1.0, 0.0)
+	p.view_override = Transform3D(Basis(), eye).looking_at(f.origin, away.normalized())
 
 
 # --- Pelitila (host) ------------------------------------------------------------------------------------------
@@ -129,19 +171,30 @@ func _handle(d: Dictionary, from: int) -> void:
 			humans[i] = true
 		"nouse":
 			humans.erase(i)
+		"muoto":
+			if not playing():
+				kind = "tuppi" if kind == "ristiseiska" else "ristiseiska"
 		"jaa":
-			if logic.phase == "idle" or logic.phase == "over":
-				logic.deal(_rng.randi())
+			if not playing():
+				if kind == "tuppi":
+					tuppi.deal(_rng.randi())
+				else:
+					logic.deal(_rng.randi())
 				_bot_t = 0.0
 		"pelaa":
-			logic.play(i, c)
+			if kind == "tuppi":
+				tuppi.play(i, c)
+			else:
+				logic.play(i, c)
 		"anna":
 			logic.give(i, c)
+		"tarjoa":
+			tuppi.bid(i, c)
 	_broadcast()
 
 
 func _broadcast() -> void:
-	game.mp.send({"t": "rs_tila", "s": logic.to_dict(), "hu": humans.keys()})
+	game.mp.send({"t": "rs_tila", "k": kind, "s": logic.to_dict(), "tu": tuppi.to_dict(), "hu": humans.keys()})
 	_changed()
 
 
@@ -157,11 +210,14 @@ func _process(delta: float) -> void:
 		if not here:
 			humans.erase(i)
 			_broadcast()
-	var playing := logic.phase == "play" or logic.phase == "give"
-	if playing != _ai_at_table:
-		_ai_at_table = playing
-		_gather_ai(playing)
-	if not playing:
+	var on := playing()
+	if on != _ai_at_table:
+		_ai_at_table = on
+		_gather_ai(on)
+	if not on:
+		return
+	if kind == "tuppi":
+		_tuppi_bot(delta)
 		return
 	var a := logic.actor()
 	if humans.has(a):
@@ -174,6 +230,25 @@ func _process(delta: float) -> void:
 		logic.play(a, logic.bot_play(a, _rng))
 	else:
 		logic.give(a, logic.bot_give(a, _rng))
+	_broadcast()
+
+
+## Tupissa täysi tikki jää hetkeksi näkyviin ennen kuin voittaja kerää sen.
+func _tuppi_bot(delta: float) -> void:
+	var a := tuppi.actor()
+	if tuppi.phase != "trick" and humans.has(a):
+		return
+	_bot_t += delta
+	if _bot_t < (bot_delay * 1.5 if tuppi.phase == "trick" else bot_delay):
+		return
+	_bot_t = 0.0
+	match tuppi.phase:
+		"trick":
+			tuppi.collect()
+		"bid":
+			tuppi.bid(a, tuppi.bot_bid(a, _rng))
+		"play":
+			tuppi.play(a, tuppi.bot_play(a, _rng))
 	_broadcast()
 
 
@@ -197,6 +272,9 @@ func _name(i: int) -> String:
 
 ## Tilan muutos: äänet, pöydän kortit ja viimeisimmän siirron liukuma, sitten näkymä.
 func _changed() -> void:
+	if kind == "tuppi":
+		_tuppi_changed()
+		return
 	var new_move := logic.moves != _seen_moves and not logic.last.is_empty()
 	if new_move and game.activity == "kortit":
 		var l: Dictionary = logic.last
@@ -218,6 +296,33 @@ func _changed() -> void:
 	_refresh()
 
 
+func _team_name(t: int) -> String:
+	return "%s & %s" % [_name(t), _name(t + 2)]
+
+
+func _tuppi_changed() -> void:
+	var L := tuppi
+	var new_move := L.moves != _seen_moves and not L.last.is_empty()
+	if new_move and game.activity == "kortit":
+		Sfx.play("cloth" if L.last.a != "vei" else "pickup", -10.0, randf_range(0.9, 1.2))
+	if L.phase == "over" and _seen_phase != "over" and _seen_phase != "" and game.activity == "kortit":
+		var me := T.team(game.player_index)
+		var k := 0 if L.gained[0] > 0 else 1
+		var t := "%s: %s sai %d pistettä." % ["Rami" if L.mode == "rami" else "Nolo", _team_name(k), L.gained[k]]
+		if L.winner >= 0:
+			t += " %s voitti tupin!" % _team_name(L.winner)
+		game.toast(t, 6.0)
+		Sfx.play(("win" if L.winner >= 0 else "win_small") if k == me else "lose", -6.0)
+	_anim.clear()
+	if new_move and L.moves == _seen_moves + 1 and L.last.a == "pelasi":
+		var c := int(L.last.c)
+		_anim[c] = [_hand_pos(int(L.last.p), 0, 1), _trick_pos(int(L.last.p), L.trick.size() - 1), 0.0]
+	_seen_moves = L.moves
+	_seen_phase = L.phase
+	_layout_table()
+	_refresh()
+
+
 func _build_ui() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 20
@@ -231,7 +336,7 @@ func _build_ui() -> void:
 	pc.offset_right = 416
 	pc.offset_top = 140
 	top.add_theme_constant_override("separation", 4)
-	Ui.label(top, "RISTISEISKA", 18, Ui.YELLOW)
+	_title = Ui.label(top, "RISTISEISKA", 18, Ui.YELLOW)
 	_players = Ui.label(top, "", 16)
 	_players.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_status = Ui.label(top, "", 16, Ui.YELLOW)
@@ -254,16 +359,28 @@ func _build_ui() -> void:
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", 12)
 	top.add_child(btns)
-	_deal_btn = Ui.button(btns, "Jaa kortit (E)", func() -> void: _request("jaa"))
-	Ui.button(btns, "Nouse pöydästä (W)", func() -> void: game.end_activity())
+	_deal_btn = Ui.button(btns, "Jaa kortit", deal)
+	_kind_btn = Ui.button(btns, "Pelimuoto", func() -> void: _request("muoto"))
+	var b2 := HBoxContainer.new()
+	b2.alignment = BoxContainer.ALIGNMENT_CENTER
+	b2.add_theme_constant_override("separation", 12)
+	top.add_child(b2)
+	Ui.button(b2, "Pöytä ylhäältä (E)", act)
+	Ui.button(b2, "Nouse pöydästä (W)", func() -> void: game.end_activity())
 
 
 func _refresh() -> void:
 	if not _ui.visible:
 		return
+	_title.text = _kind_name().to_upper()
+	_deal_btn.visible = not playing()
+	_kind_btn.visible = not playing()
+	_kind_btn.text = "Vaihda: %s" % ("ristiseiska" if kind == "tuppi" else "tuppi")
+	if kind == "tuppi":
+		_refresh_tuppi()
+		return
 	var me: int = game.player_index
-	var playing := logic.phase == "play" or logic.phase == "give"
-	_deal_btn.visible = not playing
+	var playing := playing()
 	# Pelaajat: vuoro, korttien määrä ja sijoitus.
 	var parts := []
 	for p in 4:
@@ -278,10 +395,10 @@ func _refresh() -> void:
 	var st := ""
 	match logic.phase:
 		"idle":
-			st = "Jaa kortit (E). Ristiseiskan saanut aloittaa."
+			st = "Jaa kortit (välilyönti). Ristiseiskan saanut aloittaa."
 		"over":
 			st = "Peli päättyi: " + ", ".join(logic.finished.map(func(p: int) -> String:
-				return "%d. %s" % [logic.finished.find(p) + 1, _name(p)])) + ". Jaa uudet (E)."
+				return "%d. %s" % [logic.finished.find(p) + 1, _name(p)])) + ". Jaa uudet (välilyönti)."
 		"play":
 			st = "Sinun vuorosi: pelaa korostettu kortti" if logic.turn == me else "Vuorossa: %s" % _name(logic.turn)
 		"give":
@@ -297,26 +414,94 @@ func _refresh() -> void:
 			st = "%s antoi kortin %s:lle. %s" % [_name(l.p), _name(l.to), st]
 	_status.text = st
 	# Oma käsi.
+	if logic.hands.size() != 4:
+		_show_hand([], func(_c: int) -> bool: return false, false)
+		return
+	_show_hand(logic.hands[me], func(c: int) -> bool:
+		if logic.phase == "play" and logic.turn == me:
+			return logic.can_play(c)
+		return logic.phase == "give" and logic.giver == me, playing)
+
+
+## Oma käsi ruudun alareunaan: ok(kortti) kertoo, voiko kortin pelata nyt.
+func _show_hand(hand: Array, ok: Callable, dim: bool) -> void:
 	for ch in _hand.get_children():
 		ch.queue_free()
-	if logic.hands.size() == 4:
-		var hand: Array = logic.hands[me]
-		_hand.add_theme_constant_override("separation", 4 if hand.size() <= 14 else -14)
-		for c in hand:
-			var cv := CardView.new()
-			cv.card = c
-			cv.custom_minimum_size = Vector2(50, 72)
-			if logic.phase == "play" and logic.turn == me:
-				cv.active = logic.can_play(c)
-			elif logic.phase == "give" and logic.giver == me:
-				cv.active = true
-			cv.dim = playing and not cv.active
-			cv.clicked.connect(_on_card)
-			_hand.add_child(cv)
+	_hand.add_theme_constant_override("separation", 4 if hand.size() <= 14 else -14)
+	var cards := hand.duplicate()
+	if kind == "tuppi":
+		# Tupissa ässä on suurin: maittain pienimmästä ässään.
+		cards.sort_custom(func(a: int, b: int) -> bool:
+			return R.suit(a) < R.suit(b) or (R.suit(a) == R.suit(b) and T.power(a) < T.power(b)))
+	for c in cards:
+		var cv := CardView.new()
+		cv.card = c
+		cv.custom_minimum_size = Vector2(50, 72)
+		cv.active = ok.call(c)
+		cv.dim = dim and not cv.active
+		cv.clicked.connect(_on_card)
+		_hand.add_child(cv)
+
+
+func _refresh_tuppi() -> void:
+	var L := tuppi
+	var me: int = game.player_index
+	var on := playing()
+	var parts := []
+	for p in 4:
+		var who := _name(p) + (" (sinä)" if p == me else ("" if humans.has(p) else " (kone)"))
+		var info := ""
+		if L.phase == "bid" and L.bids[p] >= 0:
+			info = "tarjosi"
+		elif L.phase != "idle" and L.phase != "bid":
+			info = "%d tikkiä" % L.won[p]
+		if p == L.declarer:
+			info += " · ilmoitti ramin"
+		parts.append(("▶ " if L.actor() == p else "    ") + who + ("  " + info if info != "" else ""))
+	for t in 2:
+		parts.append("%s: %d pistettä%s" % [_team_name(t), L.scores[t], " (sinun parisi)" if T.team(me) == t else ""])
+	_players.text = "\n".join(parts)
+	var st := ""
+	match L.phase:
+		"idle":
+			st = "Pareittain, vastakkain istuvat ovat paria. Jaa kortit (välilyönti)."
+		"bid":
+			if L.turn == me:
+				st = "Tarjoa: valitse kortti (ei 2 eikä kuvakortti). Punainen = rami, musta = nolo."
+			else:
+				st = "Tarjous: %s valitsee korttia" % _name(L.turn)
+		"play", "trick":
+			st = ("Rami, ilmoittaja %s. " % _name(L.declarer)) if L.mode == "rami" else "Nolo: vältä tikkejä. "
+			if L.phase == "trick":
+				st += "%s vie tikin." % _name(L.trick_winner)
+			elif L.turn == me:
+				st += "Sinun vuorosi" + (": tunnusta maata" if not L.trick.is_empty() else "")
+			else:
+				st += "Vuorossa: %s" % _name(L.turn)
+		"over":
+			var k := 0 if L.gained[0] > 0 else 1
+			st = "%s: %s %d–%d tikkiä, %s +%d. " % ["Rami" if L.mode == "rami" else "Nolo", _team_name(0),
+				L.team_tricks(0), L.team_tricks(1), _team_name(k), L.gained[k]]
+			st += ("%s voitti! Uusi ottelu (välilyönti)." % _team_name(L.winner)) if L.winner >= 0 \
+				else "Seuraava jako (välilyönti)."
+	_status.text = st
+	if L.hands.size() != 4:
+		_show_hand([], func(_c: int) -> bool: return false, false)
+		return
+	_show_hand(L.hands[me], func(c: int) -> bool:
+		if L.phase == "bid" and L.turn == me:
+			return L.bid_cards(me).has(c)
+		return L.phase == "play" and L.turn == me and L.can_play(me, c), on)
 
 
 func _on_card(c: int) -> void:
 	var me: int = game.player_index
+	if kind == "tuppi":
+		if tuppi.phase == "bid" and tuppi.turn == me:
+			_request("tarjoa", c)
+		elif tuppi.phase == "play" and tuppi.turn == me:
+			_request("pelaa", c)
+		return
 	if logic.phase == "play" and logic.turn == me and logic.can_play(c):
 		_request("pelaa", c)
 	elif logic.phase == "give" and logic.giver == me:
@@ -457,7 +642,10 @@ func _layout_table() -> void:
 	for ch in _table.get_children():
 		if ch != _marker:
 			ch.queue_free()
-	var playing := logic.phase == "play" or logic.phase == "give"
+	if kind == "tuppi":
+		_layout_tuppi()
+		return
+	var playing := playing()
 	if logic.hands.size() != 4:
 		_marker.visible = false
 		return
@@ -479,6 +667,46 @@ func _layout_table() -> void:
 	_marker.visible = playing
 	if playing:
 		var hp := _hand_pos(logic.actor(), 0, 1)
+		_marker.position = Vector3(hp.x, 0.0005, hp.z)
+
+
+## Tupin tikin k:s kortti pelaajan p puolelle pöydän keskeltä (vinottain, ettei peitä edellisiä).
+func _trick_pos(p: int, k: int) -> Vector3:
+	var h := _hand_pos(p, 0, 1)
+	return Vector3(signf(h.x) * 0.1, 0.002 + k * 0.0006, signf(h.z) * 0.05)
+
+
+## Tupin pöytä: kädet, tarjouskortit kuvapuoli alaspäin, tikki keskellä ja voitetut tikit pinoina.
+func _layout_tuppi() -> void:
+	var L := tuppi
+	_marker.visible = false
+	if L.hands.size() != 4:
+		return
+	for p in 4:
+		var hand: Array = L.hands[p]
+		var hp := _hand_pos(p, 0, 1)
+		var west := hp.x < 0.0
+		var yaw := 0.0 if west else PI
+		for k in hand.size():
+			var t := (k - (hand.size() - 1) * 0.5) * 0.06
+			_card(hand[k], _hand_pos(p, k, hand.size()), yaw + t, false)
+		if L.phase == "bid" and L.bids[p] >= 0:
+			_card(L.bids[p], Vector3(hp.x * 0.62, 0.002, hp.z), yaw, false)
+		# Voitetut tikit pinona pelaajan vieressä pöydän päädyn puolella.
+		for k in L.won[p]:
+			_card(52, Vector3(hp.x * 0.8, 0.002 + k * 0.0008, hp.z + signf(hp.z) * 0.15), yaw + PI * 0.5 + k * 0.05,
+				false)
+	for k in L.trick.size():
+		var e: Array = L.trick[k]
+		var west := _hand_pos(e[0], 0, 1).x < 0.0
+		var mi := _card(e[1], _trick_pos(e[0], k), (0.0 if west else PI) + (k - 1.5) * 0.12, true)
+		if _anim.has(e[1]):
+			_anim[e[1]].append(mi)
+			mi.position = _anim[e[1]][0]
+	var a := L.actor()
+	_marker.visible = a >= 0
+	if a >= 0:
+		var hp := _hand_pos(a, 0, 1)
 		_marker.position = Vector3(hp.x, 0.0005, hp.z)
 
 

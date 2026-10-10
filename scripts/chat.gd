@@ -10,6 +10,7 @@ extends Node
 ## (oletus 80 % = täysi voimakkuus), kaukana kamerasta hieman hiljempaa. Puheen aikana muita ääniä ei säädetä.
 ## Selaimessa äänet latautuvat vasta
 ## sivun avauduttua, joten ääniä haetaan uudelleen, kunnes niitä löytyy. Tutkimusmatkan musiikin aikana ei puhuta ääneen (tutkimusmatka.gd allows_speech).
+## Keskiyön oodissa (oodi.gd) puhesynteesi laulaa: sana kerrallaan sävelen korkeudella (sing).
 
 const MAX_LEN := 120
 const LOG_LINES := 7
@@ -147,8 +148,14 @@ func ai_say(i: int, text: String) -> void:
 		game.mp.send({"t": "chat_ai", "i": i, "m": text.strip_edges().left(MAX_LEN)})
 
 
+## Laulu: sana hahmon i äänellä, sävel semi puolisävelaskelta hahmon oman äänenkorkeuden yläpuolella,
+## hieman tavallista hitaammin.
+func sing(i: int, word: String, semi: float) -> void:
+	_speak(i, word, pow(2.0, semi / 12.0), 0.85)
+
+
 ## Puhesynteesi: viesti ääneen hahmon omalla äänellä, hiljempaa kauempana kamerasta.
-func _speak(i: int, text: String) -> void:
+func _speak(i: int, text: String, pitch := 1.0, rate := 1.0) -> void:
 	if not Settings.get_v("tts") or DisplayServer.get_name() == "headless" or not game.retki.allows_speech():
 		return
 	if _voices.is_empty():
@@ -164,7 +171,7 @@ func _speak(i: int, text: String) -> void:
 	for v: String in _voices:
 		if vp[0] != "" and v.contains(vp[0]):
 			voice = v
-	DisplayServer.tts_speak(text, voice, roundi(vol * 100.0), vp[1], vp[2])
+	DisplayServer.tts_speak(text, voice, roundi(vol * 100.0), clampf(vp[1] * pitch, 0.5, 2.0), vp[2] * rate)
 
 
 ## Suomenkieliset äänet, muuten englanninkieliset (selaimessa lista voi olla aluksi tyhjä).
@@ -174,8 +181,9 @@ func _read_voices() -> void:
 		_voices = Array(DisplayServer.tts_get_voices_for_language("en"))
 
 
-## Viesti hahmolta i: puhekupla pään yläpuolelle ja rivi historiaan.
-func show_message(i: int, text: String) -> void:
+## Viesti hahmolta i: puhekupla pään yläpuolelle ja rivi historiaan (speak: ääneen ja ilmoitusääni; laulussa
+## ei kumpaakaan; log: rivi historiaan).
+func show_message(i: int, text: String, speak := true, log := true) -> void:
 	text = text.strip_edges().left(MAX_LEN)
 	if text == "":
 		return
@@ -198,11 +206,14 @@ func show_message(i: int, text: String) -> void:
 		b.add_child(l)
 	l.text = text
 	_bubbles[i] = [l, clampf(4.0 + text.length() * 0.08, 5.0, 12.0)]
-	_speak(i, text)
-	if i == game.player_index:
-		Sfx.play("pickup", -18.0, 1.6)
-	else:
-		Sfx.play_on(b, "pickup", -14.0, 1.6)
+	if speak:
+		_speak(i, text)
+		if i == game.player_index:
+			Sfx.play("pickup", -18.0, 1.6)
+		else:
+			Sfx.play_on(b, "pickup", -14.0, 1.6)
+	if not log:
+		return
 	var line := Label.new()
 	line.text = "%s: %s" % [game.Porukka.CREW[i].name, text]
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

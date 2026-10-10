@@ -24,6 +24,7 @@ const Kahvi := preload("res://scripts/kahvi.gd")
 const Mustikat := preload("res://scripts/mustikat.gd")
 const Paikkarit := preload("res://scripts/paikkarit.gd")
 const Korttipeli := preload("res://scripts/korttipeli.gd")
+const Oodi := preload("res://scripts/oodi.gd")
 const Chat := preload("res://scripts/chat.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const Rinnepissa := preload("res://scripts/rinnepissa.gd")
@@ -75,6 +76,7 @@ var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 var retki: Node3D  # tutkimusmatka kumiveneellä viinakätkölle (tutkimusmatka.gd)
+var oodi: Node  # keskiyön oodi Oulujärvelle etuterassilla (oodi.gd)
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
 const NAP_T := 10.0
 var _nap_t := 0.0
@@ -170,6 +172,9 @@ func _ready() -> void:
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
+	oodi = Oodi.new()
+	oodi.game = self
+	add_child(oodi)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -312,6 +317,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var it := _interaction()
 			if it.has("cb"):
 				it.cb.call()
+	elif activity == "kortit" and event.is_action_pressed("jump"):
+		kortit.deal()  # välilyönti jakaa kortit
 	elif _ballgame() != null and event is InputEventKey and event.pressed and event.keycode == KEY_F:
 		_ballgame().stop()  # F lopettaa pallopelin
 	elif activity != "" and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
@@ -648,7 +655,7 @@ func _interaction() -> Dictionary:
 					"Jukka":
 						return {"text": "E: keitä aamukahvit liedellä", "cb": func() -> void: start_activity("kahvi")}
 				return {"text": "Vain Marko osaa tehdä pyttipannua ja Jukka keittää aamukahvit"}
-			var t := "E: istu pöytään (ristiseiska)"
+			var t := "E: istu pöytään (ristiseiska tai tuppi)"
 			if kokkaus.annokset > 0:
 				t += " · pöydässä %d annosta pyttipannua" % kokkaus.annokset
 			if kahvi.kupit > 0:
