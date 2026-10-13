@@ -692,6 +692,11 @@ func _steps(pt: Part, xc: float, w: float, v0: float, v1: float, y0: float, y1: 
 	var fwd := (b - a).normalized()
 	var side := Vector3.RIGHT
 	var up := (-fwd).cross(side).normalized()
+	if up.y < 0.0:
+		# Portaat nousevat -v-suuntaan (rantaportaat, laiturin portaat): normaali muuten alaspäin, jolloin ramppi
+		# olisi askelmien yläpuolella ja alapäähän jäisi 0,2 m kynnys, jonka yli pääsi vain hyppäämällä.
+		side = -side
+		up = -up
 	var basis := Basis(side, up, -fwd)
 	var cs := B.box_shape(Vector3(w, 0.2, length + 0.1))
 	cs.transform = Transform3D(basis, (a + b) * 0.5 - up * 0.1)

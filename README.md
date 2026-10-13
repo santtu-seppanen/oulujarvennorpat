@@ -294,6 +294,7 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 | `scripts/porukka.gd`, `scripts/ai.gd` | hahmot ja tietokoneen ohjaus |
 | `tools/testit/savutesti.gd`, `kuvat.gd` | savutesti (headless) ja kuvakaappaukset |
 | `tools/testit/mokkitesti.gd`, `mokki_kuvat.gd` | mökin testi (`--headless --fixed-fps 60`) ja kuvakaappaukset valokuvien kuvakulmista |
+| `tools/testit/porrastesti.gd` | kaikki mökin portaat ylös ja alas kävellen ilman hyppyä (`--headless --fixed-fps 60`) |
 
 ## Tekijänoikeudet
 
