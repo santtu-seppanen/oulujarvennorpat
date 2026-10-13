@@ -26,6 +26,8 @@ var values := {
 	"vol_music": 0.8,
 	"tts": true,  # puhekuplat ääneen käyttöjärjestelmän puhesynteesillä (chat.gd)
 	"vol_speech": 0.8,
+	"voice_mic": true,  # moninpelin äänilinkki: oma mikki käyttöön (aanilinkki.gd), N mykistää
+	"vol_voice": 0.9,  # muiden pelaajien puhe äänilinkissä
 	"mouse_sens": 1.0,
 	"invert_y": false,
 	"auto_recenter": true,

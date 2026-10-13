@@ -19,6 +19,8 @@ config/project_settings_override="user://override.cfg"
 [audio]
 
 general/text_to_speech=true
+driver/enable_input=true
+driver/enable_input.web=false
 
 [autoload]
 

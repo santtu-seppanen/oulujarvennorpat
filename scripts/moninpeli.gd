@@ -6,16 +6,18 @@ extends Node
 ## jokaisella koneella samasta aineistosta, joten sitä ei lähetetä. Yhteys: net.gd ja server/.
 ##
 ## Viestit: s (hahmojen ja veneen tila), claim (hahmon varaus hostilta), roster (varaukset), aika (hostin
-## kello), nopeus (T pohjassa muulla kuin hostilla).
+## kello), nopeus (T pohjassa muulla kuin hostilla). Äänilinkki (v, vm): aanilinkki.gd.
 
 signal roster_changed
 signal failed(why: String)
 
 const Net := preload("res://scripts/net.gd")
+const Aanilinkki := preload("res://scripts/aanilinkki.gd")
 const RATE := 12.0
 
 var game: Node3D
 var net: Node
+var voice: Node  # aanilinkki.gd: pelaajien puhe kuin palaverissa
 var owners := {}  # hahmon indeksi -> pelaajan tunnus
 var mine := -1  # oma hahmo, -1 = ei vielä valittu
 var preset := 0
@@ -37,6 +39,9 @@ func _ready() -> void:
 	net.peer_joined.connect(_on_join)
 	net.peer_left.connect(_on_leave)
 	net.failed.connect(_on_failed)
+	voice = Aanilinkki.new()
+	voice.mp = self
+	add_child(voice)
 
 
 func online() -> bool:

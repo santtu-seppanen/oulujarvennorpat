@@ -195,6 +195,16 @@ jotta puhe erottuu; puheen tai tutkimusmatkan aikana niitä ei säädetä. Tutki
 ääneen, ja perillä "Maata näkyvissä!" ja kaikki sen jälkeiset puheet luetaan taas ääneen. Selaimessa äänet latautuvat vasta sivun avauduttua, joten ääniä haetaan
 uudelleen, kunnes niitä löytyy (suomenkielinen ääni, jos selain tai käyttöjärjestelmä tarjoaa sellaisen).
 
+**Äänilinkki:** moninpelissä kaikki kuulevat toistensa mikin kuin palaverissa, kaikki yhtä kovaa
+(`scripts/aanilinkki.gd`, selaimessa `scripts/aanilinkki.js`). Mikki on auki liityttäessä, ja **N** mykistää
+ja avaa. Oikeassa yläkulmassa näkyy, kuka puhuu ja kuka on mykistänyt itsensä. Asetukset → Ääni: mikrofonin saa
+kokonaan pois (Äänilinkki: mikrofoni), ja muiden puheen voimakkuutta voi säätää. Puhe lähtee vain, kun mikissä on
+ääntä: 16 kHz mono, IMA ADPCM (n. 8 kt/s puhujaa kohden) välityspalvelimen kautta, joten selain ja
+työpöytäversio kuulevat toisensa. Selaimessa on kaiunpoisto ja kohinanvaimennus; työpöytäversiossa niitä ei ole,
+joten kuulokkeet ovat suositeltavat. Testit: `tools/testit/aanilinkkitesti.gd` (pakkaus, bitilleen sama kuin
+selaimessa, kynnys, mykistys, toisto), `node tools/testit/aanilinkki_js.mjs` ja kahden koneen
+`tools/testit/moninpelitesti.gd`.
+
 Välityspalvelin on `server/`-hakemistossa: Cloudflare Worker ja yksi Durable Object per huone
 (`wss://norpat.santtu-seppane.workers.dev/huone/<KOODI>`). Pelaajat lähettävät ohjaamiensa hahmojen ja
 kumiveneen tilan 12 kertaa sekunnissa (`scripts/moninpeli.gd`, `scripts/net.gd`); maailma rakennetaan

@@ -4,6 +4,8 @@ extends SceneTree
 ##   godot --headless --path . -s tools/testit/moninpelitesti.gd -- --rooli=vieras --huone=TESTI --palvelin=ws://localhost:8787
 ## Host on Santtu ja kävelee, vieras on Marko ja soutaa kumivenettä. Kumpikin tarkistaa näkevänsä toisen liikkeet,
 ## vieras lisäksi, että hostin tekoälyhahmot liikkuvat, kello on sama ja hostin keskusteluviesti tuli perille.
+## Äänilinkki: host "puhuu" (testisignaali mikin kehyksinä, aanilinkki.gd feed) ja vieras kuulee sen; vieras
+## mykistää mikkinsä, ja host näkee sen.
 
 class Push:
 	extends RefCounted
@@ -23,6 +25,8 @@ var fails := 0
 var t0 := 0.0
 var step := 0
 var start := {}
+var heard_voice := false
+var _feed_t := 0.0
 
 
 func _initialize() -> void:
@@ -76,6 +80,7 @@ func _process(_delta: float) -> bool:
 					p.brain.steer = 0.0
 					main.chat.say("Moro vieras!")
 				else:
+					mp.voice.set_muted(true)
 					p.global_position = main.boat.global_position + Vector3(0.5, 0.5, 0)
 					p.enter_boat(main.boat)
 					p.brain = Push.new()
@@ -85,6 +90,14 @@ func _process(_delta: float) -> bool:
 				start["t"] = t
 				step = 3
 		3:
+			# Host puhuu 2-8 s: kehys 60 ms välein.
+			if role == "host" and t - start.t > 2.0 and t - start.t < 8.0 and t - _feed_t >= 0.06:
+				_feed_t = t
+				mp.voice.feed(_speech())
+			if role != "host":
+				var pr: Dictionary = mp.voice._peers.get(mp.net.host_id, {})
+				if pr.get("talk", 0.0) > 0.0 and "Santtu puhuu" in mp.voice._label.text:
+					heard_voice = true
 			if t - start.t > 12.0:
 				_verify()
 				step = 4
@@ -107,6 +120,7 @@ func _verify() -> void:
 	print("[%s] vene liikkui %.1f m, nyt %s, remote %s" % [role, bm, main.boat.global_position, main.boat.remote])
 	check(bm > 2.0, "kumivene liikkui")
 	if role == "host":
+		check("Marko · mykistetty" in mp.voice._label.text, "vieraan mykistys näkyy: %s" % mp.voice._label.text.replace("\n", " | "))
 		check(o.boat == main.boat, "vieras näkyy veneessä")
 		check(main.boat.remote, "veneen tila tulee soutajalta")
 	else:
@@ -125,7 +139,17 @@ func _verify() -> void:
 			if e[0].text == "Santtu: Moro vieras!":
 				heard = true
 		check(heard, "hostin viesti tuli perille")
+		check(heard_voice, "hostin puhe kuului äänilinkissä")
 	print("[%s] kello %s, t_utc %d" % [role, main.sun.clock_text(), int(main.sun.t_utc)])
+
+
+## Testisignaali yhdeksi mikin kehykseksi (kaksi kolmioaaltoa, ylittää puhekynnyksen).
+func _speech() -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(main.mp.voice.FRAME)
+	for k in x.size():
+		x[k] = (absi((k * 37) % 4000 - 2000) - 1000) * 12 / 32767.0
+	return x
 
 
 func _end() -> bool:
