@@ -43,7 +43,7 @@ func _process(delta: float) -> bool:
 			for part in Oodi.SONG:
 				for r in 4:
 					var mel: Array = part[0][r]
-					var n: int = (part[1][r] as String).split(" ").size()
+					var n: int = Oodi.words(part[1][r]).size()
 					var beats := 0
 					for d: int in mel[1]:
 						beats += d
@@ -51,7 +51,7 @@ func _process(delta: float) -> bool:
 						ok = false
 						print("  rivi '%s': %d sanaa, %d säveltä, %d iskua" % [part[1][r], n, mel[0].size(), beats])
 			check(ok, "sanat ja sävel täsmäävät")
-			check(Oodi.lines().size() == 76, "laulussa %d sanaa" % Oodi.lines().size())
+			check(Oodi.lines().size() == 34, "laulussa %d sanaa" % Oodi.lines().size())
 			check(ResourceLoader.exists(Oodi.MUSIC), "säestys olemassa")
 			next()
 		1:

@@ -6,8 +6,8 @@ extends Node
 ##   (assets/music/oodi_saestys.ogg, lasketaan valmiiksi työkalulla tools/oodimusiikki.gd tämän tiedoston
 ##   sävelestä ja soinnuista). Säkeistöt laulavat hahmot vuorotellen, kertosäkeen kaikki: rivi näkyy
 ##   puhekuplana, ja puhesynteesi laulaa sen sana kerrallaan sävelen korkeudella (chat.gd sing).
-## - Sanat ja sävel ovat tätä peliä varten tehtyjä. F-duuri, 76 bpm, 4/4: alkusoitto 2 tahtia, säkeistö,
-##   kertosäe, säkeistö, kertosäe (kukin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 1 min 54 s.
+## - Sävel on tätä peliä varten tehty. F-duuri, 76 bpm, 4/4: alkusoitto 2 tahtia, säkeistö ja kertosäe
+##   (kumpikin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 1 min 3 s.
 ## Moninpeli: host päättää alun ja laulun alun (viesti "oodi"), ja laulu etenee jokaisella koneella omalla
 ## kellollaan; hostin tietokone ohjaa vapaita hahmoja.
 
@@ -19,31 +19,27 @@ const LINE := 8  # iskuja riviä kohden (2 tahtia)
 const GATHER_MAX := 45.0
 const MUSIC_DB := -4.0
 ## Melodiat riveittäin: [sävelet puolisävelaskelina F4:stä, kestot iskuina] (sana kohden yksi sävel).
-const MEL_A := [[[0, 4, 7, 9, 7], [2, 1, 1, 2, 2]], [[9, 7, 5, 4, 2], [2, 2, 1, 1, 2]],
-	[[7, 7, 9, 7, 5, 4], [1, 1, 2, 1, 1, 2]], [[4, 5, 7, 5, 4, 2, 0], [1, 1, 1, 1, 1, 1, 2]]]
-const MEL_B := [[[7, 9, 7, 4], [2, 2, 2, 2]], [[5, 4, 2, 4, 7], [1, 1, 1, 3, 2]], [[9, 7, 5], [3, 2, 3]],
-	[[4, 2, 0], [2, 2, 4]]]
+const MEL_A := [[[0, 4, 7, 9, 7], [2, 1, 2, 1, 2]], [[9, 7, 5, 4, 2], [2, 1, 2, 1, 2]], [[7, 9, 7], [3, 2, 3]],
+	[[5, 2, 0], [3, 1, 4]]]
+const MEL_B := [[[9, 7, 9, 12], [2, 2, 1, 3]], [[12, 9, 7], [3, 2, 3]], [[7, 9, 7, 5, 7], [2, 1, 2, 1, 2]],
+	[[9, 7, 5, 4, 2, 0], [2, 1, 1, 1, 1, 2]]]
 ## Soinnut puolitahdeittain (4 riviä kohden).
-const CH_A := [["F", "F", "Dm", "C"], ["Dm", "C", "Bb", "C"], ["F", "Dm", "C", "F"], ["F", "Bb", "C", "F"]]
-const CH_B := [["F", "Bb", "F", "Dm"], ["Bb", "Gm", "F", "C"], ["Dm", "Dm", "C", "Bb"], ["F", "C", "F", "F"]]
+const CH_A := [["F", "F", "Dm", "C"], ["Dm", "C", "Bb", "C"], ["F", "Dm", "C", "C"], ["Bb", "C", "F", "F"]]
+const CH_B := [["Dm", "C", "Bb", "F"], ["F", "Dm", "C", "C"], ["F", "Bb", "F", "C"], ["Bb", "C", "F", "F"]]
 const CH_INTRO := ["F", "Bb", "C", "C"]
 const CH_OUTRO := ["Bb", "C", "F", "F"]
 ## Soinnun sävelet puolisävelaskelina F:stä.
 const CHORD := {"F": [0, 4, 7], "Gm": [2, 5, 9], "Bb": [5, 9, 12], "C": [7, 11, 14], "Dm": [9, 12, 16]}
-const VERSE_1 := ["Oulujärvi, Kainuun meri, kesäyössä hohtaa",
-	"Äpätinniemen männiköissä hiljaa tuuli kulkee",
-	"Norpat kiville kokoontuu, aallot rantaan laulaa",
-	"Täällä sydän levon löytää, täällä koti kutsuu"]
-const REFRAIN := ["Laula, järvi, laula meille",
-	"yötön yö ja sininen selkä",
-	"Oulujärven norpat täällä",
-	"nostaa maljan kotirannalle!"]
-const VERSE_2 := ["Sauna lämpiää, löyly pehmeästi suhisee",
-	"kumivene laiturilla airoja jo odottaa",
-	"Pyttipannu, kahvi, kortit, ystävät ja nauru",
-	"aurinko vain hetken painuu, nousee taas aamu"]
+const VERSE := ["Taival lie hankala – olkoon vaan!",
+	"Luonto lie kitsas – siis kilpaillaan!",
+	"Kolkassa synkeän syntymämaan",
+	"pirttimme piilköhöt paikoillaan!"]
+const REFRAIN := ["Vainojen virmat, oi vaietkaa!",
+	"Rapparit, ryöstäjät, kaijotkaa!",
+	"Miekkaa ei tarvis – tarmoa vaan",
+	"puolesta hengen ja heimon ja maan."]
 ## Laulu riveittäin: [melodia, sanat, laulaja (-1 = kaikki)].
-const SONG := [[MEL_A, VERSE_1, 0], [MEL_B, REFRAIN, -1], [MEL_A, VERSE_2, 1], [MEL_B, REFRAIN, -1]]
+const SONG := [[MEL_A, VERSE, 0], [MEL_B, REFRAIN, -1]]
 ## Paikat etuterassin kaiteella pihan kehyksessä (u, v), kasvot järvelle.
 const SPOTS := [Vector2(-1.9, 3.75), Vector2(-1.0, 3.8), Vector2(-0.1, 3.8), Vector2(0.8, 3.75)]
 
@@ -81,15 +77,24 @@ static func lines() -> Array:
 	for part in SONG:
 		for r in 4:
 			var mel: Array = part[0][r]
-			var words: PackedStringArray = (part[1][r] as String).split(" ")
+			var ws := words(part[1][r])
 			var who: int = part[2]
 			var singer := (who + r) % 4 if who >= 0 else -1
 			var beat := INTRO + k * LINE
-			for w in words.size():
-				out.append([beat, part[1][r], words[w], mel[0][w], singer if singer >= 0 else k % 4, w == 0,
+			for w in ws.size():
+				out.append([beat, part[1][r], ws[w], mel[0][w], singer if singer >= 0 else k % 4, w == 0,
 					singer < 0])
 				beat += mel[1][w]
 			k += 1
+	return out
+
+
+## Rivin laulettavat sanat (yksi sävel kutakin): ajatusviiva ei ole sana.
+static func words(line: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	for w in line.split(" ", false):
+		if w != "–":
+			out.append(w)
 	return out
 
 
