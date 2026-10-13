@@ -4,6 +4,10 @@ extends Node
 
 
 var _streams := {}
+## Silmukkaäänitteiden (vesi, tuli) silmukattomat kopiot kertaäänille: silmukka ei koskaan lopu (finished ei
+## tule), joten jokainen loiskaus jäisi soimaan ikuisesti. Esim. soudun ja uinnin loiskeita kertyi satoja
+## päällekkäin, ja koko äänimaisema säröytyi.
+var _shots := {}
 const DIR := "res://assets/sounds/"
 ## Äänitteet (CC0, ks. assets/sounds/LICENSE.md): avain -> [tiedostot], silmukka?
 const FILES := {
@@ -58,15 +62,21 @@ func _ready() -> void:
 
 	for key in FILES:
 		var list: Array = []
+		var shots: Array = []
 		for f in FILES[key][0]:
 			var st: AudioStream = load(DIR + f)
 			if st == null:
 				continue
 			if FILES[key][1]:
+				var once: AudioStream = st.duplicate()
+				_set_loop(once, false)
+				shots.append(once)
 				_set_loop(st)
 			list.append(st)
 		if not list.is_empty():
 			_streams[key] = list  # äänite korvaa syntetisoidun
+		if not shots.is_empty():
+			_shots[key] = shots
 
 
 ## Suljettaessa soimassa olevat äänet pysäytetään ja irrotetaan, muuten äänipalvelin pitää äänitteen varattuna
@@ -77,15 +87,16 @@ func _exit_tree() -> void:
 			c.stop()
 			c.stream = null
 	_streams.clear()
+	_shots.clear()
 
 
-func _set_loop(st: AudioStream) -> void:
+func _set_loop(st: AudioStream, on := true) -> void:
 	if st is AudioStreamOggVorbis or st is AudioStreamMP3:
-		st.loop = true
+		st.loop = on
 	elif st is AudioStreamWAV:
-		st.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		st.loop_mode = AudioStreamWAV.LOOP_FORWARD if on else AudioStreamWAV.LOOP_DISABLED
 		st.loop_begin = 0
-		st.loop_end = int(st.get_length() * st.mix_rate)
+		st.loop_end = int(st.get_length() * st.mix_rate) if on else 0
 
 
 func stream(sound: String) -> AudioStream:
@@ -93,6 +104,11 @@ func stream(sound: String) -> AudioStream:
 		push_warning("Ääntä ei löydy: " + sound)
 		return null
 	return _streams[sound].pick_random()
+
+
+## Kertaääni: silmukkaäänitteestä silmukaton kopio, jotta ääni loppuu ja soitin vapautuu.
+func _once(sound: String) -> AudioStream:
+	return _shots[sound].pick_random() if _shots.has(sound) else stream(sound)
 
 
 # --- Tunnusmusiikki ----------------------------------------------------------------
@@ -161,7 +177,7 @@ func music_stop(fade := 1.5) -> void:
 func play(sound: String, volume_db := 0.0, pitch := 1.0) -> void:
 	var p := AudioStreamPlayer.new()
 	p.bus = "SFX"
-	p.stream = stream(sound)
+	p.stream = _once(sound)
 	p.volume_db = volume_db
 	p.pitch_scale = pitch
 	add_child(p)
@@ -171,7 +187,7 @@ func play(sound: String, volume_db := 0.0, pitch := 1.0) -> void:
 
 ## Sijainnillinen ääni, joka seuraa annettua solmua.
 func play_on(node: Node3D, sound: String, volume_db := 0.0, pitch := 1.0) -> AudioStreamPlayer3D:
-	var p := _player3d(stream(sound), volume_db, pitch)
+	var p := _player3d(_once(sound), volume_db, pitch)
 	node.add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
@@ -180,7 +196,7 @@ func play_on(node: Node3D, sound: String, volume_db := 0.0, pitch := 1.0) -> Aud
 
 ## Sijainnillinen ääni kiinteään pisteeseen.
 func play_at(pos: Vector3, sound: String, volume_db := 0.0, pitch := 1.0) -> void:
-	var p := _player3d(stream(sound), volume_db, pitch)
+	var p := _player3d(_once(sound), volume_db, pitch)
 	get_tree().current_scene.add_child(p)
 	p.global_position = pos
 	p.finished.connect(p.queue_free)
