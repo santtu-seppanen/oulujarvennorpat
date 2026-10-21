@@ -16,6 +16,7 @@ var ts := 0.0
 var arrived := false
 var max_off := 0.0
 var hit_water := false
+var air_frames := 0
 
 
 func _initialize() -> void:
@@ -97,9 +98,12 @@ func _process(delta: float) -> bool:
 			max_off = maxf(max_off, _off_route(car.global_position))
 			if car.global_position.y < -0.05:
 				hit_water = true
+			if car._air:
+				air_frames += 1
 			if arrived:
 				check(max_off < 8.0, "ajettiin reitin päällä (suurin poikkeama %.1f m)" % max_off)
 				check(not hit_water, "ei vedessä")
+				print("ilmassa %d ruutua matkalla (kumpareet)" % air_frames)
 				check(Vector2(car.global_position.x, car.global_position.z).distance_to(Reitti.K) < 6.0,
 					"perillä Happy Beachin parkkipaikalla (%.1f m)" % Vector2(car.global_position.x, car.global_position.z).distance_to(Reitti.K))
 				next()

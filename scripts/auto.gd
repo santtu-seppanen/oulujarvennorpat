@@ -29,6 +29,7 @@ const BRAKE := 10.0
 const COAST := 1.6
 const MAX_STEER := 0.55  # rad
 const AUTO_SPEED := 9.0
+const GRAVITY := 9.5
 ## Kuljettajan silmät ja istuin auton avaruudessa (vasen etupaikka).
 const EYE := Vector3(-0.42, 1.28, -0.2)
 const BODY_COL := Color(0.1, 0.3, 0.22)
@@ -57,6 +58,9 @@ var _back_t := 0.0
 var _pitch := 0.0
 var _roll := 0.0
 var _throttle := 0.0
+var _drunk := 0.0
+var _vy := 0.0
+var _air := false
 var _net_pos := Vector3.ZERO
 var _net_rot := 0.0
 var _send_t := 0.0
@@ -279,10 +283,20 @@ func _physics_process(delta: float) -> void:
 			throttle = Input.get_axis("back", "forward")
 			steer = Input.get_axis("right", "left")
 			brake = Input.is_action_pressed("jump")
-			# Humala heiluttaa ratissa.
-			var d: float = driver.drunk()
-			if d > 0.05:
-				steer += (sin(_t * 1.3) * 0.6 + sin(_t * 2.9 + 1.0) * 0.4) * d * 1.1
+	# Humalassa saa ajaa, mutta ajaminen vaikeutuu koko ajan: auto vaeltaa kaistalta toiselle, ohjaus yli- ja
+	# alikorjaa, kaasu nytkähtelee, ja kovassa humalassa ohjaus kääntyy välillä väärin päin. Automaattiajokin heiluu.
+	if driver != null:
+		var dr: float = driver.drunk()
+		_drunk = dr
+		if dr > 0.05:
+			var k := 0.6 if autopilot else 1.0
+			steer += (sin(_t * 0.7) * 0.7 + sin(_t * 1.9 + 1.0) * 0.5 + sin(_t * 4.3) * 0.25) * dr * 1.3 * k
+			steer *= 1.0 + 0.8 * dr * sin(_t * 1.1 + 2.0)
+			if dr > 0.6 and sin(_t * 0.41) > 0.75:
+				steer = -steer
+			throttle *= 1.0 - 0.5 * dr * absf(sin(_t * 0.9))
+	else:
+		_drunk = 0.0
 	_throttle = throttle
 	var p := global_position
 	var fwd := -global_transform.basis.z
@@ -309,8 +323,9 @@ func _physics_process(delta: float) -> void:
 	speed = maxf(speed, -REVERSE_SPEED)
 	# Ohjaus: kulma pienenee nopeuden mukaan, ja auto kääntyy pyöräkulman ja akselivälin mukaan.
 	var want_steer := clampf(steer, -1.0, 1.0) * MAX_STEER * (1.0 - 0.55 * clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
-	steer_angle = move_toward(steer_angle, want_steer, 2.4 * delta)
-	rotation.y += speed / WHEELBASE * tan(steer_angle) * delta
+	steer_angle = move_toward(steer_angle, want_steer, 2.4 * (1.0 - 0.55 * _drunk) * delta)
+	if not _air:
+		rotation.y += speed / WHEELBASE * tan(steer_angle) * delta
 	fwd = -global_transform.basis.z
 	# Vesi ja liian jyrkkä rinne edessä pysäyttävät.
 	if absf(speed) > 0.05:
@@ -365,7 +380,29 @@ func _follow_ground(delta: float) -> void:
 	var rear: float = (hs[Vector2(-1.0, -1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
 	var left: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(-1.0, -1.0)]) * 0.5
 	var rgt: float = (hs[Vector2(1.0, 1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
-	global_position.y = lerpf(p.y, (front + rear) * 0.5 + 0.02, 1.0 - exp(-14.0 * delta))
+	# Kumpareet: auto seuraa maastoa, mutta jos maa putoaa nopeammin kuin vapaassa pudotuksessa (harjanteen yli
+	# kovaa), auto lentää ja laskeutuu iskulla.
+	var g := (front + rear) * 0.5 + 0.02
+	if _air:
+		_vy -= GRAVITY * delta
+		var ny := p.y + _vy * delta
+		if ny <= g:
+			ny = g
+			_air = false
+			if _vy < -3.0:
+				Sfx.play_on(self, "rattle_hard", -2.0)
+				speed *= clampf(1.0 + _vy * 0.02, 0.6, 1.0)
+			_vy = 0.0
+		global_position.y = ny
+	else:
+		var gv := (g - p.y) / maxf(delta, 0.001)
+		var up := _vy  # nousunopeus ennen tätä ruutua
+		_vy = lerpf(_vy, gv, 0.6)
+		if up > 0.8 and absf(speed) > 3.0 and g < p.y + up * delta - 0.5 * GRAVITY * delta * delta - 0.01:
+			_air = true
+			_vy = up
+		else:
+			global_position.y = g
 	var k := 1.0 - exp(-8.0 * delta)
 	_pitch = lerpf(_pitch, atan2(front - rear, WHEELBASE), k)
 	_roll = lerpf(_roll, atan2(rgt - left, TRACK), k)

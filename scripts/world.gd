@@ -42,6 +42,7 @@ func _ready() -> void:
 	Ranta.terraform()
 	Rantatennis.terraform()
 	Happybeach.terraform()
+	Reitti.terraform()
 	var f := FileAccess.open(DATA, FileAccess.READ)
 	data = JSON.parse_string(f.get_as_text()) if f != null else {}
 	if data.is_empty():

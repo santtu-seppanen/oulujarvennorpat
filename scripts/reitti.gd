@@ -10,6 +10,8 @@ extends RefCounted
 ## Leirintäalueen kehys (a, b): origo K on tien päässä parkkipaikalla, a kulkee hiekkarantaa kaakkoon
 ## ja b järvelle (luoteeseen). Alueen solmu on kierretty niin, että sen paikallinen +X on a ja -Z on b.
 
+const Terrain := preload("res://scripts/terrain.gd")
+
 const REAL_LATLON := Vector2(64.4535, 26.7891)
 
 ## Reittipisteet (maailman x, z) mökin pihan pysäköintipaikalta Happy Beachin parkkipaikalle. Kaikki pisteet
@@ -65,6 +67,46 @@ static func reversed() -> Array:
 	var r := ROUTE.duplicate()
 	r.reverse()
 	return r
+
+
+## Soratien kumpareet: Äpätintien suoralle osuudelle (reitin pisteet MOUND_FROM..NEW_ROAD_FROM) tehdään maastoon
+## pehmeitä poikkipoikkeisia kumpuja (n. 0,45-0,85 m, 6 m pitkiä) 38 m välein; kovaa ajettaessa auto lentää
+## niiden yli (auto.gd). Ennen maaston rakentamista (world.gd).
+const MOUND_FROM := 8
+const MOUND_GAP := 38.0
+const MOUND_HALF := 3.0
+
+
+static func terraform() -> void:
+	var g := Terrain.near
+	if g == null:
+		return
+	var hs := g.heights
+	var next := 20.0
+	var travelled := 0.0
+	var n := 0
+	for k in range(MOUND_FROM, NEW_ROAD_FROM):
+		var a: Vector2 = ROUTE[k]
+		var b: Vector2 = ROUTE[k + 1]
+		var seg := a.distance_to(b)
+		var t := (b - a) / seg
+		while next <= travelled + seg:
+			var c := a + t * (next - travelled)
+			var height := 0.45 + 0.4 * fposmod(float(n) * 0.618, 1.0)
+			n += 1
+			next += MOUND_GAP
+			var r := MOUND_HALF + 7.0
+			for j in range(int((c.y - r + g.half) / g.step), int((c.y + r + g.half) / g.step) + 1):
+				for i in range(int((c.x - r + g.half) / g.step), int((c.x + r + g.half) / g.step) + 1):
+					var d := Vector2(-g.half + i * g.step, -g.half + j * g.step) - c
+					var along := d.dot(t)
+					var across := absf(d.dot(t.orthogonal()))
+					if absf(along) >= MOUND_HALF or across >= 7.0:
+						continue
+					var w := cos(along / MOUND_HALF * PI * 0.5)
+					hs[j * g.n + i] += height * w * w * (1.0 - smoothstep(3.0, 7.0, across))
+		travelled += seg
+	g.heights = hs
 
 
 ## Lisää Vankkuritien tiedoston teihin ennen kuin world.gd piirtää tiet.
