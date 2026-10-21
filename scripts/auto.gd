@@ -34,6 +34,10 @@ const EYE := Vector3(-0.42, 1.28, -0.2)
 const BODY_COL := Color(0.1, 0.3, 0.22)
 
 var driver: CharacterBody3D = null
+## Moninpeli: toinen kone ajaa (remote), ja tämän koneen pelaaja voi istua kyydissä (passenger).
+var passenger: CharacterBody3D = null
+var remote := false
+var game: Node3D
 var speed := 0.0
 var steer_angle := 0.0
 var autopilot := false
@@ -53,6 +57,9 @@ var _back_t := 0.0
 var _pitch := 0.0
 var _roll := 0.0
 var _throttle := 0.0
+var _net_pos := Vector3.ZERO
+var _net_rot := 0.0
+var _send_t := 0.0
 
 
 func _ready() -> void:
@@ -157,6 +164,58 @@ func leave() -> CharacterBody3D:
 	return p
 
 
+func set_remote(on: bool) -> void:
+	remote = on
+	_net_pos = global_position
+	_net_rot = rotation.y
+
+
+## Tila verkkoon: [x, z, suunta, nopeus, ohjauskulma].
+func net_state() -> Array:
+	return [snappedf(global_position.x, 0.01), snappedf(global_position.z, 0.01), snappedf(rotation.y, 0.01),
+		snappedf(speed, 0.01), snappedf(steer_angle, 0.01)]
+
+
+func net_apply(a: Array) -> void:
+	_net_pos = Vector3(a[0], 0.0, a[1])
+	_net_rot = a[2]
+	speed = a[3]
+	steer_angle = a[4]
+
+
+func _follow_net(delta: float) -> void:
+	var k := 1.0 - exp(-10.0 * delta)
+	var p := global_position
+	if Vector2(p.x - _net_pos.x, p.z - _net_pos.z).length() > 8.0:
+		k = 1.0
+	global_position = Vector3(lerpf(p.x, _net_pos.x, k), p.y, lerpf(p.z, _net_pos.z, k))
+	rotation.y = lerp_angle(rotation.y, _net_rot, k)
+
+
+## Kyytiin toisen koneen ajamaan autoon.
+func board_passenger(p: CharacterBody3D) -> void:
+	passenger = p
+	p.set_hidden_inside(true)
+	p.velocity = Vector3.ZERO
+	_cam.current = true
+	_cam_ready = false
+	_engine.stream_paused = false
+
+
+## Kyydistä pois auton viereen (slot erottaa useamman kyytiläisen).
+func leave_passenger(slot := 0) -> void:
+	var p := passenger
+	passenger = null
+	if p == null:
+		return
+	var out := global_position - global_transform.basis.x * (1.9 + 0.7 * slot)
+	p.global_position = Vector3(out.x, Terrain.h(out.x, out.z) + 0.15, out.z)
+	p.rotation.y = rotation.y
+	p.velocity = Vector3.ZERO
+	p.set_hidden_inside(false)
+	p.activate_camera()
+
+
 ## Käynnistää automaattiajon reitin päähän: to_beach = Happy Beachille, muuten mökille.
 func start_autopilot(to_beach: bool) -> void:
 	route = Reitti.ROUTE.duplicate() if to_beach else Reitti.reversed()
@@ -204,6 +263,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	_t += delta
+	if remote:
+		_follow_net(delta)
+		_finish(delta)
+		return
 	var throttle := 0.0
 	var steer := 0.0
 	var brake := false
@@ -264,13 +327,25 @@ func _physics_process(delta: float) -> void:
 			speed = along * 0.5
 		if absf(speed) > 3.0:
 			Sfx.play_on(self, "rattle_hard", -6.0)
+	if driver != null and game != null and game.mp.online():
+		_send_t -= delta
+		if _send_t <= 0.0:
+			_send_t = 1.0 / 12.0
+			game.mp.send({"t": "auto_s", "s": net_state()})
+	_finish(delta)
+
+
+## Korkeus, kuljettajan ja kyytiläisen paikka, pyörät, ääni ja kamera (paikallinen ja verkon auto).
+func _finish(delta: float) -> void:
 	_follow_ground(delta)
-	if driver != null:
-		driver.global_position = global_position + Vector3.UP * 0.6
-		driver.rotation.y = rotation.y
+	for r: CharacterBody3D in [driver, passenger]:
+		if r != null:
+			r.global_position = global_position + Vector3.UP * 0.6
+			r.rotation.y = rotation.y
 	_wheels(delta)
 	_sound()
-	if driver != null and driver.is_player:
+	var rider: CharacterBody3D = driver if driver != null else passenger
+	if rider != null and rider.is_player:
 		var eye := global_transform * EYE
 		CamCtl.update_camera(_cam, self, eye, 7.5, 3.2, absf(speed) > 1.0, delta, not _cam_ready)
 		_cam_ready = true
@@ -306,7 +381,7 @@ func _wheels(delta: float) -> void:
 
 
 func _sound() -> void:
-	var active := driver != null or absf(speed) > 0.3
+	var active := driver != null or passenger != null or absf(speed) > 0.3
 	_engine.stream_paused = not active
 	if active:
 		var k := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)

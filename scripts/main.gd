@@ -132,6 +132,7 @@ func _ready() -> void:
 	boat.rotation.y = atan2(-Mokki.LAKE.x, -Mokki.LAKE.y) + 0.6
 	car = Auto.new()
 	add_child(car)
+	car.game = self
 	car.place(Reitti.HOME_SPOT, Reitti.ROUTE[1])
 	car.arrived.connect(_car_arrived)
 	_amb = Ambience.new()
@@ -164,6 +165,10 @@ func _ready() -> void:
 				chat.ai_say(j, text))
 	world.mokki.napped.connect(_coffee_call)
 	mp.on("kahvikutsu", func(_d: Dictionary, _from: int) -> void: _coffee_shout())
+	mp.on("auto", func(d: Dictionary, _from: int) -> void: _remote_ride(bool(d.on)))
+	mp.on("auto_s", func(d: Dictionary, _from: int) -> void:
+		if car.remote:
+			car.net_apply(d.s))
 	kortit = Korttipeli.new()
 	kortit.game = self
 	add_child(kortit)
@@ -322,6 +327,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_wake()
 		return
 	if state != "play" or get_tree().paused or wc != null or pissa.active or _nap_t > 0.0:
+		return
+	if car.passenger != null:
+		if event.is_action_pressed("map"):
+			_map.open()
+			get_viewport().set_input_as_handled()
 		return
 	if car.driver != null:
 		# Ratissa: E pysäyttää ja nousee pois, G kytkee automaattiajon; muut näppäimet (ajo, torvi, V) ohjaavat autoa.
@@ -651,8 +661,6 @@ func _interaction() -> Dictionary:
 	if _near_boat():
 		return {"text": "E: nouse kumiveneeseen", "cb": func() -> void: player.enter_boat(boat)}
 	if _near_car():
-		if mp.online():
-			return {"text": "Autoajelu toimii toistaiseksi vain yksinpelissä"}
 		return {"text": "E: nouse autoon (ajo Happy Beachille ja takaisin · G: automaattiajo)", "cb": _enter_car}
 	if player.hidden_inside or player.swimming or player.pose == "Sammunut":
 		return {}
@@ -726,7 +734,7 @@ func _near_boat() -> bool:
 # --- Auto: ajo Happy Beachille ja takaisin --------------------------------------------------------------------
 
 func _near_car() -> bool:
-	return car.driver == null and player.global_position.distance_to(car.global_position) < 3.4 \
+	return car.driver == null and car.passenger == null and not car.remote and player.global_position.distance_to(car.global_position) < 3.4 \
 		and not player.hidden_inside and not player.swimming and player.boat == null and player.pose != "Sammunut"
 
 
@@ -740,6 +748,7 @@ func _enter_car() -> void:
 		g.stop()
 	_board_crew()
 	car.board(player)
+	mp.send({"t": "auto", "on": true})
 	_set_drive_target()
 	toast("Auto: W/S kaasu ja jarru · A/D ohjaa · G automaattiajo · H torvi · E pois. Kompassi näyttää kohteen.", 6.0)
 
@@ -755,6 +764,7 @@ func _leave_car() -> void:
 		toast("Pysäytä auto ensin (S tai välilyönti).", 2.5)
 		return
 	car.leave()
+	mp.send({"t": "auto", "on": false})
 	var home: bool = Vector2(car.global_position.x - Reitti.HOME_SPOT.x, car.global_position.z - Reitti.HOME_SPOT.y).length() < 60.0
 	_release_crew(home)
 	if home:
@@ -830,15 +840,41 @@ func _reset_ride() -> void:
 		return
 	if car.driver != null:
 		car.leave()
+		mp.send({"t": "auto", "on": false})
+	elif car.passenger != null:
+		car.leave_passenger()
 	_release_crew(true)
 
 
 ## Porukka seisoo auton vieressä: kun auto on jälleen mökillä, he palaavat pihalle.
 func _ride_check() -> void:
-	if _ride_crew.is_empty() or car.driver != null:
+	if _ride_crew.is_empty() or car.driver != null or car.passenger != null or car.remote:
 		return
 	if Vector2(car.global_position.x - Reitti.HOME_SPOT.x, car.global_position.z - Reitti.HOME_SPOT.y).length() < 60.0:
 		_release_crew(true)
+
+
+## Moninpeli: toinen pelaaja nousi rattiin (on) tai pois (ei): oma pelaaja ja tietokoneen hahmot imetään
+## kyytiin, ja ajon päätyttyä he nousevat auton viereen (mökillä pihalle).
+func _remote_ride(on: bool) -> void:
+	if on:
+		if car.driver != null or car.remote:
+			return
+		car.set_remote(true)
+		end_activity()
+		for g in ballgames:
+			g.stop()
+		_board_crew()
+		if crew_modes[player_index] == "player":
+			car.board_passenger(player)
+		return
+	if not car.remote:
+		return
+	car.set_remote(false)
+	car.speed = 0.0
+	car.leave_passenger()
+	var home: bool = Vector2(car.global_position.x - Reitti.HOME_SPOT.x, car.global_position.z - Reitti.HOME_SPOT.y).length() < 60.0
+	_release_crew(home)
 
 
 ## Olut Happy Beachin baarista (aukioloaikoina).
@@ -1102,6 +1138,8 @@ func _update_hud() -> void:
 		_prompt.text = _ballgame().prompt()
 	elif activity != "":
 		_prompt.text = _activity_node().prompt()
+	elif car.passenger != null:
+		_prompt.text = "Kyydissä – kuski ajaa · %d km/h" % roundi(absf(car.speed) * 3.6)
 	elif car.driver != null:
 		_prompt.text = "%d km/h · W/S kaasu ja jarru · A/D ohjaa · välilyönti käsijarru · G automaattiajo%s · H torvi · E pois" \
 			% [roundi(absf(car.speed) * 3.6), " (päällä)" if car.autopilot else ""]

@@ -142,7 +142,7 @@ func _apply() -> void:
 
 func _on_welcome() -> void:
 	# Valikko ja kartta pysäyttävät pelin, mutta moninpelissä muut liikkuvat silti.
-	for n in game.crew + [game.boat, game.sun]:
+	for n in game.crew + [game.boat, game.sun, game.car]:
 		n.process_mode = Node.PROCESS_MODE_ALWAYS
 	owners.clear()
 	if net.is_host():

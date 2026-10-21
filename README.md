@@ -197,7 +197,7 @@ rantaan, aurinkotuolit hiekalla ja laituri. Tie Vankkuritie on rakennettu olemas
 
 Mökin pihalla odottaa farmariauto (`scripts/auto.gd`): E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
 välilyönti käsijarru, H torvi, V kuljettajan näkymä, **G automaattiajo** reitin päähän (n. 850 m, Äpätintietä pitkin), E ulos.
-Humala heiluttaa ratissa. Moninpelissä autoa ei vielä voi ajaa. Testi: `tools/testit/autotesti.gd`.
+Humala heiluttaa ratissa. Moninpelissä yksi nousee rattiin ja muut pelaajat sekä tietokoneen hahmot imetään kyytiin; kuski lähettää auton tilan (auto, auto_s) ja kaikki nousevat ulos, kun hän pysäyttää. Testit: `tools/testit/autotesti.gd` ja `automoninpeli.gd`.
 
 ## Moninpeli
 
