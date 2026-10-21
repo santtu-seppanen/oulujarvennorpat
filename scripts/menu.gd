@@ -125,7 +125,7 @@ func _choose() -> void:
 	var when := OptionButton.new()
 	for p in game.Sun.PRESETS:
 		when.add_item(p[0])
-	when.selected = 0
+	when.selected = game.Sun.STORY_PRESET
 	when.add_theme_font_size_override("font_size", 18)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -155,7 +155,7 @@ func _multi(status := "") -> void:
 	var when := OptionButton.new()
 	for p in game.Sun.PRESETS:
 		when.add_item(p[0])
-	when.selected = 0
+	when.selected = game.Sun.STORY_PRESET
 	when.add_theme_font_size_override("font_size", 18)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

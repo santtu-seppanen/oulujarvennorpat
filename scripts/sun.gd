@@ -22,7 +22,12 @@ const PRESETS := [
 	["Juhannusaatto klo 22.00", 6, 19, 22, 0],
 	["Elokuun ilta 4.8. klo 19.30", 8, 4, 19, 30],
 	["Nyt (laitteen kello)", 0, 0, 0, 0],
+	["Mökkiviikonloppu to–su (tarina): torstai klo 12", -1, 0, 12, 0],
 ]
+## Valikon oletus: tarina (torstai–sunnuntai, tehtävät joka päivä, tarina.gd).
+const STORY_PRESET := 4
+
+signal restarted  # alkuhetki valittiin (start_preset): tarina.gd aloittaa alusta
 
 var light: DirectionalLight3D
 var env: Environment
@@ -37,6 +42,7 @@ var azimuth := 0.0   # astetta pohjoisesta myötäpäivään
 var sun_dir := Vector3.UP  # suunta aurinkoon pelin kehyksessä (x itään, z etelään)
 var max_shadow := 180.0
 var shadows_allowed := true
+var story := false  # valittu alkuhetki on tarinan alku (PRESETS: kuukausi -1 = seuraava torstai)
 
 var _sky_t := 0.0
 var _today_cache := {}
@@ -48,13 +54,21 @@ func _ready() -> void:
 
 func start_preset(i: int) -> void:
 	var p: Array = PRESETS[i]
+	story = p[1] == -1
 	if p[1] == 0:
 		t_utc = Time.get_unix_time_from_system()
+	elif story:
+		# Ensimmäinen torstai 2.7. tai sen jälkeen (viikonloppu to–su on keskikesällä).
+		var y: int = Time.get_datetime_dict_from_system().year
+		var t2 := Time.get_unix_time_from_datetime_dict({"year": y, "month": 7, "day": 2, "hour": 12, "minute": 0, "second": 0})
+		var wd: int = Time.get_datetime_dict_from_unix_time(int(t2)).weekday  # 0 = sunnuntai, 4 = torstai
+		t_utc = _local_to_utc(y, 7, 2 + (4 - wd + 7) % 7, p[3], p[4])
 	else:
 		var y: int = Time.get_datetime_dict_from_system().year
 		t_utc = _local_to_utc(y, p[1], p[2], p[3], p[4])
 	_today_cache.clear()
 	_update(true)
+	restarted.emit()
 
 
 func _unhandled_input(event: InputEvent) -> void:

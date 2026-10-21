@@ -14,6 +14,8 @@ const Trees := preload("res://scripts/trees.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
+const Happybeach := preload("res://scripts/happybeach.gd")
+const Reitti := preload("res://scripts/reitti.gd")
 
 const DATA := "res://assets/map/kohteet.json"
 const NEAR_CHUNK := 100.0
@@ -25,6 +27,7 @@ var data := {}
 var trees: Node3D
 var mokki: Node3D
 var ranta: Node3D  # hiekkaranta, kätköpolku ja viinakätkö (ranta.gd)
+var happy: Node3D  # Camping Happy Beach leirintäalue törmällä (happybeach.gd)
 var ponds: Array = []   # [{level, poly: PackedVector2Array}]
 var names: Array = []   # [{name, p: Vector2}]
 var _near_h_tex: ImageTexture
@@ -38,6 +41,7 @@ func _ready() -> void:
 	Mokki.terraform()
 	Ranta.terraform()
 	Rantatennis.terraform()
+	Happybeach.terraform()
 	var f := FileAccess.open(DATA, FileAccess.READ)
 	data = JSON.parse_string(f.get_as_text()) if f != null else {}
 	if data.is_empty():
@@ -47,6 +51,8 @@ func _ready() -> void:
 		ponds.append({"level": float(p.level), "poly": _poly(p.pts)})
 	for n in data.names:
 		names.append({"name": n.name, "p": Vector2(n.p[0], n.p[1])})
+	Reitti.add_road(data)  # Vankkuritie Happy Beachille
+	names.append({"name": "Happy Beach", "p": Reitti.K})
 	_build_terrain()
 	_build_water()
 	_build_roads()
@@ -57,6 +63,8 @@ func _ready() -> void:
 	add_child(mokki)
 	ranta = Ranta.new()
 	add_child(ranta)
+	happy = Happybeach.new()
+	add_child(happy)
 	trees = Trees.new()
 	add_child(trees)
 

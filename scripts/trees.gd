@@ -13,6 +13,8 @@ const B := preload("res://scripts/build.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
+const Reitti := preload("res://scripts/reitti.gd")
+const Happybeach := preload("res://scripts/happybeach.gd")
 const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 
 const BIN := "res://assets/map/puut.bin"
@@ -74,7 +76,8 @@ func _ready() -> void:
 		var x := data_a[i * 4]
 		var z := data_a[i * 4 + 2]
 		if i % THIN != 0 or (absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z)) or Ranta.clears_tree(x, z) \
-				or Rantatennis.clears_tree(x, z) or Tutkimusmatka.clears_tree(x, z):
+				or Rantatennis.clears_tree(x, z) or Tutkimusmatka.clears_tree(x, z) or Reitti.clears_tree(x, z) \
+				or Happybeach.clears_tree(x, z):
 			data_a[i * 4 + 1] = -50.0
 			data_a[i * 4 + 3] = 0.01
 	raw_a = data_a.to_byte_array()

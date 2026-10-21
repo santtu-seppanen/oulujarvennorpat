@@ -177,6 +177,28 @@ Vedessä E aloittaa, ja tietokoneen hahmot kahlaavat paikoilleen. E heittää ja
 spiraalina, ja heitot lasketaan, kunnes pallo putoaa veteen ja jää kellumaan. Ennätys on oma ja yhteinen, ja
 moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Testi: `tools/testit/heittelytesti.gd`.
 
+## Tarina: mökkiviikonloppu torstaista sunnuntaihin
+
+Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 12 (`scripts/tarina.gd`). Joka päivä on omat
+tehtävät hahmon mukaan, ja ne näkyvät vasemmalla (J piilottaa): torstaina halot, kätkö, sauna, uinti, huussi; perjantaina
+pöydän pelit, rantatennis, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, jalkapallo, Happy Beach ja
+auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää
+kahvit sen sijaan). Päivä vaihtuu keskiyöllä (edellisen päivän tulos ilmoitetaan), ja sunnuntaina klo 21 viikonloppu päättyy
+lopputulokseen; sen jälkeen peli jatkuu vapaana. Muilla alkuhetkillä tarina ei ole päällä.
+Testi: `tools/testit/tarinatesti.gd`.
+
+## Happy Beach ja autoajelu
+
+Camping Happy Beach on oikeasti Säräisniemessä (Vankkuritie 1, 64.4535 N, 26.7891 E, n. 5,3 km mökiltä). Pelissä se on
+tiivistetty kävelyalueen sisälle Siperianrannan hiekkarannan törmälle (n. 700 m mökiltä luoteeseen,
+`scripts/happybeach.gd`, `scripts/reitti.gd`): ravintola ja baari terasseineen (oikeat aukioloajat: ma–to 9–14, pe–la 9–21,
+su suljettu; E ostaa oluen), kioski ja vastaanotto, kolme mökkiä, kolme asuntovaunua, lippu, auringonlaskupenkit, pitkospolku
+rantaan, aurinkotuolit hiekalla ja laituri. Tie Vankkuritie on rakennettu olemassa olevan polun kohdalle.
+
+Mökin pihalla odottaa farmariauto (`scripts/auto.gd`): E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
+välilyönti käsijarru, H torvi, V kuljettajan näkymä, **G automaattiajo** reitin päähän (n. 850 m, Äpätintietä pitkin), E ulos.
+Humala heiluttaa ratissa. Moninpelissä autoa ei vielä voi ajaa. Testi: `tools/testit/autotesti.gd`.
+
 ## Moninpeli
 
 Valikosta **Moninpeli → Luo uusi peli** avaa huoneen ja näyttää sen nelikirjaimisen koodin; kaverit liittyvät

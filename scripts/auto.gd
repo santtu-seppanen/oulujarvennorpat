@@ -1,0 +1,351 @@
+extends CharacterBody3D
+## Mökin farmariauto (tummanvihreä, 4,6 x 1,75 m): ajetaan mökin ajouralta Äpätintietä pitkin Happy Beachille
+## ja takaisin (reitti.gd). W/S kaasu ja jarru (taakse peruuttaa), A/D ohjaa, välilyönti käsijarru, H torvi,
+## V vaihtaa kuljettajan näkymään, G kytkee automaattiajon (auto ajaa reittiä pitkin lähimpään päähän ja
+## pysähtyy) ja E pysäyttää ja nousee pois.
+##
+## Fysiikka on kevyt: auto seuraa maastoa neljän renkaan korkeuksista (kallistus ja nytkähdykset), kulkee
+## tiellä ja reitillä täyttä vauhtia (MAX_SPEED) ja metsässä hitaasti (OFFROAD_SPEED), pysähtyy veteen ja
+## liian jyrkkään rinteeseen ja törmää puunrunkoihin ja rakennuksiin (törmäyskerros 1). Humala heiluttaa ohjausta.
+## Kamera: kolmas persoona ja kuljettajan silmät CamCtl:n kautta (kuten jalan).
+
+signal arrived  # automaattiajo pääsi perille
+
+const B := preload("res://scripts/build.gd")
+const Terrain := preload("res://scripts/terrain.gd")
+const Reitti := preload("res://scripts/reitti.gd")
+const Chat := preload("res://scripts/chat.gd")
+
+const LENGTH := 4.6
+const WIDTH := 1.75
+const WHEELBASE := 2.65
+const TRACK := 1.5
+const WHEEL_R := 0.33
+const MAX_SPEED := 13.0  # tiellä (m/s, n. 47 km/h)
+const OFFROAD_SPEED := 6.0
+const REVERSE_SPEED := 3.5
+const ACCEL := 4.2
+const BRAKE := 10.0
+const COAST := 1.6
+const MAX_STEER := 0.55  # rad
+const AUTO_SPEED := 9.0
+## Kuljettajan silmät ja istuin auton avaruudessa (vasen etupaikka).
+const EYE := Vector3(-0.42, 1.28, -0.2)
+const BODY_COL := Color(0.1, 0.3, 0.22)
+
+var driver: CharacterBody3D = null
+var speed := 0.0
+var steer_angle := 0.0
+var autopilot := false
+var route: Array = []
+
+var _body: Node3D
+var _cam: Camera3D
+var _cam_ready := false
+var _engine: AudioStreamPlayer3D
+var _pivots: Array[Node3D] = []  # etupyörien kääntö
+var _spinners: Array[Node3D] = []
+var _lights: Array[SpotLight3D] = []
+var _ri := 0
+var _t := 0.0
+var _stuck := 0.0
+var _back_t := 0.0
+var _pitch := 0.0
+var _roll := 0.0
+var _throttle := 0.0
+
+
+func _ready() -> void:
+	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
+	collision_mask = 1
+	var cs := B.box_shape(Vector3(WIDTH, 1.0, LENGTH - 0.3), Vector3(0.0, 0.85, 0.0))
+	add_child(cs)
+	_body = Node3D.new()
+	add_child(_body)
+	_build_model()
+	CamCtl.mark_own_body(_body)  # kuljettajan näkymässä auton oma kori piiloon
+	_cam = Camera3D.new()
+	_cam.fov = 70.0
+	_cam.far = 9000.0
+	_cam.top_level = true
+	add_child(_cam)
+	_engine = Sfx.loop_on(self, "engine", -14.0)
+	_engine.stream_paused = true
+
+
+func _build_model() -> void:
+	var dark := Color(0.08, 0.08, 0.09)
+	var glass := Color(0.22, 0.3, 0.36)
+	# Alakori, ikkunallinen ohjaamo ja kattolaatta (farmari: pitkä takaosa).
+	B.mesh(_body, B.boxm(Vector3(WIDTH, 0.62, LENGTH)), Vector3(0, 0.66, 0), BODY_COL)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.1, 0.62, 2.9)), Vector3(0, 1.25, 0.5), glass)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.06, 0.08, 3.0)), Vector3(0, 1.58, 0.5), BODY_COL)
+	for s: float in [-1.0, 1.0]:
+		for z: float in [-0.95, 1.95]:
+			B.mesh(_body, B.boxm(Vector3(0.08, 0.64, 0.1)), Vector3(s * (WIDTH * 0.5 - 0.07), 1.25, z), BODY_COL)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.3, 0.06, 1.0)), Vector3(0, 1.0, -1.4), BODY_COL.darkened(0.1))  # konepelti
+	# Puskurit, valot ja rekisterikilvet.
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.16, 0.18)), Vector3(0, 0.42, -LENGTH * 0.5), dark)
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.16, 0.18)), Vector3(0, 0.42, LENGTH * 0.5), dark)
+	for s: float in [-1.0, 1.0]:
+		B.mesh(_body, B.boxm(Vector3(0.3, 0.16, 0.06)), Vector3(s * 0.62, 0.78, -LENGTH * 0.5), Color(1.0, 0.95, 0.75))
+		B.mesh(_body, B.boxm(Vector3(0.18, 0.4, 0.06)), Vector3(s * (WIDTH * 0.5 - 0.1), 0.88, LENGTH * 0.5), Color(0.8, 0.08, 0.06))
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.03)), Vector3(0, 0.46, -LENGTH * 0.5 - 0.1), Color(0.95, 0.95, 0.9))
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.03)), Vector3(0, 0.62, LENGTH * 0.5 + 0.02), Color(0.95, 0.95, 0.9))
+	# Katonkiskot (mökkimatkan varuste).
+	for s: float in [-1.0, 1.0]:
+		B.mesh(_body, B.boxm(Vector3(0.05, 0.05, 2.8)), Vector3(s * 0.5, 1.66, 0.5), dark)
+	# Pyörät: etupyörillä kääntöpivotti, kaikilla pyörimissolmu (spinner) ja sylinterinä renkaat ja vanteet.
+	for wz: float in [-WHEELBASE * 0.5, WHEELBASE * 0.5]:
+		for s: float in [-1.0, 1.0]:
+			var pivot := Node3D.new()
+			pivot.position = Vector3(s * TRACK * 0.5, WHEEL_R, wz)
+			_body.add_child(pivot)
+			var spin := Node3D.new()
+			pivot.add_child(spin)
+			B.mesh(spin, B.cyl(WHEEL_R, WHEEL_R, 0.22, 14), Vector3.ZERO, dark, Vector3(0, 0, 90))
+			B.mesh(spin, B.cyl(WHEEL_R * 0.55, WHEEL_R * 0.55, 0.24, 8), Vector3.ZERO, Color(0.7, 0.7, 0.72), Vector3(0, 0, 90))
+			B.mesh(spin, B.boxm(Vector3(0.25, 0.06, 0.06)), Vector3(s * 0.0, 0.0, 0.0), dark.lightened(0.2))
+			_spinners.append(spin)
+			if wz < 0.0:
+				_pivots.append(pivot)
+	# Ajovalot: kaksi kaukovaloa, päällä pimeällä (set_night).
+	for s: float in [-1.0, 1.0]:
+		var sl := SpotLight3D.new()
+		sl.position = Vector3(s * 0.62, 0.85, -LENGTH * 0.5 - 0.1)
+		sl.spot_range = 45.0
+		sl.spot_angle = 32.0
+		sl.light_energy = 3.0
+		sl.light_color = Color(1.0, 0.95, 0.8)
+		sl.shadow_enabled = false
+		sl.visible = false
+		_body.add_child(sl)
+		_lights.append(sl)
+
+
+## Ajovalot päälle pimeällä (main.gd): k 0..1.
+func set_night(k: float) -> void:
+	for l in _lights:
+		l.visible = k > 0.35
+
+
+## Rattiin: kuljettaja piiloon autoon, kamera auton kameraksi.
+func board(p: CharacterBody3D) -> void:
+	driver = p
+	p.set_hidden_inside(true)
+	p.velocity = Vector3.ZERO
+	_cam.current = true
+	_cam_ready = false
+	_engine.stream_paused = false
+	Sfx.play("door_close", -4.0)
+
+
+## Ulos autosta auton vasemmalle puolelle; kamera takaisin kuljettajaan. Palauttaa kuljettajan.
+func leave() -> CharacterBody3D:
+	var p := driver
+	driver = null
+	autopilot = false
+	if p == null:
+		return null
+	var out := global_position - global_transform.basis.x * 1.9
+	p.global_position = Vector3(out.x, Terrain.h(out.x, out.z) + 0.15, out.z)
+	p.rotation.y = rotation.y
+	p.velocity = Vector3.ZERO
+	p.set_hidden_inside(false)
+	p.activate_camera()
+	Sfx.play("door", -4.0)
+	return p
+
+
+## Käynnistää automaattiajon reitin päähän: to_beach = Happy Beachille, muuten mökille.
+func start_autopilot(to_beach: bool) -> void:
+	route = Reitti.ROUTE.duplicate() if to_beach else Reitti.reversed()
+	var p := Vector2(global_position.x, global_position.z)
+	var best := 0
+	var bd := INF
+	for i in route.size():
+		var d := p.distance_to(route[i])
+		if d < bd:
+			bd = d
+			best = i
+	_ri = best
+	_stuck = 0.0
+	_back_t = 0.0
+	autopilot = true
+
+
+func stop_autopilot() -> void:
+	autopilot = false
+
+
+## Lähempänä kumpaa päätä auto on: true = Happy Beachin pää.
+func near_beach_end() -> bool:
+	var p := Vector2(global_position.x, global_position.z)
+	return p.distance_to(Reitti.K) < p.distance_to(Reitti.HOME_SPOT)
+
+
+## Asettaa auton paikalleen ja suuntaan (ajon alku, testit).
+func place(p: Vector2, heading_to: Vector2) -> void:
+	global_position = Vector3(p.x, Terrain.h(p.x, p.y), p.y)
+	var d := heading_to - p
+	rotation.y = atan2(-d.x, -d.y)
+	speed = 0.0
+	steer_angle = 0.0
+	_throttle = 0.0
+	velocity = Vector3.ZERO
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if driver == null or not (event is InputEventKey) or not event.pressed or event.echo or Chat.typing:
+		return
+	if event.physical_keycode == KEY_H:
+		Sfx.play_on(self, "horn", -2.0, randf_range(0.97, 1.03))
+
+
+func _physics_process(delta: float) -> void:
+	_t += delta
+	var throttle := 0.0
+	var steer := 0.0
+	var brake := false
+	if driver != null:
+		if autopilot:
+			var a := _autopilot_inputs(delta)
+			throttle = a.x
+			steer = a.y
+		elif driver.controls_enabled and not Chat.typing:
+			throttle = Input.get_axis("back", "forward")
+			steer = Input.get_axis("right", "left")
+			brake = Input.is_action_pressed("jump")
+			# Humala heiluttaa ratissa.
+			var d: float = driver.drunk()
+			if d > 0.05:
+				steer += (sin(_t * 1.3) * 0.6 + sin(_t * 2.9 + 1.0) * 0.4) * d * 1.1
+	_throttle = throttle
+	var p := global_position
+	var fwd := -global_transform.basis.z
+	var on_road := Reitti.on_route(p.x, p.z) or Terrain.surface(p.x, p.z) in [Terrain.ROAD, Terrain.FILL, Terrain.YARD]
+	var vmax := MAX_SPEED if on_road else OFFROAD_SPEED
+	if driver == null:
+		speed = move_toward(speed, 0.0, 6.0 * delta)
+	elif brake:
+		speed = move_toward(speed, 0.0, BRAKE * 1.3 * delta)
+	elif throttle > 0.01:
+		if speed < 0.0:
+			speed += BRAKE * delta
+		else:
+			speed += ACCEL * throttle * delta
+	elif throttle < -0.01:
+		if speed > 0.2:
+			speed -= BRAKE * -throttle * delta
+		else:
+			speed -= ACCEL * 0.6 * -throttle * delta
+	else:
+		speed = move_toward(speed, 0.0, COAST * delta)
+	if speed > vmax:
+		speed = move_toward(speed, vmax, 7.0 * delta)
+	speed = maxf(speed, -REVERSE_SPEED)
+	# Ohjaus: kulma pienenee nopeuden mukaan, ja auto kääntyy pyöräkulman ja akselivälin mukaan.
+	var want_steer := clampf(steer, -1.0, 1.0) * MAX_STEER * (1.0 - 0.55 * clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
+	steer_angle = move_toward(steer_angle, want_steer, 2.4 * delta)
+	rotation.y += speed / WHEELBASE * tan(steer_angle) * delta
+	fwd = -global_transform.basis.z
+	# Vesi ja liian jyrkkä rinne edessä pysäyttävät.
+	if absf(speed) > 0.05:
+		var reach := LENGTH * 0.5 + 0.4
+		var probe := p + fwd * signf(speed) * reach
+		var ph := Terrain.h(probe.x, probe.z)
+		if ph < -0.1 or Terrain.is_water(probe.x, probe.z) or (ph - Terrain.h(p.x, p.z)) * signf(speed) / reach > 0.75:
+			speed = 0.0
+	velocity = Vector3(fwd.x, 0.0, fwd.z) * speed
+	move_and_slide()
+	if get_slide_collision_count() > 0:
+		var along := Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
+		if absf(along) < absf(speed) * 0.6:
+			speed = along * 0.5
+		if absf(speed) > 3.0:
+			Sfx.play_on(self, "rattle_hard", -6.0)
+	_follow_ground(delta)
+	if driver != null:
+		driver.global_position = global_position + Vector3.UP * 0.6
+		driver.rotation.y = rotation.y
+	_wheels(delta)
+	_sound()
+	if driver != null and driver.is_player:
+		var eye := global_transform * EYE
+		CamCtl.update_camera(_cam, self, eye, 7.5, 3.2, absf(speed) > 1.0, delta, not _cam_ready)
+		_cam_ready = true
+
+
+## Korkeus ja kallistus renkaiden alla olevasta maastosta.
+func _follow_ground(delta: float) -> void:
+	var fwd := -global_transform.basis.z
+	var right := global_transform.basis.x
+	var p := global_position
+	var hs := {}
+	for fz: float in [1.0, -1.0]:
+		for rx: float in [-1.0, 1.0]:
+			var q := p + fwd * fz * WHEELBASE * 0.5 + right * rx * TRACK * 0.5
+			hs[Vector2(fz, rx)] = Terrain.h(q.x, q.z)
+	var front: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(1.0, 1.0)]) * 0.5
+	var rear: float = (hs[Vector2(-1.0, -1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
+	var left: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(-1.0, -1.0)]) * 0.5
+	var rgt: float = (hs[Vector2(1.0, 1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
+	global_position.y = lerpf(p.y, (front + rear) * 0.5 + 0.02, 1.0 - exp(-14.0 * delta))
+	var k := 1.0 - exp(-8.0 * delta)
+	_pitch = lerpf(_pitch, atan2(front - rear, WHEELBASE), k)
+	_roll = lerpf(_roll, atan2(rgt - left, TRACK), k)
+	# Pieni keinunta kiihdytettäessä ja jarruttaessa.
+	_body.rotation = Vector3(_pitch - _throttle * 0.012, 0.0, _roll)
+
+
+func _wheels(delta: float) -> void:
+	for s in _spinners:
+		s.rotation.x -= speed / WHEEL_R * delta
+	for pv in _pivots:
+		pv.rotation.y = steer_angle
+
+
+func _sound() -> void:
+	var active := driver != null or absf(speed) > 0.3
+	_engine.stream_paused = not active
+	if active:
+		var k := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
+		_engine.pitch_scale = 0.55 + 1.0 * k + (0.12 if _throttle > 0.1 else 0.0)
+		_engine.volume_db = -16.0 + 7.0 * k
+
+
+## Automaattiajo: mihin suuntaan ja kuinka lujaa (x = kaasu, y = ohjaus). Seuraa reittiä tähtäyspisteellä, hidastaa
+## käännöksissä ja perillä, ja peruuttaa pätkän, jos jää jumiin.
+func _autopilot_inputs(delta: float) -> Vector2:
+	var p := Vector2(global_position.x, global_position.z)
+	var last: Vector2 = route[route.size() - 1]
+	var rest := p.distance_to(last)
+	# Jumi: ei liikuta, vaikka kaasua: peruutetaan hetki vastakkaiseen suuntaan.
+	if _back_t > 0.0:
+		_back_t -= delta
+		return Vector2(-1.0, -signf(steer_angle))
+	_stuck = _stuck + delta if absf(speed) < 0.4 and rest > 4.0 else 0.0
+	if _stuck > 2.5:
+		_stuck = 0.0
+		_back_t = 1.4
+	while _ri < route.size() - 1 and p.distance_to(route[_ri]) < 5.0:
+		_ri += 1
+	var ti := _ri
+	while ti < route.size() - 1 and p.distance_to(route[ti]) < 7.0:
+		ti += 1
+	var target: Vector2 = route[ti]
+	var d := target - p
+	var err := wrapf(atan2(-d.x, -d.y) - rotation.y, -PI, PI)
+	var v := AUTO_SPEED * (1.0 - 0.65 * minf(absf(err), 1.0))
+	if rest < 40.0:
+		v = minf(v, maxf(1.6, rest * 0.25))
+	if rest < 3.0:
+		autopilot = false
+		arrived.emit()
+		return Vector2(-1.0, 0.0)
+	var th := 0.0
+	if speed < v - 0.3:
+		th = 1.0
+	elif speed > v + 0.8:
+		th = -0.6
+	return Vector2(th, clampf(err * 1.6, -1.0, 1.0))
