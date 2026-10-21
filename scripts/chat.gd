@@ -240,8 +240,17 @@ func _process(delta: float) -> void:
 		var l: Label3D = e[0]
 		var b: CharacterBody3D = game.crew[i]
 		# Oma kupla ei näy silmien kohdalla FPS-kuvakulmassa; sisällä olevan kupla ei näy seinien läpi.
-		l.visible = not (b.is_player and CamCtl.fps) and not b.hidden_inside
-		l.position = Vector3(0, 1.75 if b.pose.begins_with("Sitting") else 2.45, 0)
+		# Autossa istuvan kupla seuraa autoa (hahmo itse on piilossa), ja päällekkäiset kuplat porrastetaan.
+		var riding: bool = b.hidden_inside and b.global_position.distance_to(game.car.global_position) < 4.0
+		var home: Node = game.car if riding else b
+		if l.get_parent() != home:
+			l.reparent(home, false)
+		if riding:
+			l.visible = not (b.is_player and CamCtl.fps)
+			l.position = Vector3(0, 2.7 + 0.45 * i, 0)
+		else:
+			l.visible = not (b.is_player and CamCtl.fps) and not b.hidden_inside
+			l.position = Vector3(0, 1.75 if b.pose.begins_with("Sitting") else 2.45, 0)
 		l.modulate.a = clampf(e[1], 0.0, 1.0)
 		# Kauempaa kupla kasvaa, jotta sen erottaa vielä pihan toiselta laidalta.
 		var cam := get_viewport().get_camera_3d()

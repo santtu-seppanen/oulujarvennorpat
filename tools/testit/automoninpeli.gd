@@ -7,6 +7,7 @@ var fails := 0
 var step := 0
 var clock := 0.0
 var ts := 0.0
+var _bub := false
 
 
 func _initialize() -> void:
@@ -34,11 +35,16 @@ func _process(delta: float) -> bool:
 				check(car.remote and car.passenger == p and p.hidden_inside, "kyytiin: auto on toisen ajossa, pelaaja kyydissä")
 				check(main._ride_crew.size() == 3, "tietokoneen hahmot mukaan (%d)" % main._ride_crew.size())
 				check(not main._near_car(), "ajossa olevaan autoon ei nousta")
+				main.chat.show_message(main.player_index, "Moi kyydistä!")
 				step = 1
 				ts = clock
 		1:
 			var t := clock - ts
 			car.net_apply([car.global_position.x + t * 5.0, car.global_position.z, car.rotation.y, 5.0, 0.0])
+			if t > 0.5 and not main.chat._bubbles.is_empty() and not _bub:
+				_bub = true
+				var l: Label3D = main.chat._bubbles[main.player_index][0]
+				check(l.get_parent() == car and l.visible, "kyydissä puhekupla näkyy auton päällä")
 			if t > 2.0:
 				check(car.global_position.x > 5.0 and p.global_position.distance_to(car.global_position) < 2.0, "pelaaja seuraa autoa")
 				main._remote_ride(false)
