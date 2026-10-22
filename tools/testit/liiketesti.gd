@@ -14,6 +14,12 @@ class Push:
 	func think(_d: float) -> void:
 		pass
 
+	func cards(_i: int) -> void:
+		pass
+
+	func cards_end() -> void:
+		pass
+
 
 var main: Node3D
 var Mokki: GDScript
@@ -154,8 +160,13 @@ func _process(_delta: float) -> bool:
 				check(d > 0.5, "pöydästä noustaan vapaaseen kohtaan")
 				check(Mokki.room_at(p.global_position) == "keittio", "noustu keittiöön (%s)" % Mokki.room_at(p.global_position))
 				# Pelaaja kävelee pöydässä istuvaa Markoa päin: ei mene sisään.
+				# Marko istutetaan paikalleen ja hänen tekoälynsä pysäytetään: ei nouse kesken testin.
+				crew(1).brain = Push.new()
+				crew(1).brain.throttle = 0.0
+				var seat: Array = main.world.mokki.table_seats[1]
+				crew(1).sit_at(seat[0], seat[1])
 				var ms: Vector3 = crew(1).global_position
-				var east: Vector3 = Vector3(Mokki.EAST.x, 0, Mokki.EAST.y)
+				var east: Vector3 = Vector3(seat[1].x - seat[0].x, 0, seat[1].z - seat[0].z).normalized()  # Marko katsoo pöytään
 				p.global_position = Vector3(ms.x, Mokki.DY + 0.1, ms.z) - east * 0.9
 				p.rotation.y = atan2(-east.x, -east.z)
 				p.brain = Push.new()
