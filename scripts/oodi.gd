@@ -18,6 +18,9 @@ const OUTRO := 8
 const LINE := 8  # iskuja riviä kohden (2 tahtia)
 const GATHER_MAX := 45.0
 const MUSIC_DB := -4.0
+const MAINE_GAIN := 20  # laulamaan osallistuvan mainepisteet joka kerta
+const MAINE_LOSS := 10  # oodin ohittavan mökkiläisen mainepisteet
+const SING_REACH := 3.0  # näin lähellä omaa paikkaa kaiteella lasketaan laulavan
 ## Melodiat riveittäin: [sävelet puolisävelaskelina F4:stä, kestot iskuina] (sana kohden yksi sävel).
 const MEL_A := [[[0, 4, 7, 9, 7], [2, 1, 2, 1, 2]], [[9, 7, 5, 4, 2], [2, 1, 2, 1, 2]], [[7, 9, 7], [3, 2, 3]],
 	[[5, 2, 0], [3, 1, 4]]]
@@ -166,7 +169,19 @@ static func _ai(b: Node) -> bool:
 	return b.brain != null and b.brain.has_method("sing")
 
 
+## Oma pelaaja on omalla paikallaan etuterassilla (oikea ihminen ei kävele itse, joten odotetaan häntä).
+func _player_there() -> bool:
+	var j: int = game.player_index
+	if game.crew_modes[j] == "ai" or game.player.boat != null:
+		return true
+	var q: Vector3 = spot(j)
+	var p: Vector3 = game.player.global_position
+	return Vector2(p.x - q.x, p.z - q.z).length() < SING_REACH and absf(p.y - q.y) < 2.5
+
+
 func _all_there() -> bool:
+	if not _player_there():
+		return false
 	for j in _taken:
 		var b: CharacterBody3D = game.crew[j]
 		if not _ai(b) or not b.brain.singing_ready():
@@ -192,10 +207,24 @@ func _sing(send: bool) -> void:
 		st = load(MUSIC)
 	if st is AudioStreamOggVorbis:
 		st.loop = false
+	_settle_fame()
 	_player.stream = st
 	_player.volume_db = MUSIC_DB
 	if st != null:
 		_player.play()
+
+
+## Laulun alkaessa: mökillä laulamassa +20 mainepistettä, muualla (esim. Happy Beachillä) -10.
+func _settle_fame() -> void:
+	var j: int = game.player_index
+	var sang: bool = (game.crew_modes[j] == "ai" and j in _taken) or (game.crew_modes[j] != "ai" and _player_there())
+	if sang:
+		game.maine = mini(100, game.maine + MAINE_GAIN)
+		game.toast("Lauloit oodin Oulujärvelle: mainepisteet +%d (nyt %d/100)" % [MAINE_GAIN, game.maine], 5.0)
+	else:
+		game.maine = maxi(0, game.maine - MAINE_LOSS)
+		game.toast("Et ollut laulamassa oodia mökillä: mainepisteet -%d (nyt %d/100)" % [MAINE_LOSS, game.maine], 5.0)
+	game.tarina._dirty = true
 
 
 ## Sana laulajan äänellä; rivin alussa puhekupla (kertosäkeessä kaikilla).

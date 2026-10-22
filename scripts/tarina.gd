@@ -14,9 +14,12 @@ extends Node
 const Reitti := preload("res://scripts/reitti.gd")
 const Porukka := preload("res://scripts/porukka.gd")
 const Sun := preload("res://scripts/sun.gd")
+const Happybeach := preload("res://scripts/happybeach.gd")
 
 const DAY_NAMES := ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"]
 const DAY_COUNT := 4
+## Happy Beachin tehtävät: kun porukka on rannalla, mökin tehtävät ovat tauolla, ja päinvastoin.
+const BEACH_TASKS := ["happy", "baari", "laulu"]
 const END_HOUR := 21  # viimeisenä päivänä viikonloppu päättyy tähän kellonaikaan
 
 ## Päivät: nimi, otsikko, johdanto ja tehtävät. Tehtävä: id, text, valinnaisesti only (vain nämä hahmot),
@@ -64,7 +67,7 @@ const DAYS := [
 	},
 	{
 		"title": "Retkipäivä",
-		"intro": "Lauantai: retkipäivä! Veneellä viinakätkölle, jalkapalloa vedessä ja illalla autolla Happy Beachille (baari on auki klo 21 asti).",
+		"intro": "Lauantai: retkipäivä! Veneellä viinakätkölle, jalkapalloa vedessä ja illalla autolla Happy Beachille (baari on auki joka päivä klo 20–02).",
 		"tasks": [
 			{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"]},
 			{"id": "grilli", "text": "Grillaa pihvit klo 20–22 grillikatoksessa (vain Marko grillaa)", "only": ["Marko"]},
@@ -132,6 +135,9 @@ var _prev_pissa := false
 var _prev_kupit := 0
 var _prev_annokset := 0
 var _hour_prev := -1
+
+
+var _was_beach := false
 
 
 func _ready() -> void:
@@ -250,7 +256,7 @@ func complete(id: String) -> void:
 	if not active or finished or game.state != "play":
 		return
 	var t := _find(id)
-	if t.is_empty() or done[day].has(id):
+	if t.is_empty() or done[day].has(id) or _paused(id):
 		return
 	done[day][id] = true
 	_dirty = true
@@ -260,6 +266,17 @@ func complete(id: String) -> void:
 	Sfx.play("win_small", -8.0)
 	if n == total:
 		game.toast("Päivän kaikki tehtävät tehty! Hyvää työtä, %s." % _who(), 6.0)
+
+
+## Pelaaja on Happy Beachin leirintäalueella tai baarissa.
+func at_beach() -> bool:
+	var p: Vector3 = game.player.global_position
+	return game.world.happy.in_pocket(p) or Happybeach.in_camp(p)
+
+
+## Tehtävä on tauolla, kun ollaan toisessa paikassa: rannalla vain rannan tehtävät, mökillä vain mökin.
+func _paused(id: String) -> bool:
+	return (id in BEACH_TASKS) != at_beach() and id != "happy" and id != "takaisin"
 
 
 ## Alamökin minipeli päättyi (main.end_activity): sauna, pyttipannu, kahvi ja korttipöytä.
@@ -292,6 +309,11 @@ func _process(delta: float) -> void:
 	if not finished:
 		_advance_day()
 		_poll(delta)
+	var here := at_beach()
+	if here != _was_beach:
+		_was_beach = here
+		_dirty = true
+		game.toast("Porukka on %s: %s tehtävät ovat tauolla." % ["Happy Beachillä" if here else "mökillä", "mökin" if here else "Happy Beachin"], 4.0)
 	if _dirty:
 		_dirty = false
 		_refresh()
@@ -414,7 +436,8 @@ func _refresh() -> void:
 	var tasks := tasks_for(day)
 	var lines: Array[String] = ["%s · %s (%d/%d)" % [DAY_NAMES[lt.weekday].to_upper(), DAYS[day].title, count_done(day), tasks.size()]]
 	for t: Dictionary in tasks:
-		lines.append(("[x] " if done[day].has(t.id) else "[ ] ") + t.text)
+		var mark := "[x] " if done[day].has(t.id) else ("[~] " if _paused(t.id) else "[ ] ")
+		lines.append(mark + t.text + (" (tauolla)" if mark == "[~] " else ""))
 	lines.append("Maine: %d/100" % game.maine)
 	lines.append("J: piilota")
 	_label.text = "\n".join(lines)

@@ -38,12 +38,14 @@ func _process(_d: float) -> bool:
 	match step:
 		0:
 			main.sun.t_utc += 2.0 * 86400.0  # lauantai
-			main.sun.t_utc = main.sun._local_to_utc(2026, 7, 11, 15, 0)
+			main.sun.t_utc = main.sun._local_to_utc(2026, 7, 11, 21, 0)
 			main.sun._update(true)
 			_at("tiski")
 			step = 1
 		1:
-			check(Hb.is_open(main.sun.local()), "baari auki lauantaina klo 15")
+			check(Hb.is_open(main.sun.local()), "baari auki lauantaina klo 21")
+			for hh in [[19, false], [20, true], [23, true], [1, true], [2, false], [12, false]]:
+				check(Hb.is_open({"hour": hh[0], "weekday": 0}) == hh[1], "aukioloaika 20–02: klo %d" % hh[0])
 			check(h.spot_at(main.player.global_position).get("id", "") == "tiski", "tiskin toimintopiste")
 			check(Hb.in_building(main.player.global_position), "pelaaja sisällä")
 			main.start_activity("baari")

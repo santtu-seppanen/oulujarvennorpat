@@ -1317,13 +1317,13 @@ func _tent(pt: Part) -> void:
 			pt.bx(cx + a - 0.03, cx + a + 0.03, cv + b - 0.12, cv + b + 0.12, y0, y0 + 0.42, white)
 		for a: float in [-0.45, 0.0, 0.45]:
 			seats.append([_world3(pt, cx + a, cv + b, y0), _world3(pt, cx + a, cv, y0)])
-	# Pöydällä: hanaviinilaatikko, punainen pullo, mukit, lasit ja läppäri.
+	# Pöydällä: hanaviinilaatikko, punainen pullo, mukit, lasit ja läppäri; etureunalla tarjoilu (tarjoilupoyta.gd).
 	pt.bx(cx - 0.65, cx - 0.45, cv + 0.05, cv + 0.2, y0 + 0.76, y0 + 1.0, Color(0.92, 0.95, 0.85))
 	pt.bx(cx - 0.65, cx - 0.45, cv + 0.05, cv + 0.12, y0 + 0.8, y0 + 0.92, Color(0.55, 0.78, 0.2))
 	pt.cyl(t.call(-0.3, 0.3, y0 + 0.76), t.call(-0.3, 0.3, y0 + 1.0), 0.04, Color(0.85, 0.1, 0.1))
 	pt.cyl(t.call(-0.15, -0.05, y0 + 0.76), t.call(-0.15, -0.05, y0 + 0.86), 0.04, Color(0.85, 0.8, 0.72))
-	pt.cyl(t.call(0.5, -0.2, y0 + 0.76), t.call(0.5, -0.2, y0 + 0.86), 0.035, Color(0.9, 0.92, 0.9, GLASS))
-	pt.cyl(t.call(0.1, -0.25, y0 + 0.76), t.call(0.1, -0.25, y0 + 0.86), 0.035, Color(0.9, 0.92, 0.9, GLASS))
+	pt.cyl(t.call(0.3, 0.33, y0 + 0.76), t.call(0.3, 0.33, y0 + 0.86), 0.035, Color(0.9, 0.92, 0.9, GLASS))
+	pt.cyl(t.call(0.42, 0.33, y0 + 0.76), t.call(0.42, 0.33, y0 + 0.86), 0.035, Color(0.9, 0.92, 0.9, GLASS))
 	pt.bx(cx + 0.15, cx + 0.5, cv - 0.05, cv + 0.2, y0 + 0.76, y0 + 0.775, Color(0.72, 0.73, 0.75, METAL))
 	pt.beam(t.call(0.325, 0.2, y0 + 0.775), t.call(0.325, 0.28, y0 + 0.99), 0.35, 0.012, Color(0.2, 0.25, 0.3, GLASS))
 	# Jakkara teltan takanurkassa.

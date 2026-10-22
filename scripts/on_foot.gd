@@ -375,6 +375,18 @@ func _physics_process(delta: float) -> void:
 		throttle = 0.0
 		steer = 0.0
 		jump_pressed = false
+	# Happy Beachin sisällä liike on maailman akseleilla kiinteän yläkameran mukaan (kuten Normipäivän Siitarissa).
+	var td := _top_down()
+	var td_dir := Vector3.ZERO
+	if td:
+		var dv := Vector2.ZERO if Chat.typing else Vector2(Input.get_axis("left", "right"), Input.get_axis("forward", "back"))
+		if pose.begins_with("Sitting") or pose == "Sammunut":
+			dv = Vector2.ZERO
+		td_dir = Vector3(-dv.x, 0, -dv.y).limit_length(1.0)
+		throttle = td_dir.length()
+		steer = 0.0
+		if td_dir.length() > 0.1:
+			rotation.y = lerp_angle(rotation.y, B.yaw_to(td_dir), 1.0 - exp(-14.0 * delta))
 	rotation.y += steer * TURN * delta
 	var fwd := -global_transform.basis.z
 
@@ -411,6 +423,9 @@ func _physics_process(delta: float) -> void:
 	speed = move_toward(speed, want, 12.0 * delta)
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
+	if td and td_dir.length() > 0.1:
+		velocity.x = td_dir.normalized().x * absf(speed)
+		velocity.z = td_dir.normalized().z * absf(speed)
 	# Humalassa horjutaan sivuttain.
 	if brain == null and controls_enabled and promille > 0.3 and pose != "Ryomii":
 		var side := Vector3(-fwd.z, 0, fwd.x)
@@ -437,6 +452,11 @@ func _physics_process(delta: float) -> void:
 	airborne = not is_on_floor()
 	_animate(delta)
 	_update_camera(delta)
+
+
+## Pelaaja kävelee Happy Beachin sisällä: kiinteä kamera ylhäältä ja liike maailman akseleilla.
+func _top_down() -> bool:
+	return is_player and brain == null and not remote and boat == null and Happybeach.in_building(global_position)
 
 
 ## Humala 0..1 (1 = konttausraja).
@@ -592,6 +612,15 @@ func _update_camera(delta: float) -> void:
 		return
 	# Alamökin sisällä kamera katsoo jyrkästi ylhäältä katon läpi (katto piiloutuu, mokki.update_roofs);
 	# ahtaassa huoneessa takaa seuraava kamera painuisi pelaajan selkään.
+	if _top_down():
+		# Siitarin kuvakulma: kamera ylhäältä lahden puolelta, katse kohti tietä (baaritiski ruudun yläreunassa).
+		_cam.cull_mask = 0xFFFFF
+		_cam.near = 0.1
+		_cam.fov = 60.0
+		_cam.global_position = global_position + Vector3(0, 10.0, -5.5) + drunk_shake() * 0.2
+		_cam.look_at(global_position + Vector3.UP * 0.8, Vector3.UP)
+		_cam_ready = true
+		return
 	var inside := (Mokki.room_at(global_position) != "" or Happybeach.in_building(global_position)) and boat == null
 	CamCtl.update_camera(_cam, self, eye, 4.2 if not inside else 3.6, 2.6, absf(speed) > 0.5, delta, not _cam_ready,
 		drunk_shake(), inside)

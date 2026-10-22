@@ -1,5 +1,5 @@
 extends Node3D
-## Tarjoilupöytä alamökin etuterassilla: Markon ruoka tarjoillaan ulos: aamupalaksi klo 12 pyttipannua (lautaset, kokkaus.gd)
+## Tarjoilu teltan pöydällä (ei omaa pöytää): Markon ruoka tarjoillaan ulos: aamupalaksi klo 12 pyttipannua (lautaset, kokkaus.gd)
 ## ja klo 20 grillistä pihvit (grilli.gd). Q syö annoksen ulkona (pihvi ensin). Tietokoneen Marko tekee ruoat itse
 ## klo 12 ja klo 20; pelaaja-Marko paistaa ja grillaa ne. Kahvi tarjoillaan sisällä keittiön sivutasolta (kahvi.gd).
 ## Kahvista kiitellään Barista Saloselle ja ruoasta Michelin Markolle.
@@ -8,7 +8,7 @@ const B := preload("res://scripts/build.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Porukka := preload("res://scripts/porukka.gd")
 
-const SPOT := Vector2(-0.9, 3.4)  # pihan kehyksessä (u, v): etuterassi
+const SPOT := Vector2(-4.9, 0.25)  # pihan kehyksessä (u, v): teltan pöydän keskikohta (mokki.gd _tent)
 const REACH := 1.5
 const PRAISE_COFFEE := ["Barista Salonen, tää on kahvia!", "Kiitos Barista Salonen – pannukahvi on parasta.", "Barista Salosen pannukahvi, ei voita mikään!",
 	"Barista Salonen on taas tehnyt täydellisen pannullisen."]
@@ -30,26 +30,13 @@ func _ready() -> void:
 	var w := Mokki.yw(SPOT.x, SPOT.y)
 	pos = Vector3(w.x, Mokki.DY, w.y)
 	position = pos
-	var wood := Color(0.62, 0.48, 0.32)
-	var body := StaticBody3D.new()
-	add_child(body)
-	B.mesh(self, B.boxm(Vector3(1.1, 0.05, 0.55)), Vector3(0, 0.78, 0), wood)
-	for sx: float in [-0.5, 0.5]:
-		for sz: float in [-0.23, 0.23]:
-			B.mesh(self, B.boxm(Vector3(0.05, 0.76, 0.05)), Vector3(sx, 0.38, sz), wood.darkened(0.25))
-	B.mesh(self, B.boxm(Vector3(1.0, 0.03, 0.45)), Vector3(0, 0.25, 0), wood.darkened(0.15))
-	body.add_child(B.box_shape(Vector3(1.1, 0.8, 0.55), Vector3(0, 0.4, 0)))
-	# Pöytäliina ja kyltti.
-	B.mesh(self, B.boxm(Vector3(0.7, 0.006, 0.5)), Vector3(0.05, 0.806, 0), Color(0.85, 0.2, 0.2))
-	var sign_pl := B.sign_plate(self, "PYTTIPANNU · PIHVI", Color(0.97, 0.95, 0.88), Color(0.15, 0.1, 0.08), 0.12, 24,
-		Color(0.55, 0.38, 0.2))
-	sign_pl.position = Vector3(0, 1.0, 0.0)
-	sign_pl.rotation.y = atan2(Mokki.LAKE.x, Mokki.LAKE.y)
+	rotation.y = atan2(-Mokki.EAST.y, Mokki.EAST.x)  # paikallinen x = pihan u-akseli, z = v-akseli
+	var top := 0.76 + 0.005  # teltan pöydän kansi
 	plates = Node3D.new()
-	plates.position = Vector3(0.3, 0.81, 0.0)
+	plates.position = Vector3(0.3, top, 0.25)
 	add_child(plates)
 	steaks = Node3D.new()
-	steaks.position = Vector3(-0.3, 0.81, 0.0)
+	steaks.position = Vector3(-0.3, top, 0.25)
 	add_child(steaks)
 	game.mp.on("pihvi", func(d: Dictionary, _from: int) -> void: _set_steaks(int(d.n)))
 
