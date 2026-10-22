@@ -48,7 +48,9 @@ tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
   - Pöytään istuva syö annoksen, jolloin kunto palaa täyteen, ja juo kupin kahvia, jolloin humala laskee. Hellaa käyttää kerrallaan yksi.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
   - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
-  - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
+  - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Kahdeksikkoa ei saa pelata ennen kuutosta eikä vitosta ennen kahdeksikkoa (rivi etenee 7, 6, 8, 5 ja siitä vapaasti). Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin. Peli kiertää myötäpäivään.
+  - **Pisteet:** ensimmäinen, jonka kortit loppuvat, voittaa kierroksen ja saa 0 pistettä; muut saavat yhden pisteen jokaisesta käteen jääneestä kortista. Pisteet summataan koko viikonlopun ajalta ja pidetään muistissa (`user://korttipelit.cfg`): sunnuntaina vähiten pisteitä saanut on ristiseiskan voittaja, ja tulos näkyy tarinan lopputuloksessa. Uusi viikonloppu (valikon aloitus) nollaa pisteet.
+  - **Tuppi** kiertää myös myötäpäivään. Tupin tila (pisteet ja kesken oleva jako) tallentuu jokaisen siirron jälkeen, joten jos pelaaminen lopetetaan kesken, peli jatkuu samasta kohdasta; kesken jäänyt peli odottaa, kunnes joku istuu pöytään.
 - **Oikea ovi, sauna:** pelkkä löylyhuone. Ovi on sisältä katsoen vasemmassa nurkassa ja kiuas heti oven oikealla puolella. Lauteet ovat perällä, ja niille mahtuu juuri neljä. Saunan ovelle kuljetaan katon alle jatketulla terassilla; räystäät ovat lyhyet eikä niiden alla ole tolppia.
   - **Lämmitys haloilla:** halot haetaan syliin halkovajasta (itäterassilla, E, neljä kerrallaan) ja lisätään kiukaaseen löylyhuoneessa (E kiukaan vieressä). Halko palaa 2,5 min, ja kiukaaseen mahtuu neljä. Tulen palaessa sauna lämpenee (piipusta nousee savua, luukusta hehkuu), ja sammuneena se jäähtyy; kylmässä saunassa löyly ei riitä hyviin löylyihin. Kun tuli hiipuu, saunoja muistutetaan lisäämään haloja, ja tietokoneen hahmot käyvät lämmittämässä. Moninpelissä tulen tila lähetetään muille.
   - Lauteille istutaan lähimmälle vapaalle paikalle, joten jos joku jo saunoo, viereen voi istua.
@@ -181,8 +183,12 @@ moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Tes
 
 Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 12 (`scripts/tarina.gd`). Joka päivä on omat
 tehtävät hahmon mukaan, ja ne näkyvät vasemmalla (J piilottaa): torstaina halot, kätkö, sauna, uinti, huussi; perjantaina
-pöydän pelit, rantatennis, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, jalkapallo, Happy Beach ja
-auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää
+pöydän pelit, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, kätkön haku, Happy Beach (baari ja karaoke) ja
+auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Pinkiponki (rantatennis)** vaatii torstaina 30 lyöntiä
+putkeen ja joka päivä 20 lisää (50, 70, 90); **amerikkalaisen jalkapallon heittely** torstaina 10 heittoa ja joka päivä 10 lisää
+(20, 30, 40). **Tutkimusmatka ja kätkön haku:** kun tutkimusmatkan kätköltä on haettu viinaa (E olut, Q viina), oman kätkön
+tekeminen avautuu (`scripts/omat_katkot.gd`): sopivassa metsän, kallion tai aukean kohdassa mökin lähellä (alle 250 m) E kaivaa uuden
+viinakätkön (enintään 6, tallentuvat). Kompassi näyttää lähimmän kätkön. Testit: `katkotesti.gd`, `korttitallennustesti.gd`. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää
 kahvit sen sijaan). Päivä vaihtuu keskiyöllä (edellisen päivän tulos ilmoitetaan), ja sunnuntaina klo 21 viikonloppu päättyy
 lopputulokseen; sen jälkeen peli jatkuu vapaana. Muilla alkuhetkillä tarina ei ole päällä.
 Testi: `tools/testit/tarinatesti.gd`.
@@ -195,7 +201,22 @@ tiivistetty kävelyalueen sisälle Siperianrannan hiekkarannan törmälle (n. 70
 su suljettu; E ostaa oluen), kioski ja vastaanotto, kolme mökkiä, kolme asuntovaunua, lippu, auringonlaskupenkit, pitkospolku
 rantaan, aurinkotuolit hiekalla ja laituri. Tie Vankkuritie on rakennettu olemassa olevan polun kohdalle.
 
-Mökin pihalla odottaa farmariauto (`scripts/auto.gd`): E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
+**Ravintola** on erillinen sisätila (Normipäivän Siitarin tapaan, `scripts/happybeach.gd`, `scripts/baari.gd`): pihalla ei ole
+baaria, vaan terassin ja parkkipaikan ovella E astuu sisään (aukioloaikoina). Sisätila on oma "taskunsa" taivaalla, ja kamera
+katsoo ylhäältä. Sisällä on baaritiski ja baarimikko (tilausvalikko: olut, lonkero, siideri, viinapaukku; kahvi ja pulla sekä
+hampurilainen palauttavat kuntoa ja selvittävät), karaokelava (laulu menee osumalla E:llä tahtiin, tehtävä), tanssilattia
+diskopalloineen, **Sinikka** baaritiskillä (juttelu, drinkin tarjoaminen, yhteistanssi), pöytäseurue ja kaksi korttipelaajaa
+(juttelu, korttipelin katselu), jukeboksi (pelin musiikkikappaleet, disko pyörii musiikin ajan), pajatso ja hedelmäpeli (rullien
+lukitus). Ovelta E poistuu ulos. Testi: `tools/testit/baaritesti.gd`.
+
+**Ruoka ja kahvi:** Jukan pannukahvi tarjoillaan sisällä alamökin keittiön sivutasolta (E juo kupin, ei tarvitse istua).
+Markon pyttipannu tarjoillaan ulos etuterassin tarjoilupöydälle (`scripts/tarjoilupoyta.gd`), josta sitä syödään (Q); tietokoneen Marko
+tekee klo 12 aamupalaksi pyttipannun ja klo 20 pihvit grillikatoksen kaasugrillillä, ja pelaaja-Marko paistaa ja grillaa ne itse
+(`scripts/grilli.gd`; vain Marko saa grillata). Kahvista kiitellään Barista Saloselle ja ruoasta Michelin Markolle.
+
+Mökin pihalla odottaa yksityiskohtaisemmaksi mallinnettu farmariauto (`scripts/auto.gd`; ritilä, valot, peilit, sisustus, pyörien
+vanteet), joka kiihtyy tiellä 80 km/h:hon (0–80 n. 8 s; ohjaus tarkentuu vauhdissa, näkökenttä laajenee). Soratiet ovat leveämpiä ja
+kuperia (ojan puoleiset luiskat). E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
 välilyönti käsijarru, H torvi, V kuljettajan näkymä, **G automaattiajo** reitin päähän (n. 850 m, Äpätintietä pitkin), E ulos.
 Humalassa saa ajaa, mutta ajaminen vaikeutuu koko ajan (auto vaeltaa, ohjaus yli- ja alikorjaa, kovassa humalassa ohjaus kääntyy väärin päin; automaattiajokin heiluu). Äpätintien suoralle osuudelle on tehty soratien kumpareita, joiden yli kovaa ajettaessa auto lentää. Moninpelissä yksi nousee rattiin ja muut pelaajat sekä tietokoneen hahmot imetään kyytiin; chat (Enter) ja äänilinkki (mikki) toimivat ajon ajan, ja kuplat näkyvät auton päällä; kuski lähettää auton tilan (auto, auto_s) ja kaikki nousevat ulos, kun hän pysäyttää. Testit: `tools/testit/autotesti.gd` ja `automoninpeli.gd`.
 
@@ -334,3 +355,13 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 - MVMI-kartta-aineisto 2023 © Luonnonvarakeskus (CC BY 4.0)
 - © OpenStreetMap-tekijät (ODbL)
 - Hahmot ja animaatiot: Quaternius (CC0); äänet: OpenGameArt ja Kenney (CC0), ks. `assets/sounds/LICENSE.md`
+
+
+## Kartta ja suorituskyky
+
+Kartta (M) ja tutka näyttävät kiinnostavat kohteet (`scripts/kohteet.gd`): mökki, Happy Beach ja ravintola, laituri, kätköt (myös omat),
+rantatennis ja heittelypaikka, hiekkaranta, huussi, grillikatos, tarjoilupöytä, mustikat, auto, vene ja porukka sekä ajoreitti
+Happy Beachille ja tutkimusmatkan soutureitti; selite oikeassa alakulmassa. Käynnistystä on nopeutettu Normipäivä-pelin tapaan:
+tiet lasketaan kerran ja tallennetaan levyvälimuistiin (`scripts/mesh_bundle.gd`, `user://cache`; avain riippuu teistä ja maastosta),
+primitiivimeshit (laatikko, sylinteri, pallo) jaetaan, järjestelmäfontit ovat välimuistissa ja isot tekstit rasteroidaan pienellä
+fonttikoolla. Käynnistys ~3,7 s -> ~1,9 s (headless); vaiheiden kestot: `godot --path . -- --ajastus`.

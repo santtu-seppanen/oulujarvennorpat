@@ -120,7 +120,8 @@ func _process(delta: float) -> bool:
 					if not main.crew[j].hidden_inside:
 						out += 1
 				check(out == 3, "porukka ulkona auton vieressä (%d)" % out)
-				p.global_position = main.world.happy.bar_pos + Vector3(0.0, 0.1, 0.0)
+				var dw: Vector2 = main.world.happy.cw_door("terassi")
+				p.global_position = Vector3(dw.x, main.world.happy.pad_y + 0.2, dw.y)
 				p.velocity = Vector3.ZERO
 				# Lauantai klo 12 (to-su viikonloppu alkaa torstaista: torstai klo 12 + 2 vrk).
 				main.sun.start_preset(main.Sun.STORY_PRESET)
@@ -129,16 +130,16 @@ func _process(delta: float) -> bool:
 		4:
 			if t > 0.5:
 				var it: Dictionary = main._interaction()
-				check(str(it.get("text", "")).contains("osta olut"), "baari auki lauantaina: %s" % it.get("text", ""))
-				var pm: float = p.promille
+				check(str(it.get("text", "")).contains("sisään"), "ravintola auki lauantaina: %s" % it.get("text", ""))
 				it.cb.call()
-				check(p.promille > pm, "olut nostaa promilleja")
+				check(main.world.happy.in_pocket(p.global_position), "ovesta sisään ravintolaan")
+				main.world.happy.leave("terassi")
 				main.sun.t_utc += 86400.0  # sunnuntai
 				next()
 		5:
 			if t > 0.5:
 				var it: Dictionary = main._interaction()
-				check(not it.has("cb") and str(it.get("text", "")).contains("kiinni"), "baari kiinni sunnuntaina: %s" % it.get("text", ""))
+				check(not it.has("cb") and str(it.get("text", "")).contains("kiinni"), "ravintola kiinni sunnuntaina: %s" % it.get("text", ""))
 				p.global_position = car.global_position + Vector3(-2.0, 0.3, 0.0)
 				p.velocity = Vector3.ZERO
 				arrived = false

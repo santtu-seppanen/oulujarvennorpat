@@ -10,6 +10,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 
 const TIME := 7.0
+const ARC_GRAND := 4.0  # komea kaari (tarina: tehtävä)
 const G := 9.8
 ## Lähtönopeus täydellä paineella (m/s): pitkospuilta alamäkeen Markolla n. 5 m, muilla n. 2 m.
 const SPEED_MARKO := 6.1
@@ -229,6 +230,8 @@ func stop() -> void:
 			text = "%.1f m. Kaari osui rinteeseen ennen aikojaan: nosta kaarta tai käänny alamäkeen." % m
 	else:
 		text = "%.1f m. Markon viiteen metriin on vielä matkaa." % m
+	if _t >= 2.5 and _max >= ARC_GRAND:
+		game.tarina.complete("kaari")
 	if _t >= 2.5 and _max > rec + 0.05:
 		best[_who] = _max
 		if rec > 0.0:

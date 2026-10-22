@@ -29,7 +29,7 @@ func _initialize() -> void:
 			t.deal(seed)
 			seed += 1
 			deals += 1
-			check(t.phase == "bid" and t.turn == (t.dealer + 1) % 4, "tarjous alkaa jakajan vasemmalta")
+			check(t.phase == "bid" and t.turn == T.nxt(t.dealer), "tarjous alkaa jakajan vasemmalta")
 			for k in 4:
 				var p := t.actor()
 				var c := t.bot_bid(p, rng)
@@ -38,13 +38,15 @@ func _initialize() -> void:
 			check(t.phase == "play", "tarjouksen jälkeen pelataan")
 			var first_red := -1
 			for k in 4:
-				var q := (t.dealer + 1 + k) % 4
+				var q := t.dealer
+				for _j in k + 1:
+					q = T.nxt(q)
 				if T.red(t.bids[q]):
 					first_red = q
 					break
 			check(t.mode == ("rami" if first_red >= 0 else "nolo"), "punainen = rami, muuten nolo")
 			check(t.declarer == first_red, "ensimmäinen punainen on ilmoittaja")
-			check(t.turn == ((first_red + 3) % 4 if first_red >= 0 else (t.dealer + 1) % 4), "oikea aloittaja")
+			check(t.turn == (T.prv(first_red) if first_red >= 0 else T.nxt(t.dealer)), "oikea aloittaja")
 			for h in t.hands:
 				check(h.size() == 13, "tarjouskortit palasivat käteen")
 			while t.phase != "over":

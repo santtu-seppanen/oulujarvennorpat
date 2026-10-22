@@ -33,6 +33,10 @@ const Amerikanpallo := preload("res://scripts/amerikanpallo.gd")
 const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 const Auto := preload("res://scripts/auto.gd")
 const Tarina := preload("res://scripts/tarina.gd")
+const OmatKatkot := preload("res://scripts/omat_katkot.gd")
+const Baari := preload("res://scripts/baari.gd")
+const Tarjoilupoyta := preload("res://scripts/tarjoilupoyta.gd")
+const Grilli := preload("res://scripts/grilli.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
@@ -79,6 +83,11 @@ var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
+var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta Sinikan kanssa (baari.gd)
+var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
+var tarjoilu: Node3D  # ulkotarjoilupöytä: kahvi ja pyttipannu (tarjoilupoyta.gd)
+var baari: Node  # Happy Beachin baarirakennuksen toiminnot sisällä (baari.gd)
+var omat_katkot: Node3D  # pelaajan omat kätköt lähimaastossa (omat_katkot.gd)
 var retki: Node3D  # tutkimusmatka kumiveneellä viinakätkölle (tutkimusmatka.gd)
 var car: CharacterBody3D  # farmariauto: ajo Happy Beachille ja takaisin (auto.gd)
 var tarina: Node  # mökkiviikonlopun tehtävät torstaista sunnuntaihin (tarina.gd)
@@ -98,7 +107,7 @@ var _drunk_label: Label
 var _drunk_fx: ColorRect
 var _was_out := false
 ## Minipeleissä katsotaan silmistä: lauteilta kiukaalle, hellalla pannuun, pöydässä kortteihin (kallistus).
-const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kahvi": -0.9, "kortit": -0.42}
+const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kahvi": -0.9, "kortit": -0.42, "baari": -0.1, "grilli": -0.5}
 const LOOK_YAW := 1.9  # pöydässä ja lauteilla katse kääntyy näin paljon sivulle (A/D, hiiren oikea nappi)
 var boat: CharacterBody3D
 var _amb: Node
@@ -147,12 +156,19 @@ func _ready() -> void:
 	sauna = Sauna.new()
 	sauna.game = self
 	add_child(sauna)
+	world.happy.game = self
+	tarjoilu = Tarjoilupoyta.new()
+	tarjoilu.game = self
+	add_child(tarjoilu)
 	kokkaus = Kokkaus.new()
 	kokkaus.game = self
 	add_child(kokkaus)
 	kahvi = Kahvi.new()
 	kahvi.game = self
 	add_child(kahvi)
+	grilli = Grilli.new()
+	grilli.game = self
+	add_child(grilli)
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
@@ -185,6 +201,12 @@ func _ready() -> void:
 	retki = Tutkimusmatka.new()
 	retki.game = self
 	add_child(retki)
+	baari = Baari.new()
+	baari.game = self
+	add_child(baari)
+	omat_katkot = OmatKatkot.new()
+	omat_katkot.game = self
+	add_child(omat_katkot)
 	chat = Chat.new()
 	chat.game = self
 	add_child(chat)
@@ -378,6 +400,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		CamCtl.pitch = clampf(CamCtl.pitch - event.relative.y * 0.005, -1.1, 0.5)
 	elif event.is_action_pressed("drink") and player.boat != null:
 		retki.toggle()  # veneessä Q: tutkimusmatka viinakätkölle
+	elif event.is_action_pressed("drink") and activity == "" and tarjoilu.near(player.global_position):
+		if tarjoilu.pihvit > 0:  # Q tarjoilupöydällä: syö pihvi tai pyttipannua
+			tarjoilu.eat_steak()
+		else:
+			kokkaus.eat()
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
 		_booze()
 	elif event.is_action_pressed("drink") and activity == "" and _can_act() and Mokki.at_outhouse(player.global_position):
@@ -399,14 +426,15 @@ func _near_stash() -> bool:
 func _near_beach_stash() -> bool:
 	var s: Vector3 = world.ranta.stash_pos
 	var p := player.global_position
-	return (Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5) or retki.near_stash(p)
+	return (Vector2(p.x - s.x, p.z - s.z).length() < 1.6 and absf(p.y - s.y) < 1.5) or retki.near_stash(p) \
+		or omat_katkot.near(p)
 
 
 ## Viinakätköosoitin: kompassin keltainen merkki lähimpään kätköön (saunan takana, rannan rinteessä tai
 ## tutkimusmatkan kätkö); tutkimusmatkalla aina matkan kätköön (paluulla taas lähimpään).
 func _point_to_stash(p: Vector3) -> void:
 	var best := Vector2.INF
-	var list: Array = [retki.stash_pos] if retki.active and retki.state != "paluu" else [world.mokki.stash_pos, world.ranta.stash_pos, retki.stash_pos]
+	var list: Array = [retki.stash_pos] if retki.active and retki.state != "paluu" else [world.mokki.stash_pos, world.ranta.stash_pos, retki.stash_pos] + omat_katkot.spots
 	for s: Vector3 in list:
 		var q := Vector2(s.x, s.z)
 		if q.distance_to(Vector2(p.x, p.z)) < best.distance_to(Vector2(p.x, p.z)):
@@ -415,8 +443,25 @@ func _point_to_stash(p: Vector3) -> void:
 	_compass.cache_text = "kätkö %d m" % roundi(best.distance_to(Vector2(p.x, p.z)))
 
 
+## Viinaa haettu tutkimusmatkan kätköltä: tehtävä, ja oman kätkön tekeminen avautuu.
+func _stash_fetched() -> void:
+	if not retki.near_stash(player.global_position):
+		return
+	tarina.complete("katkohaku")
+	tarina.unlock_stash()
+
+
+## Uusi kätkö lähimaastoon (E sopivassa paikassa, kun tekeminen on avattu).
+func _make_stash() -> void:
+	omat_katkot.build_at(player.global_position)
+	Sfx.play("pickup", -6.0)
+	toast("Uusi kätkö kaivettu havujen alle! Kompassi näyttää lähimmän kätkön. (E olut, Q viina)", 5.0)
+	tarina.complete("uusikatko")
+
+
 func _beer() -> void:
 	tarina.complete("katko")
+	_stash_fetched()
 	player.drink(0.22)
 	toast(["Kylmä olut kätköstä. Kippis!", "Tsuih! Taas yksi kylmä.", "Olutta riittää – kätkö ei tyhjene."][randi() % 3]
 		+ " (%d. huikka, %.1f ‰)" % [player.drinks, player.promille])
@@ -424,6 +469,7 @@ func _beer() -> void:
 
 func _booze() -> void:
 	tarina.complete("katko")
+	_stash_fetched()
 	player.drink(0.45)
 	toast(["Huikka viinaa. Polttaa!", "Viinapullo kiertää – ja kirvelee.", "Hyi saakeli, mutta hyvää."][randi() % 3]
 		+ " (%d. huikka, %.1f ‰)" % [player.drinks, player.promille])
@@ -621,7 +667,7 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 # --- Alamökin minipelit ---------------------------------------------------------------------------------------
 
 func _activity_node() -> Node:
-	return {"sauna": sauna, "kokkaus": kokkaus, "kahvi": kahvi, "kortit": kortit}.get(activity, null)
+	return {"sauna": sauna, "kokkaus": kokkaus, "kahvi": kahvi, "kortit": kortit, "baari": baari, "grilli": grilli}.get(activity, null)
 
 
 func start_activity(a: String) -> void:
@@ -664,11 +710,18 @@ func _interaction() -> Dictionary:
 		return {"text": "E: nouse autoon (ajo Happy Beachille ja takaisin · G: automaattiajo)", "cb": _enter_car}
 	if player.hidden_inside or player.swimming or player.pose == "Sammunut":
 		return {}
-	if world.happy.at_bar(player.global_position):
+	var hs: Dictionary = world.happy.spot_at(player.global_position)
+	if not hs.is_empty() and player.boat == null:
+		if hs.id.begins_with("ovi_"):
+			return {"text": hs.text, "cb": func() -> void: world.happy.leave(hs.id.trim_prefix("ovi_"))}
+		return {"text": hs.text, "cb": func() -> void: start_activity("baari")}
+	var door: String = world.happy.door_at(player.global_position)
+	if door != "" and player.boat == null:
 		var lt: Dictionary = sun.local()
 		if not Happybeach.is_open(lt):
-			return {"text": "Happy Beachin baari on kiinni (%s)" % Happybeach.open_text(lt)}
-		return {"text": "E: osta olut Happy Beachin baarista", "cb": _bar_order}
+			return {"text": "Happy Beachin ravintola on kiinni (%s)" % Happybeach.open_text(lt)}
+		return {"text": "E: sisään Happy Beachin ravintolaan (baari, karaoke, tanssi, pelit)",
+			"cb": func() -> void: world.happy.enter(door)}
 	if _near_stash():
 		if _near_beach_stash():
 			return {"text": "Viinakätkö! E: olut · Q: huikka viinaa", "cb": _beer}
@@ -691,6 +744,20 @@ func _interaction() -> Dictionary:
 		if not Ai.nap_hours(sun):
 			return {"text": "Päikkärit nukutaan klo 15–18 (nyt klo %02d.%02d)" % [sun.local().hour, sun.local().minute]}
 		return {"text": "E: päikkärit ylämökissä", "cb": _nap}
+	if tarjoilu.near(player.global_position) and player.boat == null:
+		var t := "Tarjoilupöytä"
+		var opts: Array[String] = []
+		if tarjoilu.pihvit > 0:
+			opts.append("Q: syö grillipihvi (%d pihviä, Michelin Markon grillistä)" % tarjoilu.pihvit)
+		if kokkaus.annokset > 0:
+			opts.append("Q: syö pyttipannua (%d annosta, Michelin Markon aamupala)" % kokkaus.annokset)
+		if opts.is_empty():
+			return {"text": t + ": ei vielä tarjottavaa – Marko tekee pyttipannua klo 12 ja pihvit grillistä klo 20"}
+		return {"text": opts[0]}
+	if Mokki.at_grill(player.global_position) and player.boat == null:
+		if Porukka.CREW[player_index].name != "Marko":
+			return {"text": "Vain Marko saa grillata (pihvit tulevat grillistä klo 20)"}
+		return {"text": "E: grillaa pihvit grillikatoksessa (Markon erikoisuus)", "cb": func() -> void: start_activity("grilli")}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	if heittely.can_start(player.global_position) and player.boat == null:
@@ -710,6 +777,9 @@ func _interaction() -> Dictionary:
 			return {"text": "E: istu lauteille (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
 				"cb": func() -> void: start_activity("sauna")}
 		"keittio":
+			if player.global_position.distance_to(m.coffee_pos) < 1.0 and kahvi.kupit > 0:
+				return {"text": "E: juo kuppi kahvia sivutasolta (%d kuppia, Barista Salosen pannukahvi)" % kahvi.kupit,
+					"cb": kahvi.drink}
 			if player.global_position.distance_to(m.cook_spot) < 0.75:
 				match Porukka.CREW[player_index].name:
 					"Marko":
@@ -723,6 +793,9 @@ func _interaction() -> Dictionary:
 			if kahvi.kupit > 0:
 				t += " · %d kuppia kahvia" % kahvi.kupit
 			return {"text": t, "cb": func() -> void: start_activity("kortit")}
+	if tarina.stash_unlocked and activity == "" and omat_katkot.can_build(player.global_position):
+		return {"text": "E: tee uusi viinakätkö tähän (%d/%d)" % [omat_katkot.spots.size() + 1, omat_katkot.MAX_COUNT],
+			"cb": _make_stash}
 	return {}
 
 
@@ -770,7 +843,7 @@ func _leave_car() -> void:
 	if home:
 		toast("Perillä mökillä. Porukka hajaantuu pihalle.", 3.5)
 	elif Happybeach.in_camp(car.global_position):
-		toast("Camping Happy Beach! Baari terassilla, hiekkaranta törmän alla. Auto odottaa parkkipaikalla.", 5.0)
+		toast("Camping Happy Beach! Ravintola ja baari (E ovella), hiekkaranta törmän alla. Auto odottaa parkkipaikalla.", 5.0)
 
 
 func _toggle_autopilot() -> void:
@@ -875,15 +948,6 @@ func _remote_ride(on: bool) -> void:
 	car.leave_passenger()
 	var home: bool = Vector2(car.global_position.x - Reitti.HOME_SPOT.x, car.global_position.z - Reitti.HOME_SPOT.y).length() < 60.0
 	_release_crew(home)
-
-
-## Olut Happy Beachin baarista (aukioloaikoina).
-func _bar_order() -> void:
-	player.drink(0.22)
-	Sfx.play("register", -6.0)
-	toast(["Tuoppi Happy Beachin baarista. Kippis!", "Baarimikko: \"Yksi kylmä tulossa!\"", "Terassilla maistuu, ja järvi näkyy."][randi() % 3]
-		+ " (%d. huikka, %.1f ‰)" % [player.drinks, player.promille])
-	tarina.complete("baari")
 
 
 ## Halko kiukaaseen (E kiukaan vieressä): tehtävä, jos tuli todella sai lisää.
@@ -1018,6 +1082,7 @@ func _build_hud() -> void:
 	_map = MapView.new()
 	_map.player = player
 	_map.world = world
+	_map.game = self
 	_compass = Compass.new()
 	_compass.player = player
 	_compass.paper = _map
@@ -1027,6 +1092,7 @@ func _build_hud() -> void:
 	var mm := Minimap.new()
 	mm.player = player
 	mm.map_view = _map
+	mm.game = self
 	_hud.add_child(mm)
 	_mm = mm
 	_place = _label(_hud, 26)

@@ -132,6 +132,9 @@ var table_paths := []  # pöydän paikoille kävely keittiön ovelta
 var cook_spot := Vector3.ZERO
 var cook_face := Vector3.ZERO
 var pan_pos := Vector3.ZERO
+var coffee_pos := Vector3.ZERO  # keittiön sivutaso: kahvipannu ja kupit, josta kahvi juodaan seisaaltaan
+var grill_pos := Vector3.ZERO  # kaasugrilli grillikatoksessa
+var grill_spot := Vector3.ZERO  # grillaajan paikka grillin edessä
 var plate_pos := Vector3.ZERO
 var kiuas_pos := Vector3.ZERO
 var card_frame := Transform3D()  # keittiön pöydän keskikohta: x pitkin pöytää (itään), -z järvelle
@@ -283,6 +286,12 @@ static func duck_dist(q: Vector2) -> float:
 static func outhouse_door() -> Vector3:
 	var w := yw(OUTHOUSE[0] - 0.45, (OUTHOUSE[2] + OUTHOUSE[3]) * 0.5)
 	return Vector3(w.x, outhouse_y(), w.y)
+
+
+## Grillikatoksen kaasugrillin edusta (pelaajan paikka grillata).
+static func at_grill(p: Vector3) -> bool:
+	var w := yw(-8.5, -1.7)
+	return Vector2(p.x - w.x, p.z - w.y).length() < 0.9 and absf(p.y - DY) < 1.2
 
 
 ## Halkovajan edusta itäterassilla (maailmassa): täältä halot syliin.
@@ -1004,6 +1013,7 @@ func _interior(pt: Part) -> void:
 	pt.beam(Part.p(pq.x, pq.y + 0.12, y0 + 0.94), Part.p(pq.x, pq.y + 0.36, y0 + 0.96), 0.03, 0.02, Color(0.1, 0.1, 0.1))
 	pan_pos = _world3(pt, pq.x, pq.y, y0 + 0.95)
 	cook_spot = _world3(pt, pq.x, kb + kd + 0.33, y0)
+	coffee_pos = _world3(pt, -1.25, kb + kd * 0.5, y0 + 0.9)
 	cook_face = _world3(pt, pq.x, kb + 0.15, y0)
 	# Liesituuletin, yläkaapit, kahvinkeitin ja leipälaatikko laskutilalla.
 	pt.bx(stove.x + 0.02, stove.y - 0.02, kb, kb + 0.45, y0 + 1.6, y0 + 1.72, Color(0.75, 0.76, 0.78, METAL))
@@ -1236,6 +1246,10 @@ func _gazebo(pt: Part) -> void:
 		pt.beam(k[0] + Vector3.DOWN * 0.08, k[1] + Vector3.DOWN * 0.08, 0.04, 0.17, TRIM)
 	pt.bx(x0 - o, x1 + o, v0 - o, v1 + o, ey - 0.05, ey - 0.02, Color(0.18, 0.18, 0.19, BOARD_U))
 	pt.end_roof()
+	var gw := yw(-8.5, -2.55)
+	grill_pos = Vector3(gw.x, y0 + 1.15, gw.y)
+	var gs := yw(-8.5, -1.7)
+	grill_spot = Vector3(gs.x, y0, gs.y)
 	# Keittiö: valkoinen kaappi (harmaa työtaso, kaasukeitin) ja musta kaasugrilli; baarijakkarat.
 	pt.bx(-10.3, -9.25, -2.82, -2.3, y0, y0 + 0.86, Color(0.93, 0.93, 0.92), true)
 	pt.bx(-10.32, -9.23, -2.84, -2.26, y0 + 0.86, y0 + 0.9, Color(0.6, 0.6, 0.62))

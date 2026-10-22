@@ -7,6 +7,10 @@ extends Node
 ## Mukana ovat aina kaikki neljä mökkiläistä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta pelaa
 ## tietokone, ja tietokoneen ohjaamat hahmot kävelevät pöytään.
 ##
+## Tila tallennetaan levylle (SAVE_PATH) jokaisen siirron jälkeen: jos peli lopetetaan kesken, se jatkuu samasta
+## kohdasta (tuppi: pisteet ja kesken oleva jako; ristiseiska: viikonlopun pisteet ja kesken oleva kierros).
+## Kun kukaan ei istu pöydässä, kesken oleva peli odottaa paikallaan.
+##
 ## Moninpelissä pelitilaa pitää host: muut lähettävät siirtonsa ("rs") ja host jakaa tilan ("rs_tila").
 
 const R := preload("res://scripts/ristiseiska.gd")
@@ -18,6 +22,7 @@ const RED := Color(0.8, 0.08, 0.1)
 
 var game: Node3D
 var kind := "ristiseiska"  # ristiseiska | tuppi
+const SAVE_PATH := "user://korttipelit.cfg"
 var logic := R.new()
 var tuppi := T.new()
 var top_view := false  # E: pöytä suoraan ylhäältä
@@ -72,6 +77,9 @@ func _ready() -> void:
 			_broadcast())
 	_build_ui()
 	_build_table()
+	if _authority():
+		_load()
+		_changed()
 
 
 func _authority() -> bool:
@@ -194,6 +202,8 @@ func _handle(d: Dictionary, from: int) -> void:
 
 
 func _broadcast() -> void:
+	if _authority():
+		_save()
 	game.mp.send({"t": "rs_tila", "k": kind, "s": logic.to_dict(), "tu": tuppi.to_dict(), "hu": humans.keys()})
 	_changed()
 
@@ -210,7 +220,7 @@ func _process(delta: float) -> void:
 		if not here:
 			humans.erase(i)
 			_broadcast()
-	var on := playing()
+	var on := playing() and not humans.is_empty()  # kesken jäänyt peli odottaa, kunnes joku istuu pöytään
 	if on != _ai_at_table:
 		_ai_at_table = on
 		_gather_ai(on)
@@ -284,7 +294,7 @@ func _changed() -> void:
 		var loser: int = logic.finished[-1]
 		var me: int = game.player_index
 		if game.activity == "kortit":
-			game.toast("%s voitti ristiseiskan! %s jäi viimeiseksi." % [_name(w), _name(loser)], 6.0)
+			game.toast("%s voitti kierroksen! Pisteet: %s" % [_name(w), _score_line(logic.points)], 7.0)
 			Sfx.play("win" if w == me else ("lose" if loser == me else "win_small"), -6.0)
 	_anim.clear()
 	if new_move and logic.moves == _seen_moves + 1 and logic.last.a == "pelasi":
@@ -294,6 +304,10 @@ func _changed() -> void:
 	_seen_phase = logic.phase
 	_layout_table()
 	_refresh()
+
+
+func _score_line(a: Array) -> String:
+	return ", ".join(range(4).map(func(p: int) -> String: return "%s %d" % [_name(p), a[p]]))
 
 
 func _team_name(t: int) -> String:
@@ -390,15 +404,17 @@ func _refresh() -> void:
 			info = "%d." % (logic.finished.find(p) + 1)
 		elif logic.hands.size() == 4:
 			info = "%d korttia" % logic.hands[p].size()
-		parts.append(("▶ " if playing and logic.actor() == p else "    ") + who + ("  " + info if info != "" else ""))
+		parts.append(("▶ " if playing and logic.actor() == p else "    ") + who + ("  " + info if info != "" else "")
+			+ "  · %d p" % logic.totals[p])
+	parts.append("Viikonlopun pisteet (vähiten voittaa), %d kierrosta" % logic.rounds)
 	_players.text = "\n".join(parts)
 	var st := ""
 	match logic.phase:
 		"idle":
 			st = "Jaa kortit (välilyönti). Ristiseiskan saanut aloittaa."
 		"over":
-			st = "Peli päättyi: " + ", ".join(logic.finished.map(func(p: int) -> String:
-				return "%d. %s" % [logic.finished.find(p) + 1, _name(p)])) + ". Jaa uudet (välilyönti)."
+			st = "Kierros päättyi: " + ", ".join(logic.finished.map(func(p: int) -> String:
+				return "%d. %s (+%d)" % [logic.finished.find(p) + 1, _name(p), logic.points[p]])) + ". Jaa uudet (välilyönti)."
 		"play":
 			st = "Sinun vuorosi: pelaa korostettu kortti" if logic.turn == me else "Vuorossa: %s" % _name(logic.turn)
 		"give":
@@ -796,3 +812,50 @@ class CardView:
 					c + Vector2(0, -0.55) * w]), col)
 				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, 0.1) * w, c + Vector2(-0.18, 0.55) * w,
 					c + Vector2(0.18, 0.55) * w]), col)
+
+
+# --- Tallennus ------------------------------------------------------------------------------------------------
+
+func _save() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("kortit", "muoto", kind)
+	cfg.set_value("kortit", "ristiseiska", JSON.stringify(logic.to_dict()))
+	cfg.set_value("kortit", "tuppi", JSON.stringify(tuppi.to_dict()))
+	cfg.save(SAVE_PATH)
+
+
+func _load() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SAVE_PATH) != OK:
+		return
+	kind = str(cfg.get_value("kortit", "muoto", "ristiseiska"))
+	var r: Variant = JSON.parse_string(str(cfg.get_value("kortit", "ristiseiska", "")))
+	if r is Dictionary and (r as Dictionary).has("h") and (r.h as Array).size() == 4:
+		logic.from_dict(r)
+	var t: Variant = JSON.parse_string(str(cfg.get_value("kortit", "tuppi", "")))
+	if t is Dictionary and (t as Dictionary).has("h") and (t.h as Array).size() == 4:
+		tuppi.from_dict(t)
+	# Näytetään kesken jääneen pelin tilanne heti pöydässä, mutta ei toisteta voittoilmoitusta.
+	_seen_phase = logic.phase if kind == "ristiseiska" else tuppi.phase
+	_seen_moves = logic.moves if kind == "ristiseiska" else tuppi.moves
+
+
+## Uusi viikonloppu (tarina.gd): ristiseiskan viikonloppupisteet nollataan.
+func reset_weekend() -> void:
+	logic.totals = [0, 0, 0, 0]
+	logic.points = [0, 0, 0, 0]
+	logic.rounds = 0
+	if _authority():
+		_broadcast()
+
+
+## Ristiseiskan viikonloppupisteiden johtaja(t): pelaajat, joilla on vähiten pisteitä, tai tyhjä, jos kierroksia ei pelattu.
+func leaders() -> Array:
+	if logic.rounds == 0:
+		return []
+	var best: int = logic.totals.min()
+	var out := []
+	for p in 4:
+		if logic.totals[p] == best:
+			out.append(p)
+	return out

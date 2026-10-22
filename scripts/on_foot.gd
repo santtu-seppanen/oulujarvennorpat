@@ -9,6 +9,7 @@ const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Chat := preload("res://scripts/chat.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Happybeach := preload("res://scripts/happybeach.gd")
 
 const WALK := 2.3
 const RUN := 5.4
@@ -591,7 +592,7 @@ func _update_camera(delta: float) -> void:
 		return
 	# Alamökin sisällä kamera katsoo jyrkästi ylhäältä katon läpi (katto piiloutuu, mokki.update_roofs);
 	# ahtaassa huoneessa takaa seuraava kamera painuisi pelaajan selkään.
-	var inside := Mokki.room_at(global_position) != "" and boat == null
+	var inside := (Mokki.room_at(global_position) != "" or Happybeach.in_building(global_position)) and boat == null
 	CamCtl.update_camera(_cam, self, eye, 4.2 if not inside else 3.6, 2.6, absf(speed) > 0.5, delta, not _cam_ready,
 		drunk_shake(), inside)
 	_cam_ready = true

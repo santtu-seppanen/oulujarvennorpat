@@ -22,8 +22,7 @@ const BLEND := 5.0
 ## Pitkospolku törmältä rantaan (a, alku-b, loppu-b).
 const PATH_A := 6.5
 const PATH_B := [24.0, 47.5]
-## Baarin tiski kehyksessä (a, b) ja aukioloajat: [viikonpäivä (0 = su) -> [auki, kiinni]], tunteja.
-const BAR := Vector2(-4.0, 18.2)
+## Aukioloajat: [viikonpäivä (0 = su) -> [auki, kiinni]], tunteja.
 const HOURS := {1: [9, 14], 2: [9, 14], 3: [9, 14], 4: [9, 14], 5: [9, 21], 6: [9, 21]}
 const HOURS_TEXT := "ma–to 9–14\npe–la 9–21\nsu suljettu"
 const DECK_H := 0.1
@@ -38,7 +37,6 @@ const GLASS := Color(0.45, 0.62, 0.72)
 ## Alueen tason korkeus (terraform).
 static var pad_y := 8.6
 
-var bar_pos := Vector3.ZERO  # asiakkaan paikka tiskin edessä (maailma)
 var lamps: Array[StandardMaterial3D] = []
 var _lamp_light: OmniLight3D
 var _root: Node3D
@@ -137,11 +135,6 @@ static func open_text(lt: Dictionary) -> String:
 	return "auki %d–%d" % [HOURS[wd][0], HOURS[wd][1]]
 
 
-## Asiakas tiskin edessä (baarin E).
-func at_bar(p: Vector3) -> bool:
-	return Vector2(p.x - bar_pos.x, p.z - bar_pos.z).length() < 2.4 and absf(p.y - bar_pos.y) < 1.5
-
-
 ## Pelaaja alueella (parkkipaikka, rakennukset ja terassi).
 static func in_camp(p: Vector3) -> bool:
 	return _in(Reitti.wc(Vector2(p.x, p.z)), PAD, 6.0)
@@ -155,9 +148,8 @@ func _ready() -> void:
 	_root.rotation.y = Reitti.yaw()
 	add_child(_root)
 	_batch = B.Batch.new()
-	var deck_world := Reitti.cw(BAR.x, BAR.y)
-	bar_pos = Vector3(deck_world.x, pad_y + DECK_H, deck_world.y)
 	_main_building()
+	_build_pocket()
 	_kiosk()
 	for k in 3:
 		_cabin(-24.0, -2.0 + k * 9.0)
@@ -200,12 +192,13 @@ func _box(c: Vector3, size: Vector3, color: Color, collide := true) -> void:
 
 
 ## Harjakatto: pituus ridge harjan suuntaan, leveys span, korkeus rise; harja a-suunnassa (along_a) tai b:n.
-func _roof(c: Vector3, span: float, ridge: float, rise: float, color: Color, along_a: bool) -> void:
+func _roof(c: Vector3, span: float, ridge: float, rise: float, color: Color, along_a: bool) -> MeshInstance3D:
 	var pm := PrismMesh.new()
 	pm.size = Vector3(span, rise, ridge)
 	var mi := B.mesh(_root, pm, P(c.x, c.y, c.z), color)
 	if along_a:
 		mi.rotation.y = PI * 0.5
+	return mi
 
 
 ## Ikkuna rakennuksen b-puoleiseen seinään (lasi ja valkoiset pielet), keskikohta (a, y), seinän b.
@@ -239,34 +232,248 @@ func set_lamp(k: float) -> void:
 	_lamp_light.light_energy = 1.3 * k
 
 
-## Ravintola ja baari: vaalea rakennus turkoosein pielin, harjakatto, terassi järven puolella, tiski ja baarimikko,
-## pöytiä, päivänvarjoja ja valoköynnös.
+## Ravintolan sisätila on erillinen "tasku" taivaalla leirintäalueen yläpuolella (Normipäivän Siitarin tapaan): ulko-ovelta
+## E astuu sisään, ja sisällä on baaritiski ja baarimikko, lava ja karaoke, tanssilattia diskopalloineen, Sinikka, pöytäseurue,
+## korttipelaajat, jukeboksi, pajatso ja hedelmäpeli (baari.gd). Taskun paikallinen kehys on (a, b) kuten leirintäalueella:
+## taskun solmu on kiertämätön, a = +x ja b = -z, ja pelaaja kävelee lattialla (törmäyslattia) POCKET_UP metriä alueen yläpuolella.
+const IN_A := Vector2(-11.0, 3.0)
+const IN_B := Vector2(9.0, 16.0)
+const FLOOR_H := 0.1
+const POCKET_UP := 300.0
+## Ulko-ovet (a, b) leirintäalueen kehyksessä: terassin ovi järven puolella ja parkkipaikan ovi tien puolella; sisällä
+## vastaavat poistumispisteet (a, b taskussa) ja paikka, johon ulos tullaan.
+const DOORS := {
+	"terassi": {"out": [-4.0, 16.9], "in": [-4.0, 15.0], "exit": [-4.0, 17.2]},
+	"tie": {"out": [-8.0, 8.1], "in": [-8.0, 10.2], "exit": [-8.0, 7.6]},
+}
+## Toimintopisteet sisällä: id -> [a, b, säde, vihje]. Lähin voittaa (spot_at).
+const SPOTS := {
+	"tiski": [-3.75, 11.8, 1.7, "E: tilaa baaritiskiltä"],
+	"karaoke": [1.5, 12.2, 0.9, "E: laula karaokea lavalla"],
+	"jukeboksi": [-9.9, 13.4, 0.8, "E: jukeboksi, valitse biisi"],
+	"hedelma": [-9.9, 11.7, 0.8, "E: pelaa hedelmäpeliä"],
+	"pajatso": [-9.9, 10.0, 0.8, "E: pelaa pajatsoa"],
+	"tanssi": [0.8, 14.5, 1.3, "E: tanssimaan"],
+	"sinikka": [-1.0, 11.9, 1.0, "E: Sinikka baaritiskillä"],
+	"seurue": [-7.5, 13.2, 1.4, "E: juttele pöytäseurueen kanssa"],
+	"kortit": [-6.3, 11.0, 1.2, "E: katso korttipeliä"],
+	"ovi_terassi": [-4.0, 15.0, 1.0, "E: ulos terassille"],
+	"ovi_tie": [-8.0, 10.2, 1.0, "E: ulos parkkipaikalle"],
+}
+const MENU_ITEMS := [
+	["Tuoppi olutta", 0.22, 0.0], ["Lonkero", 0.2, 0.0], ["Siideri", 0.16, 0.0], ["Viinapaukku", 0.12, 0.0],
+	["Kahvi ja pulla", 0.0, 0.25], ["Hampurilainen ja ranskalaiset", 0.0, 0.1],
+]
+const SEURUE_LINES := ["Istu vaan! Mistäs päin sitä ollaan?", "Äpätistä? Siellä on kyllä kaunista.", "Täällä on hyvä äänentoisto – laula sinäkin!",
+	"Meillä on serkun synttärit, tultiin koko porukalla.", "Kahvia ja pullaa, se on parasta.", "Happy Beachilla on aina hyvä tunnelma."]
+const SINIKKA_LINES := ["Moi! Tulitko sinäkin Äpätistä?", "Tanssittaisiinko, kun biisi soi?", "Baarimikko tekee parasta lonkeroa.",
+	"Sinikka täällä, hauska tavata.", "Karaokessa sinun pitäisi laulaa jotain."]
+const CARD_LINES := ["\"Tuplaan!\"", "\"Ässä! Kuka jakoi tän?\"", "\"Hertta on valttia.\"", "\"Vielä yksi jako, sitten kotiin.\""]
+const BARTENDER_LINES := ["Mitäs laitetaan?", "Karaoke alkaa, kun joku uskaltaa.", "Sinikka käy täällä joka viikko."]
+
+var pocket: Node3D  # sisätilan juuri taivaalla
+var roof_nodes: Array[Node3D] = []
+var _screen: Label3D
+var _disco_ball: MeshInstance3D
+var _disco_lights: Array[OmniLight3D] = []
+var _in_light: OmniLight3D
+var _jukebox: AudioStreamPlayer3D
+var disco_on := 0.0  # sekuntia, kunnes disko sammuu (jukeboksi tai karaoke)
+var sinikka: Node3D
+var _seurue: Array[Node3D] = []
+var _cardplayers: Array[Node3D] = []
+var _bartender: Node3D
+var _bubbles := {}  # hahmo -> [Label3D, aika]
+var _chat_t := 6.0
+var _t := 0.0
+
+
+## Pelaaja taskussa (sisällä ravintolassa).
+func in_pocket(p: Vector3) -> bool:
+	return pocket != null and p.y > pocket.global_position.y - 2.0 and Vector2(p.x - pocket.global_position.x,
+		p.z - pocket.global_position.z).length() < 60.0
+
+
+## Staattinen apu kameralle (on_foot.gd): sisällä ollaan, kun pelaaja on taskun kohdalla.
+static var pocket_y := INF
+
+static func in_building(p: Vector3) -> bool:
+	return pocket_y < INF and p.y > pocket_y - 2.0 and p.y < pocket_y + 6.0
+
+
+## Paikka taskussa (a, b) maailmaan (lattian pinnalle).
+func world_at(a: float, b: float) -> Vector3:
+	return pocket.global_position + Vector3(a, FLOOR_H, -b)
+
+
+func local_ab(p: Vector3) -> Vector2:
+	var d := p - pocket.global_position
+	return Vector2(d.x, -d.z)
+
+
+## Lähin toimintopiste sisällä pelaajan kohdalla: {id, text}, tai tyhjä.
+func spot_at(p: Vector3) -> Dictionary:
+	if not in_pocket(p):
+		return {}
+	var q := local_ab(p)
+	var best := {}
+	var bd := INF
+	for id: String in SPOTS:
+		var e: Array = SPOTS[id]
+		var d := q.distance_to(Vector2(e[0], e[1]))
+		if d < e[2] and d < bd:
+			bd = d
+			best = {"id": id, "text": e[3]}
+	return best
+
+
+## Ulko-ovi pelaajan kohdalla (leirintäalueella): ovi-id tai "".
+func door_at(p: Vector3) -> String:
+	var best := ""
+	var bd := 1.8
+	for id: String in DOORS:
+		var o: Array = DOORS[id].out
+		var w := Reitti.cw(o[0], o[1])
+		var d := Vector2(p.x - w.x, p.z - w.y).length()
+		if d < bd and absf(p.y - (pad_y + DECK_H)) < 2.0 and not in_pocket(p):
+			bd = d
+			best = id
+	return best
+
+
+## Ulko-oven paikka maailmassa (x, z).
+func cw_door(door: String) -> Vector2:
+	var o: Array = DOORS[door].out
+	return Reitti.cw(o[0], o[1])
+
+
+## Ulkoa sisään (ovi-id) ja sisältä ulos (se ovi, jonka luona ollaan).
+func enter(door: String) -> void:
+	var e: Array = DOORS[door]["in"]
+	_teleport(world_at(e[0], e[1] + (-0.6 if door == "terassi" else 0.6)), Vector3(0, 0, 0))
+	_greet()
+
+
+func leave(door: String) -> void:
+	var e: Array = DOORS[door].exit
+	var w := Reitti.cw(e[0], e[1])
+	_teleport(Vector3(w.x, pad_y + DECK_H + 0.05, w.y), Vector3.ZERO)
+
+
+func _teleport(pos: Vector3, _unused: Vector3) -> void:
+	var pl: CharacterBody3D = game.player
+	pl.global_position = pos
+	pl.velocity = Vector3.ZERO
+
+
+var game: Node3D
+
+
+func _greet() -> void:
+	say(_bartender, "Iltaa! Tervetuloa Happy Beachille.")
+
+
+## Puhekupla hahmon yläpuolelle.
+func say(who: Node3D, text: String, t := 3.4) -> void:
+	if who == null:
+		return
+	if _bubbles.has(who):
+		_bubbles[who][0].queue_free()
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = 30
+	l.pixel_size = 0.0045
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.modulate = Color(1, 1, 0.85)
+	l.outline_size = 8
+	l.position = Vector3(0, 2.15, 0)
+	who.add_child(l)
+	_bubbles[who] = [l, t]
+
+
+func set_screen(text: String) -> void:
+	_screen.text = text
+
+
+## Jukeboksin musiikki alkaa (stream) tai loppuu (null); disko pyörii musiikin ajan.
+func play_music(stream: AudioStream) -> void:
+	_jukebox.stop()
+	if stream == null:
+		disco_on = 0.0
+		return
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	_jukebox.stream = stream
+	_jukebox.play()
+	disco_on = 1.0e6
+
+
+func music_playing() -> bool:
+	return _jukebox.playing
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	if disco_on > 0.0:
+		disco_on -= delta
+	var on := disco_on > 0.0
+	if _disco_ball != null:
+		_disco_ball.rotation.y += delta * 1.2
+	for k in _disco_lights.size():
+		var l := _disco_lights[k]
+		l.visible = on
+		if on:
+			l.light_color = Color.from_hsv(fmod(_t * 0.25 + k * 0.33, 1.0), 0.8, 1.0)
+			l.position = Vector3(0.8 + sin(_t * 1.5 + k * 2.1) * 2.0, 2.5, -(13.5 + cos(_t * 1.1 + k * 2.1) * 1.5))
+	if not on and _jukebox != null and _jukebox.playing:
+		_jukebox.stop()
+	for who: Node3D in _bubbles.keys():
+		_bubbles[who][1] -= delta
+		if _bubbles[who][1] <= 0.0:
+			_bubbles[who][0].queue_free()
+			_bubbles.erase(who)
+	# Seurue, korttipelaajat ja baarimikko jutustelevat itsekseen (kuplat), kun pelaaja on sisällä.
+	if game != null and in_pocket(game.player.global_position):
+		_chat_t -= delta
+		if _chat_t <= 0.0:
+			_chat_t = randf_range(5.0, 9.0)
+			match randi() % 3:
+				0:
+					say(_seurue.pick_random(), SEURUE_LINES.pick_random())
+				1:
+					say(_cardplayers.pick_random(), CARD_LINES.pick_random())
+				_:
+					say(_bartender, BARTENDER_LINES.pick_random())
+
+
+## Sinikka tanssilattialle tai takaisin baaritiskille.
+func place_sinikka(dancing: bool) -> void:
+	var q := Vector2(1.9, 14.3) if dancing else Vector2(-1.0, 11.1)
+	sinikka.position = Vector3(q.x, FLOOR_H, -q.y)
+
+
+## Ravintola ja baari ulkoa: vaalea rakennus turkoosein pielin, harjakatto, terassi järven puolella ja ovet terassille ja
+## parkkipaikalle (E avaa oven, sisätila on taskussa, ks. _build_pocket).
 func _main_building() -> void:
-	# Rakennus a -11..3, b 9..16, seinät 3 m.
 	_box(Vector3(-4.0, 1.5, 12.5), Vector3(14.0, 3.0, 7.0), WALL)
 	_box(Vector3(-4.0, 3.02, 12.5), Vector3(14.3, 0.08, 7.3), TRIM, false)
 	_roof(Vector3(-4.0, 3.9, 12.5), 8.4, 14.8, 1.8, ROOF, true)
-	_box(Vector3(5.2, 1.5, 12.5), Vector3(0.1, 3.0, 7.0), WALL, false)
-	# Ikkunat ja ovi järven puolen seinässä (b = 16, ulospäin +b) ja tien puolen seinässä (b = 9, ulospäin -b).
+	# Ikkunat ja ovet järven puolen seinässä (b = 16, ulospäin +b) ja tien puolen seinässä (b = 9, ulospäin -b).
 	for a: float in [-9.0, 1.0]:
 		_window(a, 1.7, 16.0, 1.4, 1.2, 1.0)
 	_box(Vector3(-4.0, 1.1, 16.04), Vector3(1.0, 2.2, 0.06), TRIM, false)
-	for a: float in [-9.0, -5.5, -2.0, 1.5]:
+	_box(Vector3(-4.0, 2.4, 16.3), Vector3(1.6, 0.06, 0.6), TRIM, false)  # oven katos
+	for a: float in [-10.0, -5.5, -2.0, 1.5]:
 		_window(a, 1.7, 9.0, 1.2, 1.1, -1.0)
-	# Terassi järven puolella.
+	_box(Vector3(-8.0, 1.1, 8.96), Vector3(1.0, 2.2, 0.06), TRIM, false)
+	_box(Vector3(-8.0, 2.4, 8.7), Vector3(1.6, 0.06, 0.6), TRIM, false)
+	# Terassi järven puolella: pöytiä, päivänvarjoja ja valoköynnös.
 	_box(Vector3(-4.0, DECK_H * 0.5, 18.6), Vector3(16.0, DECK_H, 5.2), WOOD)
 	for a in range(-11, 5, 2):
 		_box(Vector3(float(a), DECK_H + 0.4, 21.15), Vector3(0.1, 0.8, 0.1), WOOD, false)
 	_box(Vector3(-4.0, DECK_H + 0.8, 21.15), Vector3(16.0, 0.07, 0.1), WOOD, false)
-	# Tiski: katettu baaritiski terassilla seinää vasten, baarimikko tiskin takana.
-	_box(Vector3(BAR.x, 0.6, BAR.y - 0.6), Vector3(4.6, 1.1, 0.8), TRIM)
-	_box(Vector3(BAR.x, 1.17, BAR.y - 0.6), Vector3(4.8, 0.06, 0.95), WOOD, false)
-	for sx: float in [-2.2, 2.2]:
-		_box(Vector3(BAR.x + sx, 1.45, BAR.y + 1.0), Vector3(0.1, 2.9, 0.1), WOOD, false)
-	_box(Vector3(BAR.x, 2.95, 17.65), Vector3(5.4, 0.08, 3.3), TRIM, false)  # markiisi tiskin yllä
-	var tender := B.person(_root, Color(0.1, 0.6, 0.65), Color(0.15, 0.15, 0.18), Color(1.0, 0.84, 0.74), Color(0.55, 0.38, 0.2))
-	tender.position = P(BAR.x + 0.6, DECK_H, BAR.y - 1.5)
-	# Kyltit: iso kyltti seinässä järven puolella ja aukioloajat tiskin vieressä.
+	# Kyltit: iso kyltti katonharjalla ja aukioloajat oven vieressä.
 	var big := B.sign_plate(_root, "CAMPING\nHAPPY BEACH", TRIM, Color.WHITE, 0.4, 72, Color(0.95, 0.9, 0.5))
 	big.position = P(-4.0, 5.5, 12.5)  # katonharjan päällä, teksti molemmin puolin
 	for s: float in [-1.0, 1.0]:
@@ -274,7 +481,6 @@ func _main_building() -> void:
 	var hours := B.sign_plate(_root, "KIOSKI JA BAARI\n" + HOURS_TEXT, Color(0.97, 0.95, 0.88), Color(0.1, 0.1, 0.12), 0.18, 34,
 		TRIM)
 	hours.position = P(-6.75, 1.9, 16.12)
-	# Pöydät ja penkit terassilla, päivänvarjot.
 	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8), Vector2(2.9, 19.0)]:
 		_picnic(pos.x, pos.y)
 	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8)]:
@@ -286,11 +492,172 @@ func _main_building() -> void:
 		cone.radial_segments = 12
 		cone.rings = 0
 		B.mesh(_root, cone, P(pos.x, 2.5, pos.y), Color(0.95, 0.75, 0.15))
-	# Valoköynnös terassin reunalla.
 	for k in 9:
 		var a := -11.0 + k * 2.0
 		_lamp_bulb(P(a, 2.55 - 0.2 * float(k % 2), 21.15))
-	_lamp_bulb(P(BAR.x, 2.75, BAR.y + 1.0))
+
+
+## Sisätila taskussa: lattia, seinät, ovet ja sisustus. Rakennetaan omaan solmuunsa taivaalle (_root ja _batch vaihdetaan
+## väliaikaisesti, jotta ulkorakennuksen apufunktiot kelpaavat).
+func _build_pocket() -> void:
+	pocket = Node3D.new()
+	pocket.position = Vector3(Reitti.K.x, pad_y + POCKET_UP, Reitti.K.y)
+	add_child(pocket)
+	pocket_y = pocket.position.y
+	var outer_root := _root
+	var outer_batch := _batch
+	_root = pocket
+	_batch = B.Batch.new()
+	var f := FLOOR_H
+	# Iso tumma alusta, ettei kaukomaasto näy seinien takaa, ja lattia.
+	_box(Vector3(-4.0, -0.5, 12.5), Vector3(60.0, 1.0, 60.0), Color(0.04, 0.04, 0.05))
+	_box(Vector3(-4.0, f * 0.5, 12.5), Vector3(14.0, f, 7.0), Color(0.55, 0.4, 0.26))
+	# Seinät 3 m: päädyt umpinaiset, pitkillä seinillä oviaukot (1,2 m).
+	_box(Vector3(-10.9, 1.5, 12.5), Vector3(0.2, 3.0, 7.0), WALL)
+	_box(Vector3(2.9, 1.5, 12.5), Vector3(0.2, 3.0, 7.0), WALL)
+	for side: Array in [[15.9, -4.0], [9.1, -8.0]]:
+		var wb: float = side[0]
+		var da: float = side[1]
+		var left := (da - 0.6) - (-11.0)
+		var right := 3.0 - (da + 0.6)
+		_box(Vector3(-11.0 + left * 0.5, 1.5, wb), Vector3(left, 3.0, 0.2), WALL)
+		_box(Vector3(da + 0.6 + right * 0.5, 1.5, wb), Vector3(right, 3.0, 0.2), WALL)
+		_box(Vector3(da, 2.6, wb), Vector3(1.2, 0.8, 0.2), WALL, false)
+	# Näkymättömät oviaukkojen tulpat (seinää ei voi ohittaa; poistutaan E:llä).
+	_box(Vector3(-4.0, 1.5, 16.15), Vector3(1.2, 3.0, 0.2), WALL, true)
+	_box(Vector3(-8.0, 1.5, 8.85), Vector3(1.2, 3.0, 0.2), WALL, true)
+	for dd: Array in [[-4.0, 15.78, 1.0], [-8.0, 9.22, -1.0]]:
+		_box(Vector3(dd[0], 1.1, dd[1]), Vector3(1.0, 2.2, 0.04), TRIM, false)  # ovi sisältä
+	for a: float in [-9.0, 1.0]:
+		_window(a, 1.7, 16.0, 1.4, 1.2, -1.0)
+	_interior()
+	_in_light.visible = true
+	var mi := MeshInstance3D.new()
+	mi.mesh = _batch.commit()
+	mi.material_override = B.vcol_mat()
+	pocket.add_child(mi)
+	_root = outer_root
+	_batch = outer_batch
+
+
+## Sisustus: baaritiski ja hyllyt, lava, tanssilattia, pöydät, jukeboksi ja pajatso.
+func _interior() -> void:
+	var f := FLOOR_H
+	var dark := Color(0.2, 0.14, 0.1)
+	# Baaritiski tien puoleisella seinällä: tiski, baarimikko, pullohylly seinällä ja jääkaappi, jakkarat edessä.
+	_box(Vector3(-3.75, f + 0.55, 10.55), Vector3(4.6, 1.1, 0.7), dark)
+	_box(Vector3(-3.75, f + 1.12, 10.55), Vector3(4.8, 0.07, 0.9), WOOD, false)
+	var bt := B.person(_root, Color(0.1, 0.6, 0.65), Color(0.15, 0.15, 0.18), Color(1.0, 0.84, 0.74), Color(0.3, 0.2, 0.12))
+	bt.position = P(-3.0, f, 9.8)
+	_bartender = bt
+	_box(Vector3(-3.75, f + 1.6, 9.3), Vector3(4.6, 0.05, 0.3), WOOD, false)
+	_box(Vector3(-3.75, f + 2.1, 9.3), Vector3(4.6, 0.05, 0.3), WOOD, false)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91
+	for row: float in [1.6, 2.1]:
+		for k in 18:
+			var col := Color.from_hsv(rng.randf(), 0.6, 0.7)
+			var bx := -5.9 + k * 0.25
+			_batch.add(B.cyl(0.035, 0.035, 0.2, 8), Transform3D(Basis(), P(bx, f + row + 0.13, 9.3)), col)
+			_batch.add(B.cyl(0.013, 0.015, 0.1, 6), Transform3D(Basis(), P(bx, f + row + 0.3, 9.3)), col.darkened(0.3))
+	_box(Vector3(-6.3, f + 0.9, 9.4), Vector3(0.8, 1.8, 0.6), Color(0.85, 0.85, 0.88))  # jääkaappi
+	for k in 4:
+		var sx := -5.2 + k * 1.1
+		_box(Vector3(sx, f + 0.18, 11.65), Vector3(0.36, 0.06, 0.36), Color(0.75, 0.2, 0.15), false)
+		_box(Vector3(sx, f + 0.0 + 0.1, 11.65), Vector3(0.06, 0.36, 0.06), Color(0.3, 0.3, 0.32), false)
+		_box(Vector3(sx, f + 0.42, 11.65), Vector3(0.38, 0.1, 0.38), Color(0.75, 0.2, 0.15), false)
+	var menu := B.sign_plate(_root, "BAARI\nolut · lonkero · siideri\nkahvi ja pulla · burgeri", Color(0.12, 0.1, 0.1),
+		Color(0.95, 0.9, 0.6), 0.22, 30, TRIM)
+	menu.position = P(-3.75, 2.75, 9.18)
+	# Lava (karaoke) itäpäässä tien puoleisella seinällä: korotettu lattia, kaiuttimet, mikrofoni ja ruutu.
+	_box(Vector3(1.5, f + 0.15, 10.7), Vector3(2.8, 0.3, 3.0), Color(0.3, 0.2, 0.35))
+	for sa: float in [0.1, 2.9]:
+		_box(Vector3(sa, f + 0.75, 9.7), Vector3(0.45, 0.9, 0.4), Color(0.08, 0.08, 0.09))
+	_box(Vector3(1.5, f + 0.7, 11.6), Vector3(0.03, 0.8, 0.03), Color(0.3, 0.3, 0.32), false)
+	_box(Vector3(1.5, f + 1.12, 11.6), Vector3(0.05, 0.12, 0.05), Color(0.15, 0.15, 0.16), false)
+	_box(Vector3(1.5, 2.0, 9.14), Vector3(2.2, 1.25, 0.06), Color(0.04, 0.04, 0.06), false)
+	_screen = Label3D.new()
+	_screen.text = "KARAOKE\nE: laula"
+	_screen.font_size = 40
+	_screen.pixel_size = 0.0055
+	_screen.modulate = Color(0.6, 0.95, 1.0)
+	_screen.outline_size = 8
+	_screen.position = P(1.5, 2.0, 9.2)
+	_screen.rotation.y = PI  # ruutu katsoo huoneeseen päin (+b = -z)
+	_root.add_child(_screen)
+	# Tanssilattia lavan edessä: ruudukko ja diskopallo katossa.
+	for i in 6:
+		for j in 5:
+			var c := Color(0.9, 0.9, 0.92) if (i + j) % 2 == 0 else Color(0.12, 0.12, 0.15)
+			_batch.add(B.boxm(Vector3(0.6, 0.012, 0.6)), Transform3D(Basis(), P(-1.0 + 0.6 * i, f + 0.01, 12.9 + 0.6 * j)), c)
+	_disco_ball = MeshInstance3D.new()
+	_disco_ball.mesh = B.sphere(0.25, 12)
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.85, 0.88, 0.9)
+	dm.metallic = 1.0
+	dm.roughness = 0.15
+	_disco_ball.material_override = dm
+	_disco_ball.position = P(0.8, 2.7, 14.1)
+	_root.add_child(_disco_ball)
+	roof_nodes.append(_disco_ball)
+	for k in 3:
+		var l := OmniLight3D.new()
+		l.omni_range = 6.0
+		l.light_energy = 1.6
+		l.shadow_enabled = false
+		l.visible = false
+		_root.add_child(l)
+		_disco_lights.append(l)
+	# Pöydät ja tuolit ikkunoiden vieressä länsipäässä.
+	for pos: Vector2 in [Vector2(-8.8, 14.6), Vector2(-6.2, 14.6), Vector2(-8.4, 11.9)]:
+		_box(Vector3(pos.x, f + 0.72, pos.y), Vector3(0.9, 0.05, 0.9), WOOD)
+		_box(Vector3(pos.x, f + 0.36, pos.y), Vector3(0.1, 0.7, 0.1), WOOD.darkened(0.3), false)
+		for d: Vector2 in [Vector2(0.75, 0), Vector2(-0.75, 0), Vector2(0, 0.75), Vector2(0, -0.75)]:
+			_box(Vector3(pos.x + d.x, f + 0.25, pos.y + d.y), Vector3(0.4, 0.05, 0.4), Color(0.25, 0.4, 0.45), false)
+			_box(Vector3(pos.x + d.x, f + 0.12, pos.y + d.y), Vector3(0.06, 0.24, 0.06), Color(0.3, 0.3, 0.32), false)
+	# Jukeboksi ja pajatso länsiseinällä, etupuoli itään (+a).
+	_box(Vector3(-10.5, f + 0.8, 13.4), Vector3(0.6, 1.6, 0.9), Color(0.55, 0.15, 0.12))
+	_box(Vector3(-10.18, f + 1.2, 13.4), Vector3(0.04, 0.5, 0.7), Color(1.0, 0.75, 0.2), false)
+	_box(Vector3(-10.18, f + 0.55, 13.4), Vector3(0.04, 0.3, 0.7), Color(0.2, 0.8, 0.9), false)
+	_lamp_bulb(P(-10.1, f + 1.7, 13.4))
+	_box(Vector3(-10.5, f + 0.9, 10.0), Vector3(0.6, 1.8, 0.6), Color(0.1, 0.25, 0.55))
+	_box(Vector3(-10.18, f + 1.35, 10.0), Vector3(0.04, 0.4, 0.45), Color(0.95, 0.9, 0.3), false)
+	_box(Vector3(-10.18, f + 0.95, 10.0), Vector3(0.04, 0.12, 0.2), Color(0.8, 0.1, 0.1), false)
+	_box(Vector3(-10.5, f + 0.85, 11.7), Vector3(0.6, 1.7, 0.7), Color(0.55, 0.1, 0.35))  # hedelmäpeli
+	_box(Vector3(-10.18, f + 1.3, 11.7), Vector3(0.04, 0.4, 0.55), Color(0.3, 0.9, 0.4), false)
+	_box(Vector3(-10.18, f + 0.9, 11.7), Vector3(0.04, 0.12, 0.4), Color(0.95, 0.8, 0.2), false)
+	# Väki: Sinikka baaritiskillä, pöytäseurue ikkunapöydässä ja kaksi korttipelaajaa.
+	sinikka = B.person(_root, Color(1.0, 0.55, 0.75), Color(0.3, 0.2, 0.35), Color(1.0, 0.84, 0.74), Color(0.45, 0.25, 0.15))
+	sinikka.position = P(-1.0, f, 11.1)
+	var seurue_at := [Vector2(-8.05, 14.6), Vector2(-9.55, 14.6), Vector2(-8.8, 13.85)]
+	var seurue_col := [Color(0.65, 0.2, 0.25), Color(0.2, 0.3, 0.55), Color(0.85, 0.7, 0.25)]
+	for k in 3:
+		var c := B.person(_root, seurue_col[k], Color(0.15, 0.15, 0.2), Color(0.9, 0.72, 0.6), Color(0.1, 0.08, 0.06))
+		c.position = P(seurue_at[k].x, f + 0.0, seurue_at[k].y)
+		c.rotation.y = PI * 0.5 * (1.0 if k == 0 else -1.0) if k < 2 else PI
+		_seurue.append(c)
+	for k in 2:
+		var cp := B.person(_root, Color(0.35, 0.4, 0.3) if k == 0 else Color(0.5, 0.35, 0.2), Color(0.2, 0.2, 0.25),
+			Color(0.9, 0.75, 0.62), Color(0.3, 0.25, 0.2))
+		cp.position = P(-8.4 + (-0.75 if k == 0 else 0.75), f, 11.9)
+		cp.rotation.y = PI * 0.5 if k == 0 else -PI * 0.5
+		_cardplayers.append(cp)
+	# Sisävalo ja ääni: jukeboksi soi 3D-äänenä huoneessa.
+	_in_light = OmniLight3D.new()
+	_in_light.position = P(-4.0, 2.5, 12.5)
+	_in_light.light_color = Color(1.0, 0.85, 0.6)
+	_in_light.omni_range = 11.0
+	_in_light.light_energy = 0.9
+	_in_light.shadow_enabled = false
+	_in_light.visible = false
+	_root.add_child(_in_light)
+	_jukebox = AudioStreamPlayer3D.new()
+	_jukebox.position = P(-10.2, 1.0, 13.4)
+	_jukebox.unit_size = 8.0
+	_jukebox.max_distance = 40.0
+	_jukebox.volume_db = -4.0
+	_root.add_child(_jukebox)
+
 
 
 func _picnic(a: float, b: float) -> void:

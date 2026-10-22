@@ -9,6 +9,7 @@ extends RefCounted
 ##   punainen ratkaisee, ja sen laittanut on ramin ilmoittaja. Jos punaisia ei ole, pelataan noloa.
 ##   Tarjouskortit palaavat käteen.
 ## - Ramissa ilmoittajan oikealla puolella istuva aloittaa, nolossa jakajan vasemmalla puolella istuva.
+## - Peli kiertää myötäpäivään kuten ristiseiska (R.DIR).
 ## - Valttia ei ole. Maata on tunnustettava; tikin vie aloitetun maan suurin kortti, ja tikin voittaja aloittaa
 ##   seuraavan.
 ## - Rami: ilmoittajan pari saa 4 pistettä jokaisesta tikistä yli kuuden, ja jos rami kaatuu, vastapari saa
@@ -23,7 +24,7 @@ const WIN := 52
 
 var n := 4
 var hands: Array = []  # pelaaja -> Array[int], järjestetty
-var dealer := 3  # ensimmäisessä jaossa jakaja on 0
+var dealer := 1  # ensimmäisessä jaossa jakaja on 0
 var phase := "idle"  # idle | bid | play | trick (täysi tikki pöydässä) | over (jako pelattu)
 var turn := 0
 var bids := [-1, -1, -1, -1]  # tarjouskortit
@@ -38,6 +39,15 @@ var gained := [0, 0]  # viimeisimmän jaon pisteet
 var winner := -1  # ottelun voittanut pari
 var last := {}  # viimeisin tapahtuma: {a: "tarjosi"/"pelasi"/"vei", p: pelaaja, c: kortti}
 var moves := 0
+
+
+## Seuraava pelaaja myötäpäivään (kuten ristiseiska) ja edellinen eli oikealla puolella istuva.
+static func nxt(p: int) -> int:
+	return (p + R.DIR + 4) % 4
+
+
+static func prv(p: int) -> int:
+	return (p - R.DIR + 4) % 4
 
 
 static func team(p: int) -> int:
@@ -79,7 +89,7 @@ func deal(seed: int) -> void:
 		var h: Array = deck.slice(p * 13, p * 13 + 13)
 		h.sort()
 		hands.append(h)
-	dealer = (dealer + 1) % n
+	dealer = nxt(dealer)
 	bids = [-1, -1, -1, -1]
 	mode = ""
 	declarer = -1
@@ -90,7 +100,7 @@ func deal(seed: int) -> void:
 	gained = [0, 0]
 	last = {}
 	moves = 0
-	turn = (dealer + 1) % n
+	turn = nxt(dealer)
 	phase = "bid"
 
 
@@ -111,18 +121,20 @@ func bid(p: int, c: int) -> bool:
 	bids[p] = c
 	last = {"a": "tarjosi", "p": p, "c": c}
 	moves += 1
-	turn = (p + 1) % n
-	if turn != (dealer + 1) % n:
+	turn = nxt(p)
+	if turn != nxt(dealer):
 		return true
 	# Kaikki tarjosivat: käännetään jakajan vasemmalta alkaen.
 	mode = "nolo"
 	for k in n:
-		var q := (dealer + 1 + k) % n
+		var q := nxt(dealer)
+		for _j in k:
+			q = nxt(q)
 		if red(bids[q]):
 			mode = "rami"
 			declarer = q
 			break
-	turn = (declarer + n - 1) % n if mode == "rami" else (dealer + 1) % n
+	turn = prv(declarer) if mode == "rami" else nxt(dealer)
 	phase = "play"
 	return true
 
@@ -165,7 +177,7 @@ func play(p: int, c: int) -> bool:
 	last = {"a": "pelasi", "p": p, "c": c}
 	moves += 1
 	if trick.size() < n:
-		turn = (p + 1) % n
+		turn = nxt(p)
 		return true
 	trick_winner = leading()[0]
 	phase = "trick"

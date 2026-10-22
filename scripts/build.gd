@@ -3,6 +3,20 @@ extends RefCounted
 ## sekä jaetut materiaalit ja kohinatekstuuri.
 
 static var _mats := {}
+static var _fonts := {}
+
+
+## Järjestelmäfontti välimuistista: jokainen SystemFont lataa fonttitiedoston ja rasteroi kirjaimet omaan atlakseensa,
+## joten kyltti kohden uusi fontti vei satoja megatavuja.
+static func sys_font(names: PackedStringArray, weight := 400) -> SystemFont:
+	var key := "%s/%d" % [",".join(names), weight]
+	if not _fonts.has(key):
+		var f := SystemFont.new()
+		f.font_names = names
+		f.font_weight = weight
+		_fonts[key] = f
+	return _fonts[key]
+
 static var _noise: NoiseTexture2D
 static var _shaders := {}
 
@@ -63,38 +77,55 @@ static func shader_mat(path: String, params := {}) -> ShaderMaterial:
 	return m
 
 
+## Primitiivimeshit jaetaan: samankokoinen laatikko, sylinteri tai pallo on yksi resurssi (ennen jokainen kutsu teki oman
+## meshinsä: kymmeniätuhansia resursseja ja omat verteksipuskurit). Palautettua meshiä ei saa muokata.
+static var _prims := {}
+
+
+static func _prim(key: String, make: Callable) -> PrimitiveMesh:
+	var m: PrimitiveMesh = _prims.get(key)
+	if m == null:
+		m = make.call()
+		_prims[key] = m
+	return m
+
+
 static func boxm(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
+	return _prim("b%.3f,%.3f,%.3f" % [size.x, size.y, size.z], func() -> PrimitiveMesh:
+		var b := BoxMesh.new()
+		b.size = size
+		return b)
 
 
 static func cyl(top: float, bottom: float, height: float, segments := 12) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = height
-	c.radial_segments = segments
-	c.rings = 0
-	return c
+	return _prim("c%.4f,%.4f,%.3f,%d" % [top, bottom, height, segments], func() -> PrimitiveMesh:
+		var c := CylinderMesh.new()
+		c.top_radius = top
+		c.bottom_radius = bottom
+		c.height = height
+		c.radial_segments = segments
+		c.rings = 0
+		return c)
 
 
 static func sphere(radius: float, segments := 16) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = radius
-	s.height = radius * 2.0
-	s.radial_segments = segments
-	s.rings = segments / 2
-	return s
+	return _prim("s%.4f,%d" % [radius, segments], func() -> PrimitiveMesh:
+		var s := SphereMesh.new()
+		s.radius = radius
+		s.height = radius * 2.0
+		s.radial_segments = segments
+		s.rings = segments / 2
+		return s)
 
 
 static func capsule(radius: float, height: float) -> CapsuleMesh:
-	var c := CapsuleMesh.new()
-	c.radius = radius
-	c.height = height
-	c.radial_segments = 12
-	c.rings = 4
-	return c
+	return _prim("k%.4f,%.3f" % [radius, height], func() -> PrimitiveMesh:
+		var c := CapsuleMesh.new()
+		c.radius = radius
+		c.height = height
+		c.radial_segments = 12
+		c.rings = 4
+		return c)
 
 
 static func mesh(parent: Node3D, m: Mesh, pos: Vector3, color: Color, rot := Vector3.ZERO) -> MeshInstance3D:
@@ -161,13 +192,19 @@ static func guide(parent: Node3D, text: String, pos: Vector3, size: int, color: 
 	return l
 
 
+const LABEL_MAX_FONT := 96
+
+
 static func label(parent: Node3D, text: String, pos: Vector3, size: int, color: Color, billboard := false) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = size
-	l.pixel_size = 0.01
+	# Isot tekstit pienemmällä fonttikoolla ja isommalla pikselikoolla: maailmassa sama koko, mutta jokaista kirjainta ei
+	# rasteroida fonttiatlakseen satojen pikselien kokoisena.
+	var fs := mini(size, LABEL_MAX_FONT)
+	l.font_size = fs
+	l.pixel_size = 0.01 * size / fs
 	l.modulate = color
-	l.outline_size = maxi(8, size / 8)
+	l.outline_size = maxi(maxi(8, size / 8) * fs / size, 4)
 	l.outline_modulate = Color(0.1, 0.05, 0.0)
 	l.position = pos
 	if billboard:
@@ -231,10 +268,7 @@ static func sign_plate(parent: Node3D, text: String, bg: Color, fg: Color, heigh
 	var lines := text.split("\n")
 	var sf: Font = ThemeDB.fallback_font
 	if typeface != "":
-		var sys := SystemFont.new()
-		sys.font_names = PackedStringArray([typeface, "Helvetica", "Arial", "Liberation Sans"])
-		sys.font_weight = 500
-		sf = sys
+		sf = sys_font(PackedStringArray([typeface, "Helvetica", "Arial", "Liberation Sans"]), 500)
 	# Leveys fontin todellisesta tekstileveydestä (Label3D: 1 px = 0.005 m) + reunavarat.
 	var text_w := 0.0
 	for l in lines:
@@ -303,9 +337,7 @@ static func trail_sign(parent: Node3D, pos: Vector3, text: String, yaw: float) -
 	arm.position.y = 1.55
 	arm.rotation.y = yaw
 	post.add_child(arm)
-	var tf := SystemFont.new()
-	tf.font_names = PackedStringArray(["Helvetica Neue", "Helvetica", "Arial"])
-	tf.font_weight = 600
+	var tf := sys_font(PackedStringArray(["Helvetica Neue", "Helvetica", "Arial"]), 600)
 	var w := tf.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x * 0.005 + 0.5
 	mesh(arm, boxm(Vector3(w, 0.26, 0.04)), Vector3(w / 2.0 + 0.06, 0, 0), brown)
 	var tip := PrismMesh.new()
@@ -321,10 +353,7 @@ static func trail_sign(parent: Node3D, pos: Vector3, text: String, yaw: float) -
 		l.double_sided = false
 		l.rotation.y = 0.0 if z > 0.0 else PI
 		l.position = Vector3(w / 2.0 + 0.16, 0, z)
-		var sf := SystemFont.new()
-		sf.font_names = PackedStringArray(["Helvetica Neue", "Helvetica", "Arial"])
-		sf.font_weight = 600
-		l.font = sf
+		l.font = sys_font(PackedStringArray(["Helvetica Neue", "Helvetica", "Arial"]), 600)
 		arm.add_child(l)
 		laavu_icon(arm, Vector3(0.2, 0, z * 1.1), 0.19, cream)
 	return post

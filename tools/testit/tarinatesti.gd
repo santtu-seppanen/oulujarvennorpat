@@ -62,8 +62,8 @@ func _process(delta: float) -> bool:
 			if t > 0.5:
 				ta.complete("halot")
 				check(ta.is_done("halot"), "halot kuittautuvat")
-				ta.complete("tennis")
-				check(not ta.is_done("tennis"), "perjantain tehtävä ei kuittaudu torstaina")
+				ta.complete("poyta")
+				check(not ta.is_done("poyta"), "perjantain tehtävä ei kuittaudu torstaina")
 				var n: int = ta.count_done(0)
 				ta.complete("halot")
 				check(ta.count_done(0) == n, "tehtävä kuittautuu vain kerran")

@@ -3,11 +3,13 @@ extends Control
 ## suunnistuskartan tapaan pinnat, käyrät, tiet ja rakennukset). Lähialueella 1 m/px kuva, muualla koko alueen
 ## 8 m/px kuva. Kartalta valittu kohde (map_view.gd) näkyy punaisena, reunalla nuolena.
 
+const Kohteet := preload("res://scripts/kohteet.gd")
 const RANGE := 180.0  # metriä keskeltä reunaan
 const SIZE := 220.0
 
 var player: Node3D
 var map_view: Control
+var game: Node3D  # kiinnostavat kohteet (kohteet.gd)
 var _near: Texture2D
 var _far: Texture2D
 var near_half := 1000.0
@@ -47,6 +49,23 @@ func _draw() -> void:
 		var half: float = layer[1]
 		var tl := c + (Vector2(-half, -half) - p) * ppm
 		draw_texture_rect(tex, Rect2(tl, Vector2(half, half) * 2.0 * ppm), false)
+	# Kiinnostavat kohteet: pääkohteet (mökki, Happy Beach, kätköt, auto) tutkassa; reunalla pieni nuoli.
+	if game != null:
+		for k: Dictionary in Kohteet.list(game):
+			if k.kind == "mustikka" or (not k.major and k.kind != "porukka"):
+				continue
+			var kd: Vector2 = (k.p - p) * ppm
+			var kc: Color = Kohteet.KINDS[k.kind][0]
+			if kd.length() > c.x - 8.0:
+				var q := c + kd.normalized() * (c.x - 6.0)
+				draw_circle(q, 3.0, Color.BLACK)
+				draw_circle(q, 2.0, kc)
+			else:
+				var q := c + kd
+				var r := 5.0
+				var d := PackedVector2Array([q + Vector2(0, -r), q + Vector2(r, 0), q + Vector2(0, r), q + Vector2(-r, 0)])
+				draw_colored_polygon(d, kc)
+				draw_polyline(d + PackedVector2Array([d[0]]), Color.BLACK, 1.2)
 	# Kohde.
 	if map_view != null and map_view.has_target:
 		var d: Vector2 = (map_view.target - p) * ppm
