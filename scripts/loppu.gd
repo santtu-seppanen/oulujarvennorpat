@@ -174,6 +174,11 @@ func _begin(m: String) -> void:
 			b.set_hidden_inside(false)
 		var body: Node3D = b.body()
 		body.rotation = Vector3.ZERO
+		if mode == "tappio":
+			# Kumara asento: selkä köyristyy ja pää painuu alas (luiden ohitukset), vartalo pysyy pystyssä.
+			body.set_override("spine_01", Vector3.RIGHT, -0.22)
+			body.set_override("spine_03", Vector3.RIGHT, -0.3)
+			body.set_override("neck_01", Vector3.RIGHT, -0.35)
 	_cam = Camera3D.new()
 	_cam.fov = 58.0
 	game.add_child(_cam)
@@ -390,7 +395,6 @@ func _loss(delta: float) -> void:
 				b.global_position.y = Terrain.h(b.global_position.x, b.global_position.z) + 0.02
 				b.rotation.y = lerp_angle(b.rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-3.0 * delta))
 				body.play("Walk", 0.3, 0.55)
-				body.rotation.x = deg_to_rad(-9.0)  # kumarassa sateessa (negatiivinen = eteenpäin)
 				body.rotation.z = sin(_t * 2.4 + i * 1.7) * 0.05  # lerpattava kävely
 			else:
 				arrived += 1
