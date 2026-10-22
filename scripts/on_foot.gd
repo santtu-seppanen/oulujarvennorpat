@@ -379,7 +379,7 @@ func _physics_process(delta: float) -> void:
 	var td := _top_down()
 	var td_dir := Vector3.ZERO
 	if td:
-		var dv := Vector2.ZERO if Chat.typing else Vector2(Input.get_axis("left", "right"), Input.get_axis("forward", "back"))
+		var dv := Vector2.ZERO if Chat.typing or not controls_enabled else Vector2(Input.get_axis("left", "right"), Input.get_axis("forward", "back"))
 		if pose.begins_with("Sitting") or pose == "Sammunut":
 			dv = Vector2.ZERO
 		td_dir = Vector3(-dv.x, 0, -dv.y).limit_length(1.0)

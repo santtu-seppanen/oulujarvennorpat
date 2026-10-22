@@ -63,9 +63,12 @@ func _process(_d: float) -> bool:
 				check(h.spot_at(main.player.global_position).get("id", "") == id, "toimintopiste " + id)
 			_at("pajatso")
 			main.start_activity("baari")
-			for k in 5:
-				main.baari.act()
-			check(main.baari._tokens != 10, "pajatso pyörii")
+			check(main.baari.in_game and is_instance_valid(main.baari._gnode), "pajatso (Normipäivän minipeli) aukeaa")
+			main.end_activity()
+			check(not main.baari.in_game, "pajatso sulkeutuu")
+			_at("hedelma")
+			main.start_activity("baari")
+			check(main.baari.in_game and is_instance_valid(main.baari._gnode), "hedelmäpeli (Normipäivän minipeli) aukeaa")
 			main.end_activity()
 			_at("jukeboksi")
 			main.start_activity("baari")
@@ -88,14 +91,13 @@ func _process(_d: float) -> bool:
 			if frames < 140:
 				return false
 			var b = main.baari
-			var guard := 0
-			while b._beat < b.BEATS and guard < 200:
-				guard += 1
-				b._pause = 0.0
-				if b._zone.x > 0.0:
-					b._pos = (b._zone.x + b._zone.y) * 0.5
-				b._sing_hit()
-			check(b._hits >= 1, "karaoke osuu")
+			var kg = b._gnode
+			check(b.in_game and kg != null and kg.real and kg._notes.size() > 20, "karaoke: Frets on Fire -versio, Oodin nuotit (%d)" % kg._notes.size())
+			check(kg._title == "Oodi Oulujärvelle", "karaoken kappale on Oodi Oulujärvelle")
+			check(kg._track != null and kg._track.playing, "Oodin säestys soi")
+			kg._t = kg._end + 1.0  # kappale läpi
+			kg._finish()
+			check(not b.in_game and main.activity == "", "karaoke päättyy ja aktiviteetti loppuu")
 			main.end_activity()
 			# Ulkoa ovesta sisään: ovi tunnistetaan, taskussa lattialla pysytään (ei putoa), ovi ulos.
 			var w: Vector2 = main.world.happy.cw_door("terassi")

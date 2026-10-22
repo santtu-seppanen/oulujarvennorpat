@@ -56,7 +56,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _mode == "sub_pause":
 				open_pause()
 			get_viewport().set_input_as_handled()
-		elif game != null and game.state == "play" and not game.map_open():
+		elif game != null and game.state == "play" and not game.map_open() \
+				and get_tree().get_nodes_in_group("esc_lopettaa").is_empty():  # minipelin Esc lopettaa pelin
 			open_pause()
 			get_viewport().set_input_as_handled()
 

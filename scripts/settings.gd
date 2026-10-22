@@ -128,3 +128,19 @@ func _apply_bus(bus: String) -> void:
 		var v: float = values[BUSES[bus]]
 		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)) + BUS_TRIM.get(bus, 0.0))
 		AudioServer.set_bus_mute(i, v <= 0.001)
+
+
+## Toiminnon näppäin hakasulkeissa ohjeisiin, esim. "[E]".
+func cap(action: String, extra := "") -> String:
+	var k := ""
+	if InputMap.has_action(action):
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventKey:
+				k = OS.get_keycode_string((ev as InputEventKey).physical_keycode)
+				break
+	return "[%s]" % (k + (" / " + extra if extra != "" else ""))
+
+
+## Kahden toiminnon pari ohjeisiin, esim. "[W/S]".
+func pair(a: String, b: String) -> String:
+	return "[%s/%s]" % [cap(a).trim_prefix("[").trim_suffix("]"), cap(b).trim_prefix("[").trim_suffix("]")]

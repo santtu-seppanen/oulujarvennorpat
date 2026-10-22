@@ -210,8 +210,10 @@ static func floor_y() -> float:
 
 
 ## Portaiden ala- ja yläpää (maailman xz): pääterassilta ylämökin terassin järven puoleiseen reunaan.
+## Yläpää on ylämökin terassin järven puoleisella reunalla (v = CABIN_TERRACE_V): ramppi nousee reunan tasalle, eikä
+## terassin törmäyslaatikon reuna jää kynnykseksi viimeiselle askelmalle.
 static func stair_ends() -> Array:
-	return [yw(-6.0, -2.2), cw(4.1, 2.5)]
+	return [yw(-6.0, -2.2), cw(4.18, CABIN_TERRACE_V + 0.02)]
 
 
 static func in_rect(q: Vector2, r: Array, m := 0.0) -> bool:

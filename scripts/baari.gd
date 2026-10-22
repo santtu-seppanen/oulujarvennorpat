@@ -10,6 +10,9 @@ extends Node
 ## Käyttöliittymä on valikon tyylinen (ui.gd); W/S tai E (valikoissa) lopettaa.
 
 const Ui := preload("res://scripts/ui.gd")
+const PajatsoGame := preload("res://scripts/pajatso_game.gd")
+const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
+const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 
 const TRACKS := [
 	["Chariots of Fire", "res://assets/music/chariots_of_fire_alku.ogg"],
@@ -33,7 +36,10 @@ var mode := ""  # tiski | karaoke | jukeboksi | pajatso | tanssi
 var _ui: CanvasLayer
 var _box: VBoxContainer
 var _status: Label
-var _tokens := 10
+var _tokens := 10  # euroja pajatsolle ja hedelmäpelille
+var _pot := 12  # pajatson potti säilyy koneessa
+var _gnode: CanvasLayer
+var in_game := false  # pajatso tai hedelmäpeli (canvas-minipeli) on auki
 var _reels: Array[Label] = []
 var _held := [false, false, false]
 var _hold_btns: Array[Button] = []
@@ -111,10 +117,90 @@ func start() -> bool:
 	_build()
 	_ui.visible = true
 	CamCtl.free_mouse = true
+	if mode == "pajatso" or mode == "hedelma":
+		_launch_game()
+	elif mode == "karaoke":
+		_launch_karaoke()
 	return true
 
 
+## Karaoke on Normipäivän Frets on Fire -versio (karaoke_game.gd), kappaleena Oodi Oulujärvelle.
+func _launch_karaoke() -> void:
+	var g := KaraokeGame.new()
+	g.drunk = game.player.drunk()
+	var h: Node3D = game.world.happy
+	h.play_music(null)
+	h.disco_on = 1.0e6
+	g.line.connect(func(t: String) -> void: h.set_screen("♪ %s ♪" % t))
+	g.finished.connect(_karaoke_end)
+	_gnode = g
+	in_game = true
+	_ui.visible = false
+	game.add_child(g)
+
+
+func _karaoke_end(score: float) -> void:
+	in_game = false
+	var h: Node3D = game.world.happy
+	h.disco_on = 6.0
+	var t := "Oodi Oulujärvelle laulettu: %d %%. " % roundi(score * 100.0)
+	if score >= 0.8:
+		t += "Yleisö villiintyy! Tähtiesitys."
+		Sfx.play("win", -6.0)
+	elif score >= 0.45:
+		t += "Aplodit kuuluvat."
+		Sfx.play("win_small", -6.0)
+	else:
+		t += "Yleisö on kohtelias."
+	h.set_screen("KARAOKE\n%d %%" % roundi(score * 100.0))
+	game.toast(t, 5.0)
+	if score >= 0.25:
+		game.tarina.complete("laulu")
+	if game.activity == "baari":
+		game.end_activity()
+
+
+## Pajatso ja hedelmäpeli ovat samat canvas-minipelit kuin Normipäivässä (pajatso_game.gd, hedelmapeli_game.gd).
+func _launch_game() -> void:
+	var g: CanvasLayer
+	if mode == "pajatso":
+		var pg := PajatsoGame.new()
+		pg.pot = _pot
+		pg.finished.connect(func(m: float, pot: int) -> void:
+			_pot = pot
+			_game_end(m))
+		g = pg
+	else:
+		var hg := HedelmapeliGame.new()
+		hg.finished.connect(func(m: float) -> void: _game_end(m))
+		g = hg
+	_gnode = g
+	g.drunk = game.player.drunk()
+	g.money = float(_tokens)
+	in_game = true
+	_ui.visible = false
+	game.add_child(g)
+
+
+func _game_end(money_after: float) -> void:
+	in_game = false
+	var net := int(money_after) - _tokens
+	_tokens = int(money_after)
+	if game.activity == "baari":
+		game.end_activity()
+	if net >= 10:
+		game.toast("Plussalla %d €! Tänään on onnenpäivä." % net, 3.0)
+	elif net > 0:
+		game.toast("Plussalla %d €." % net, 2.5)
+	elif net < 0:
+		game.toast("Peli vei %d €. Ei se mitään, se oli huvia." % -net, 2.5)
+
+
 func stop(_why := "") -> void:
+	if in_game:
+		in_game = false
+		if is_instance_valid(_gnode):
+			_gnode.queue_free()
 	_ui.visible = false
 	CamCtl.free_mouse = false
 	if mode == "karaoke":
@@ -130,7 +216,7 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	match mode:
 		"karaoke":
-			return "E: osu tahtiin, kun osoitin on vihreällä · W/S: lopeta"
+			return ""
 		"pajatso", "hedelma":
 			return "E: pyöräytä · W/S: lopeta"
 		"tanssi":
@@ -141,9 +227,9 @@ func prompt() -> String:
 func act() -> void:
 	match mode:
 		"karaoke":
-			_sing_hit()
+			pass  # Frets on Fire -karaoke lukee näppäimet itse
 		"pajatso", "hedelma":
-			_spin()
+			pass  # minipeli lukee E:n itse
 		_:
 			game.end_activity()
 
@@ -271,7 +357,7 @@ func _order(i: int) -> void:
 func _play(t: Array) -> void:
 	game.world.happy.play_music(load(t[1]) as AudioStream)
 	_status.text = "Soi: %s" % t[0]
-	Sfx.play("coins_1", -8.0)
+	Sfx.play("coin", -8.0)
 
 
 func _toggle_hold(k: int) -> void:
@@ -299,7 +385,7 @@ func _spin() -> void:
 		_held = [false, false, false]
 		for hb in _hold_btns:
 			hb.text = "Lukitse"
-	Sfx.play("coins_2", -8.0)
+	Sfx.play("coin", -8.0)
 	var win := 0
 	if r[0] == r[1] and r[1] == r[2]:
 		win = 30 if r[0] in ["777", "Seiska"] else 10
@@ -342,7 +428,7 @@ func _process(delta: float) -> void:
 		_dance_t += delta
 		game.player.rotation.y += delta * 2.4
 		game.player.global_position.y += sin(_dance_t * 9.0) * 0.0  # pysyy lattialla
-	if mode != "karaoke" or _meter == null:
+	if mode != "karaoke" or _meter == null or in_game:
 		return
 	if _beat >= BEATS:
 		return

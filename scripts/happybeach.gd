@@ -666,8 +666,11 @@ func _interior() -> void:
 		_box(Vector3(pos.x, f + 0.72, pos.y), Vector3(0.9, 0.05, 0.9), WOOD)
 		_box(Vector3(pos.x, f + 0.36, pos.y), Vector3(0.1, 0.7, 0.1), WOOD.darkened(0.3), false)
 		for d: Vector2 in [Vector2(0.75, 0), Vector2(-0.75, 0), Vector2(0, 0.75), Vector2(0, -0.75)]:
-			_box(Vector3(pos.x + d.x, f + 0.25, pos.y + d.y), Vector3(0.4, 0.05, 0.4), Color(0.25, 0.4, 0.45), false)
-			_box(Vector3(pos.x + d.x, f + 0.12, pos.y + d.y), Vector3(0.06, 0.24, 0.06), Color(0.3, 0.3, 0.32), false)
+			# Istuinkorkeus 0,45 m kuten Siitarissa (Sitting_Idle-animaation istuinkorkeus).
+			_box(Vector3(pos.x + d.x, f + 0.45, pos.y + d.y), Vector3(0.45, 0.06, 0.45), Color(0.25, 0.4, 0.45), false)
+			for lx: float in [-0.18, 0.18]:
+				for lz: float in [-0.18, 0.18]:
+					_box(Vector3(pos.x + d.x + lx, f + 0.22, pos.y + d.y + lz), Vector3(0.04, 0.44, 0.04), Color(0.3, 0.3, 0.32), false)
 	# Jukeboksi ja pajatso länsiseinällä, etupuoli itään (+a).
 	_box(Vector3(-10.5, f + 0.8, 13.4), Vector3(0.6, 1.6, 0.9), Color(0.55, 0.15, 0.12))
 	_box(Vector3(-10.18, f + 1.2, 13.4), Vector3(0.04, 0.5, 0.7), Color(1.0, 0.75, 0.2), false)

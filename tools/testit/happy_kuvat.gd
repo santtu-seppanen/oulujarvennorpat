@@ -47,6 +47,7 @@ func _process(_delta: float) -> bool:
 			["ulko_kulma", _w(6.0, 1.7, 6.0), _w(-3.0, 2.5, 12.0), false],
 			["ulko_jarvelta", _w(-4.0, 2.0, 27.0), _w(-3.0, 3.0, 14.0), false],
 			["teltta_poyta", _y(-6.2, 2.2, 2.2), _y(-4.9, 0.25, 0.9), false],
+			["sisa_lahelta", Vector3.ZERO, h.world_at(-8.6, 13.4), true],
 			["sisa_baari", Vector3.ZERO, h.world_at(-3.0, 12.5), true],
 			["sisa_seurue", Vector3.ZERO, h.world_at(-8.0, 13.0), true],
 			["sisa_tanssi", Vector3.ZERO, h.world_at(0.5, 13.5), true],

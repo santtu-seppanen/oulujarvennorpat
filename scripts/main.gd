@@ -36,6 +36,7 @@ const Tarina := preload("res://scripts/tarina.gd")
 const OmatKatkot := preload("res://scripts/omat_katkot.gd")
 const Baari := preload("res://scripts/baari.gd")
 const Tarjoilupoyta := preload("res://scripts/tarjoilupoyta.gd")
+const Loppu := preload("res://scripts/loppu.gd")
 const Grilli := preload("res://scripts/grilli.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
@@ -85,6 +86,7 @@ var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpa
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta Sinikan kanssa (baari.gd)
 var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
+var loppu: Node  # pelin lopun cutscenet: voitto sunnuntaina, häviö maineen loppuessa (loppu.gd)
 var tarjoilu: Node3D  # ulkotarjoilupöytä: kahvi ja pyttipannu (tarjoilupoyta.gd)
 var baari: Node  # Happy Beachin baarirakennuksen toiminnot sisällä (baari.gd)
 var omat_katkot: Node3D  # pelaajan omat kätköt lähimaastossa (omat_katkot.gd)
@@ -157,6 +159,9 @@ func _ready() -> void:
 	sauna.game = self
 	add_child(sauna)
 	world.happy.game = self
+	loppu = Loppu.new()
+	loppu.game = self
+	add_child(loppu)
 	tarjoilu = Tarjoilupoyta.new()
 	tarjoilu.game = self
 	add_child(tarjoilu)
@@ -377,7 +382,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("restart"):
 		respawn()
 	elif event.is_action_pressed("interact"):
-		if activity != "":
+		if activity == "baari" and baari.in_game:
+			pass  # pajatso tai hedelmäpeli lukee E:n itse
+		elif activity != "":
 			_activity_node().act()
 		elif _ballgame() != null:
 			_ballgame().act()
@@ -391,7 +398,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		kortit.deal()  # välilyönti jakaa kortit
 	elif _ballgame() != null and event is InputEventKey and event.pressed and event.keycode == KEY_F:
 		_ballgame().stop()  # F lopettaa pallopelin
-	elif activity != "" and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
+	elif activity != "" and not (activity == "baari" and baari.in_game) \
+			and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
 		end_activity()
 	elif activity != "" and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_RIGHT \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -639,6 +647,9 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 	player.set_hidden_inside(false)
 	player.controls_enabled = true
 	var santtu: bool = Porukka.CREW[player_index].name == "Santtu"
+	# Epäonnistunut huussikäynti (kesken jäänyt tai penkille mennyt ykkönen, kesken jäänyt kakkonen) maksaa 10 mainetta.
+	if not r.done or (mode == "ykkonen" and r.accuracy < 0.6):
+		lose_maine(10, "Huussireissu meni pieleen")
 	if mode == "ykkonen":
 		if not r.done:
 			toast("Jäi kesken. Hätä palaa kyllä.", 2.5)
@@ -694,6 +705,13 @@ func end_activity(why := "") -> void:
 	CamCtl.pitch = 0.0 if _was_fps else -0.12
 	n.stop(why)
 	tarina.activity_ended(done)
+
+
+## Mainepisteiden menetys (0 = peli hävitty, ks. loppu.gd).
+func lose_maine(n: int, why: String) -> void:
+	maine = maxi(0, maine - n)
+	toast("%s: mainepisteet -%d (nyt %d/100)" % [why, n, maine], 4.0)
+	tarina._dirty = true
 
 
 ## Lyhyt ilmoitus ruudun alareunaan.
@@ -970,6 +988,7 @@ func _setup_input() -> void:
 	_add_action("restart", [KEY_R])
 	_add_action("map", [KEY_M])
 	_add_action("drink", [KEY_Q])
+	_add_action("mount", [KEY_F])
 
 
 func _add_action(action: String, keys: Array) -> void:
