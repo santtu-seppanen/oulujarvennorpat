@@ -30,8 +30,8 @@ func _process(_d: float) -> bool:
 			main.tarina._finish()
 	if frames >= 90:
 		var k := frames - 90
-		for t in [150, 250, 360]:
+		for t in [180, 230, 280]:
 			if k == t:
 				root.get_texture().get_image().save_png(out.path_join("%s_%d.png" % ["tappio" if loss else "voitto", t]))
 				print("kuva ", t, " ", main.loppu.active, " t=", main.loppu._t)
-	return frames > 90 + 920
+	return frames > 90 + 720

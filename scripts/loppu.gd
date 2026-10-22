@@ -9,6 +9,7 @@ extends Node
 const Reitti := preload("res://scripts/reitti.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Porukka := preload("res://scripts/porukka.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const WIN_LINES := ["Tää oli paras viikonloppu. *nuuh*", "Mulla meni jotain silmään... pyttipannusavua.",
 	"Ensi kesänä uudestaan. Lupaa se.", "Kahvit on juotu, mutta kaipaus jää."]
@@ -17,7 +18,7 @@ const LOSS_LINES := ["Maine meni. Koko Äpätti tietää.", "Michelin-tähdet...
 const HUG_T := 9.0  # halaus kestää näin kauan (s)
 const WALK_T := 3.0  # kävely autolle
 const DRIVE_T := 11.0
-const CARD_T := 3.0  # kunnes tulos- tai häviökortti tulee
+const LOSS_WALK_T := 26.0  # häviön vaellus autolle enintään näin kauan (s)
 
 var game: Node3D
 var active := false
@@ -43,6 +44,9 @@ var _honked := false
 var _stalled := false
 var _car_state: Array = []
 var _text_done := false
+var _flash := 0.0
+var _flash_t := 3.0
+var _inside: Array = []
 
 
 func _ready() -> void:
@@ -102,20 +106,20 @@ func start_loss() -> void:
 	_begin("tappio")
 	_card_text = "HÄVISIT PELIN\n\nMaine laski nollaan. Kotimatka oli hiljainen.\n\nE / R: aloita alusta"
 	_caption.text = "Maine nollassa…"
-	_tint.color = Color(0.04, 0.05, 0.16, 0.38)
+	_fade.color.a = 1.0
 	_rain = CPUParticles3D.new()
-	_rain.amount = 900
+	_rain.amount = 2200
 	_rain.lifetime = 0.9
 	_rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_rain.emission_box_extents = Vector3(16, 0.5, 16)
+	_rain.emission_box_extents = Vector3(22, 0.5, 22)
 	_rain.direction = Vector3(0.15, -1, 0)
 	_rain.spread = 3.0
 	_rain.initial_velocity_min = 16.0
 	_rain.initial_velocity_max = 20.0
 	var bm := BoxMesh.new()
-	bm.size = Vector3(0.012, 0.55, 0.012)
+	bm.size = Vector3(0.02, 0.9, 0.02)
 	var rm := StandardMaterial3D.new()
-	rm.albedo_color = Color(0.7, 0.78, 0.95, 0.55)
+	rm.albedo_color = Color(0.75, 0.82, 1.0, 0.8)
 	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	bm.material = rm
@@ -135,6 +139,9 @@ func _begin(m: String) -> void:
 	_honked = false
 	_stalled = false
 	_text_done = false
+	_inside.clear()
+	_flash = 0.0
+	_flash_t = 3.0
 	_card.text = ""
 	_fade.color.a = 0.0
 	_tint.color.a = 0.0
@@ -193,11 +200,20 @@ func _place_group() -> void:
 			p = mid + fwd * side * 0.28
 			face = mid
 		else:
-			p = centre + fwd * (float(i) - 1.5) * 1.1
+			# Häviö: norpat ovat kaukana pihan toisella laidalla (mökin suunnassa) ja vaeltavat jonossa autolle.
+			var toward := _toward_cabin()
+			p = c.global_position + toward * (13.0 + i * 2.0) + Vector3(-toward.z, 0, toward.x) * sin(float(i) * 2.3) * 1.2
 			face = c.global_position
 		_set_pos(_crew[i], p)
 		var look := face - p
 		(_crew[i] as CharacterBody3D).rotation.y = atan2(-look.x, -look.z)
+
+
+## Auton ja mökin pihan välinen suunta (xz).
+func _toward_cabin() -> Vector3:
+	var m := Mokki.yw(-4.9, 0.25)
+	var d := Vector3(m.x - _car().global_position.x, 0, m.y - _car().global_position.z)
+	return d.normalized()
 
 
 func _set_pos(b: CharacterBody3D, p: Vector3) -> void:
@@ -348,26 +364,61 @@ func _win(delta: float) -> void:
 
 func _loss(delta: float) -> void:
 	var c := _car()
-	var right := c.global_transform.basis.x
-	var centre := c.global_position + right * 3.4
-	_tint.color.a = minf(0.38, _t * 0.2)
-	if _t < 7.0:
-		# Lerpattavat päät, ei halauksia: istuvat ja roikkuvat rivissä auton vieressä.
+	var toward := _toward_cabin()
+	var side := Vector3(-toward.z, 0, toward.x)
+	# Pimeä sateinen ilta: pimennys tulee hitaasti, ja salama välähtää silloin tällöin.
+	_flash = maxf(0.0, _flash - delta * 2.2)
+	_flash_t -= delta
+	if _flash_t <= 0.0 and _t > 2.0:
+		_flash_t = randf_range(4.0, 8.0)
+		_flash = 0.55
+		Sfx.play("rattle_hard_0", -8.0, 0.5)
+	if _t < 1.6:
+		_fade.color.a = 1.0 - _t / 1.6
+	_tint.color = Color(0.03, 0.04, 0.14, minf(0.55, _t * 0.3)).lerp(Color(0.9, 0.93, 1.0, 0.6), _flash)
+	if _t < LOSS_WALK_T:
+		# Norpat vaeltavat sateessa autolle: hitaasti, päät painuksissa, märkinä. Kamera auton vierestä, ja he tulevat päin.
+		var arrived := 0
 		for i in _crew.size():
 			var b: CharacterBody3D = _crew[i]
 			var body: Node3D = b.body()
-			_anim(i, "Idle")
-			body.rotation.x = deg_to_rad(14.0)
-			body.rotation.z = sin(_t * 0.9 + i) * 0.03
-			if _bubbles.is_empty() and _t > 0.6 + i * 1.7 and int((_t - 0.6) / 1.7) == i:
-				_bubble(b, LOSS_LINES[i % LOSS_LINES.size()], 1.6)
-		_cam.global_position = centre - right * 4.6 + Vector3(0, 1.5, 0)
-		_cam.look_at(centre + Vector3(0, 1.0, 0), Vector3.UP)
-		_caption.text = "Maine nollassa…"
+			var to := c.global_position + side * 1.4 - b.global_position
+			to.y = 0.0
+			if to.length() > 1.5:
+				var sp := 1.15 + 0.12 * float(i % 2) + sin(_t * 0.7 + i) * 0.1
+				b.global_position += to.normalized() * sp * delta
+				b.global_position.y = Terrain.h(b.global_position.x, b.global_position.z) + 0.02
+				b.rotation.y = lerp_angle(b.rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-3.0 * delta))
+				body.play("Walk", 0.3, 0.55)
+				body.rotation.x = deg_to_rad(-9.0)  # kumarassa sateessa (negatiivinen = eteenpäin)
+				body.rotation.z = sin(_t * 2.4 + i * 1.7) * 0.05  # lerpattava kävely
+			else:
+				arrived += 1
+				b.visible = false  # autoon
+				if not _inside.has(i):
+					_inside.append(i)
+					Sfx.play("door_close", -4.0)
+		var cen := Vector3.ZERO
+		var n := 0
+		for b: CharacterBody3D in _crew:
+			if b.visible:
+				cen += b.global_position
+				n += 1
+		cen = (cen / float(n)) if n > 0 else c.global_position
+		# Seurantakuva: kamera kulkee jonon mukana sivulla, matalalla ja lähellä.
+		var focus := (cen + Vector3(0, 1.1, 0)) if n > 0 else c.global_position + Vector3(0, 1.0, 0)
+		var want_cam := ((cen if n > 0 else c.global_position) + side * 4.2 + Vector3(0, 1.3, 0))
+		_cam.global_position = _cam.global_position.lerp(want_cam, 1.0 - exp(-2.5 * delta)) if _t > 0.2 else want_cam
+		_cam.look_at(focus, Vector3.UP)
+		if _bubbles.is_empty() and _t > 1.5 and int((_t - 1.5) / 2.6) < LOSS_LINES.size() and fmod(_t - 1.5, 2.6) < 0.05 and _crew[int((_t - 1.5) / 2.6) % _crew.size()].visible:
+			_bubble(_crew[int((_t - 1.5) / 2.6) % _crew.size()], LOSS_LINES[int((_t - 1.5) / 2.6) % LOSS_LINES.size()], 2.2)
+		_caption.text = "Maine nollassa. Norpat vaeltavat sateessa autolle…"
+		if arrived == _crew.size():
+			_t = maxf(_t, LOSS_WALK_T)
 		return
 	for b: CharacterBody3D in _crew:
 		b.visible = false
-	var drive_t := _t - 7.0
+	var drive_t := _t - LOSS_WALK_T
 	# Auto köhii: nytkähtelee eteenpäin ja sammuu lopulta.
 	if not _honked:
 		_honked = true
