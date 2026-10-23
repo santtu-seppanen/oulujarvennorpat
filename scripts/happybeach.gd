@@ -347,11 +347,15 @@ func cw_door(door: String) -> Vector2:
 ## Ulkoa sisään (ovi-id) ja sisältä ulos (se ovi, jonka luona ollaan).
 func enter(door: String) -> void:
 	var e: Array = DOORS[door]["in"]
-	_teleport(world_at(e[0], e[1] + (-0.6 if door == "terassi" else 0.6)), Vector3(0, 0, 0))
+	# Sisääntulo oven toimintopisteen (säde 1 m) ulkopuolelle, ettei toinen E heitä heti takaisin ulos.
+	_teleport(world_at(e[0], e[1] + (-1.4 if door == "terassi" else 1.4)), Vector3(0, 0, 0))
+	_door_lock = Engine.get_physics_frames() + 40
 	_greet()
 
 
 func leave(door: String) -> void:
+	if Engine.get_physics_frames() < _door_lock:
+		return
 	var e: Array = DOORS[door].exit
 	var w := Reitti.cw(e[0], e[1])
 	_teleport(Vector3(w.x, pad_y + DECK_H + 0.05, w.y), Vector3.ZERO)
@@ -364,6 +368,7 @@ func _teleport(pos: Vector3, _unused: Vector3) -> void:
 
 
 var game: Node3D
+var _door_lock := 0
 
 
 func _greet() -> void:

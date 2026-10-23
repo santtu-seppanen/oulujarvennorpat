@@ -989,6 +989,7 @@ func _setup_input() -> void:
 	_add_action("map", [KEY_M])
 	_add_action("drink", [KEY_Q])
 	_add_action("mount", [KEY_F])
+	_add_action("kick", [KEY_K])  # pajatson tönäisy (TILT)
 
 
 func _add_action(action: String, keys: Array) -> void:

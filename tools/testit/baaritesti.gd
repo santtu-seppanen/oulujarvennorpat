@@ -113,6 +113,7 @@ func _process(_d: float) -> bool:
 				return false
 			var y: float = main.player.global_position.y
 			check(absf(y - (h.pocket.global_position.y + Hb.FLOOR_H)) < 0.3, "pelaaja pysyy lattialla (y %.2f)" % y)
+			_at("ovi_terassi")
 			check(main._interaction().get("text", "").find("ulos terassille") >= 0, "E-vihje: ulos terassille")
 			h.leave("terassi")
 			check(not Hb.in_building(main.player.global_position), "ulkona ei sisällä")
