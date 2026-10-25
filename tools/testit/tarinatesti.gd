@@ -104,6 +104,11 @@ func _process(delta: float) -> bool:
 				ta._poll(0.1)
 				check(ta.records.tennis == 12, "uusi ennätys tallentuu seuraavaksi tavoitteeksi")
 				check(ta.is_done("halot", 0), "torstain tulos säilyy")
+				main.maine = 50
+				ta._record_penalties(0)  # torstain pinkiponki ja heittely jäivät rikkomatta
+				check(main.maine == 30, "rikkomaton ennätystavoite maksaa 10 mainepistettä kummaltakin (maine %d)" % main.maine)
+				ta._record_penalties(1)  # perjantaina tennis tehty, heittely ei
+				check(main.maine == 20, "tehty ennätystavoite ei maksa (maine %d)" % main.maine)
 				main.sun.t_utc += 2.0 * 86400.0 + 17.0 * 3600.0 + 55.0 * 60.0  # sunnuntai klo 18.05
 				next()
 		4:

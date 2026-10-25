@@ -3,7 +3,7 @@ extends SceneTree
 ## - Reitin pisteet ja kehys: reitti n. 850 m, Happy Beachin kehys (a, b) menee edestakaisin.
 ## - Auto odottaa mökin pihalla ajouralla; E rattiin, porukka kyytiin (piiloon).
 ## - Automaattiajo Happy Beachille: perille asti reitin päällä (ei jumia), E ulos, porukka seisoo auton vieressä.
-## - Baari: auki lauantaina, kiinni sunnuntaina (oikeat aukioloajat); olut nostaa promilleja.
+## - Baari: auki joka päivä 20-02, kiinni päivällä (oikeat aukioloajat); olut nostaa promilleja.
 ## - Takaisin mökille automaattiajolla: porukka palaa pihalle omiin puuhiinsa.
 
 var main: Node3D
@@ -71,10 +71,12 @@ func _process(delta: float) -> bool:
 				check(Vector2(car.global_position.x, car.global_position.z).distance_to(Reitti.HOME_SPOT) < 1.0, "auto mökin pihalla")
 				var lt := {"weekday": 6, "hour": 20, "minute": 0}
 				check(Happybeach.is_open(lt), "baari auki lauantaina klo 20")
-				lt.hour = 21
-				check(not Happybeach.is_open(lt), "baari kiinni lauantaina klo 21")
+				lt.hour = 1
+				check(Happybeach.is_open(lt), "baari auki yöllä klo 1")
+				lt.hour = 2
+				check(not Happybeach.is_open(lt), "baari kiinni klo 2")
 				lt = {"weekday": 0, "hour": 12, "minute": 0}
-				check(not Happybeach.is_open(lt), "baari kiinni sunnuntaina")
+				check(not Happybeach.is_open(lt), "baari kiinni sunnuntaina päivällä")
 				lt = {"weekday": 2, "hour": 14, "minute": 0}
 				check(not Happybeach.is_open(lt), "baari kiinni tiistaina klo 14")
 				for c in main.crew:
@@ -123,9 +125,9 @@ func _process(delta: float) -> bool:
 				var dw: Vector2 = main.world.happy.cw_door("terassi")
 				p.global_position = Vector3(dw.x, main.world.happy.pad_y + 0.2, dw.y)
 				p.velocity = Vector3.ZERO
-				# Lauantai klo 12 (to-su viikonloppu alkaa torstaista: torstai klo 12 + 2 vrk).
+				# Lauantai klo 21 (to-su viikonloppu alkaa torstaista: torstai klo 12 + 2 vrk + 9 h; ravintola auki 20-02).
 				main.sun.start_preset(main.Sun.STORY_PRESET)
-				main.sun.t_utc += 2.0 * 86400.0
+				main.sun.t_utc += 2.0 * 86400.0 + 9.0 * 3600.0
 				next()
 		4:
 			if t > 0.5:
@@ -133,13 +135,14 @@ func _process(delta: float) -> bool:
 				check(str(it.get("text", "")).contains("sisään"), "ravintola auki lauantaina: %s" % it.get("text", ""))
 				it.cb.call()
 				check(main.world.happy.in_pocket(p.global_position), "ovesta sisään ravintolaan")
+				main.world.happy._door_lock = 0  # oven lyhyt lukitus ohi
 				main.world.happy.leave("terassi")
-				main.sun.t_utc += 86400.0  # sunnuntai
+				main.sun.t_utc += 86400.0 - 9.0 * 3600.0  # sunnuntai klo 12
 				next()
 		5:
 			if t > 0.5:
 				var it: Dictionary = main._interaction()
-				check(not it.has("cb") and str(it.get("text", "")).contains("kiinni"), "ravintola kiinni sunnuntaina: %s" % it.get("text", ""))
+				check(not it.has("cb") and str(it.get("text", "")).contains("kiinni"), "ravintola kiinni sunnuntaina päivällä: %s" % it.get("text", ""))
 				p.global_position = car.global_position + Vector3(-2.0, 0.3, 0.0)
 				p.velocity = Vector3.ZERO
 				arrived = false

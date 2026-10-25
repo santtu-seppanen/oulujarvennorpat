@@ -27,6 +27,7 @@ const Korttipeli := preload("res://scripts/korttipeli.gd")
 const Oodi := preload("res://scripts/oodi.gd")
 const Chat := preload("res://scripts/chat.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
+const SytytysGame := preload("res://scripts/sytytys_game.gd")
 const Rinnepissa := preload("res://scripts/rinnepissa.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
 const Amerikanpallo := preload("res://scripts/amerikanpallo.gd")
@@ -81,6 +82,7 @@ var kortit: Node
 var chat: Node
 var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
+var sytytys: CanvasLayer = null  # saunan sytytys käynnissä (sytytys_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
@@ -353,7 +355,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _nap_t > 0.0 and event.is_action_pressed("interact"):
 		_wake()
 		return
-	if state != "play" or get_tree().paused or wc != null or pissa.active or _nap_t > 0.0:
+	if state != "play" or get_tree().paused or wc != null or sytytys != null or pissa.active or _nap_t > 0.0:
 		return
 	if car.passenger != null:
 		if event.is_action_pressed("map"):
@@ -790,6 +792,8 @@ func _interaction() -> Dictionary:
 			var held: int = sauna.carried.get(player_index, 0)
 			var kp: Vector3 = m.kiuas_pos
 			if held > 0 and Vector2(player.global_position.x - kp.x, player.global_position.z - kp.z).length() < 1.3:
+				if sauna.fire <= 0.0:
+					return {"text": "E: sytytä tuli kiukaaseen (sylissä %d halkoa · muista pelti)" % held, "cb": _start_sytytys}
 				return {"text": "E: halko kiukaaseen (sylissä %d · %s)" % [held, sauna.fire_text()],
 					"cb": _add_log}
 			return {"text": "E: istu lauteille (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
@@ -974,6 +978,32 @@ func _add_log() -> void:
 	sauna.add_log(player_index)
 	if sauna.fire > f0:
 		tarina.complete("halot")
+
+
+## Sammunut kiuas sytytetään minipelillä: klapit ja syttö pesään, pelti auki ja tulitikku.
+func _start_sytytys() -> void:
+	end_activity()
+	player.controls_enabled = false
+	_hud.visible = false
+	sytytys = SytytysGame.new()
+	sytytys.logs = sauna.carried.get(player_index, 0)
+	sytytys.damper = sauna.damper
+	sytytys.finished.connect(_sytytys_result)
+	add_child(sytytys)
+
+
+func _sytytys_result(res: Dictionary) -> void:
+	sytytys = null
+	_hud.visible = true
+	player.controls_enabled = true
+	sauna.damper = res.damper
+	if res.quit:
+		return
+	if not res.ok:
+		toast(res.why, 4.5)
+		return
+	sauna.ignite(player_index, res.logs, res.quality, res.smoky)
+	tarina.complete("halot")
 
 
 # --- Syöte, ympäristö ja asetukset ----------------------------------------------------------------------------

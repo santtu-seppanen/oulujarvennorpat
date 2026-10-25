@@ -108,8 +108,6 @@ func start() -> bool:
 			target = Vector2(-1.0, 11.1)
 		"seurue":
 			target = Vector2(-8.8, 14.4)
-		"kortit":
-			target = Vector2(-8.4, 11.9)
 	var tw: Vector3 = h.world_at(target.x, target.y)
 	var d: Vector3 = tw - game.player.global_position
 	game.player.rotation.y = atan2(-d.x, -d.z)
@@ -243,8 +241,7 @@ func _build() -> void:
 	_meter = null
 	_box = Ui.panel(_ui, "bottom", 560)
 	var title: String = {"tiski": "HAPPY BEACH · BAARI", "karaoke": "KARAOKE", "jukeboksi": "JUKEBOKSI", "pajatso": "PAJATSO",
-		"hedelma": "HEDELMÄPELI", "tanssi": "TANSSILATTIA", "sinikka": "SINIKKA", "seurue": "PÖYTÄSEURUE",
-		"kortit": "KORTTIPELI"}[mode]
+		"hedelma": "HEDELMÄPELI", "tanssi": "TANSSILATTIA", "sinikka": "SINIKKA", "seurue": "PÖYTÄSEURUE"}[mode]
 	Ui.label(_box, title, 22, Ui.YELLOW)
 	_status = Ui.label(_box, "", 16)
 	match mode:
@@ -316,12 +313,6 @@ func _build() -> void:
 				var t: String = game.world.happy.SEURUE_LINES.pick_random()
 				_status.text = "Seurue: \"%s\"" % t
 				game.world.happy.say(game.world.happy._seurue.pick_random(), t))
-		"kortit":
-			_status.text = "Paikalliset pelaavat korttia. Katsot olan yli."
-			Ui.button(_box, "Katso peliä", func() -> void:
-				var t: String = game.world.happy.CARD_LINES.pick_random()
-				_status.text = "Pelaaja: %s" % t
-				game.world.happy.say(game.world.happy._cardplayers.pick_random(), t))
 		"karaoke":
 			_beat = 0
 			_hits = 0
@@ -334,7 +325,7 @@ func _build() -> void:
 			_status.text = "Tanssit Sinikan kanssa diskopallon alla. W/S lopettaa." if _with_sinikka else "Diskopallo pyörii. W/S lopettaa."
 			_dance_t = 0.0
 			game.world.happy.disco_on = maxf(game.world.happy.disco_on, 40.0)
-	Ui.button(_box, "Valmis (E)" if mode in ["tiski", "jukeboksi", "sinikka", "seurue", "kortit"] else "Lopeta",
+	Ui.button(_box, "Valmis (E)" if mode in ["tiski", "jukeboksi", "sinikka", "seurue"] else "Lopeta",
 		func() -> void: game.end_activity())
 
 

@@ -253,7 +253,6 @@ const SPOTS := {
 	"tanssi": [0.8, 14.5, 1.3, "E: tanssimaan"],
 	"sinikka": [-1.0, 11.9, 1.0, "E: Sinikka baaritiskillä"],
 	"seurue": [-7.5, 13.2, 1.4, "E: juttele pöytäseurueen kanssa"],
-	"kortit": [-6.3, 11.0, 1.2, "E: katso korttipeliä"],
 	"ovi_terassi": [-4.0, 15.0, 1.0, "E: ulos terassille"],
 	"ovi_tie": [-8.0, 10.2, 1.0, "E: ulos parkkipaikalle"],
 }
@@ -265,7 +264,6 @@ const SEURUE_LINES := ["Istu vaan! Mistäs päin sitä ollaan?", "Äpätistä? S
 	"Meillä on serkun synttärit, tultiin koko porukalla.", "Kahvia ja pullaa, se on parasta.", "Happy Beachilla on aina hyvä tunnelma."]
 const SINIKKA_LINES := ["Moi! Tulitko sinäkin Äpätistä?", "Tanssittaisiinko, kun biisi soi?", "Baarimikko tekee parasta lonkeroa.",
 	"Sinikka täällä, hauska tavata.", "Karaokessa sinun pitäisi laulaa jotain."]
-const CARD_LINES := ["\"Tuplaan!\"", "\"Ässä! Kuka jakoi tän?\"", "\"Hertta on valttia.\"", "\"Vielä yksi jako, sitten kotiin.\""]
 const BARTENDER_LINES := ["Mitäs laitetaan?", "Karaoke alkaa, kun joku uskaltaa.", "Sinikka käy täällä joka viikko."]
 
 var pocket: Node3D  # sisätilan juuri taivaalla
@@ -278,7 +276,6 @@ var _jukebox: AudioStreamPlayer3D
 var disco_on := 0.0  # sekuntia, kunnes disko sammuu (jukeboksi tai karaoke)
 var sinikka: Node3D
 var _seurue: Array[Node3D] = []
-var _cardplayers: Array[Node3D] = []
 var _bartender: Node3D
 var _bubbles := {}  # hahmo -> [Label3D, aika]
 var _chat_t := 6.0
@@ -435,16 +432,14 @@ func _process(delta: float) -> void:
 		if _bubbles[who][1] <= 0.0:
 			_bubbles[who][0].queue_free()
 			_bubbles.erase(who)
-	# Seurue, korttipelaajat ja baarimikko jutustelevat itsekseen (kuplat), kun pelaaja on sisällä.
+	# Seurue ja baarimikko jutustelevat itsekseen (kuplat), kun pelaaja on sisällä.
 	if game != null and in_pocket(game.player.global_position):
 		_chat_t -= delta
 		if _chat_t <= 0.0:
 			_chat_t = randf_range(5.0, 9.0)
-			match randi() % 3:
+			match randi() % 2:
 				0:
 					say(_seurue.pick_random(), SEURUE_LINES.pick_random())
-				1:
-					say(_cardplayers.pick_random(), CARD_LINES.pick_random())
 				_:
 					say(_bartender, BARTENDER_LINES.pick_random())
 
@@ -700,12 +695,9 @@ func _interior() -> void:
 			"hair_color": Color(0.1, 0.07, 0.05), "height": 1.66, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
 	]
 	var seurue_at := [Vector2(-8.05, 14.6), Vector2(-9.55, 14.6), Vector2(-8.8, 13.85)]
-	var seurue_yaw := [PI * 0.5, -PI * 0.5, PI]
+	var seurue_yaw := [PI * 0.5, -PI * 0.5, 0.0]
 	for k in 3:
 		_seurue.append(_npc(seurue_looks[k], P(seurue_at[k].x, f, seurue_at[k].y), seurue_yaw[k], "Sitting_Idle"))
-	for k in 2:  # korttipelaajat: Siitarin paikalliset
-		_cardplayers.append(_npc(Looks.GRANDPAS[0 if k == 0 else 2], P(-8.4 + (-0.75 if k == 0 else 0.75), f, 11.9),
-			PI * 0.5 if k == 0 else -PI * 0.5, "Sitting_Idle"))
 	# Sisävalo ja ääni: jukeboksi soi 3D-äänenä huoneessa.
 	_in_light = OmniLight3D.new()
 	_in_light.position = P(-4.0, 2.5, 12.5)

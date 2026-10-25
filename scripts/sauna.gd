@@ -30,6 +30,7 @@ var heat := 0.0  # oma kuumuus 0..100
 var points := 0.0
 var best := 0
 var fire := 600.0  # palamisaikaa jäljellä kiukaassa (s); alussa sauna lämmin
+var damper := true  # pelti auki (sulkeutuu, kun tuli on sammunut)
 var temp := 80.0  # saunan ilman lämpö (°C)
 var carried := {}  # hahmon indeksi -> halkoja sylissä
 var _warn_t := 0.0
@@ -210,6 +211,17 @@ func add_log(i: int) -> void:
 		game.toast("Halko kiukaaseen. Tuli palaa vielä %d min (sylissä %d)." % [ceili(fire / 60.0), carried[i]], 3.0)
 
 
+## Sytytysminipelin onnistuminen: halot menevät pesään ja tuli palaa asettelun laadun mukaan.
+func ignite(i: int, logs: int, quality: float, smoky: bool) -> void:
+	carried[i] = maxi(0, carried.get(i, 0) - logs)
+	fire = minf(MAX_FIRE, logs * LOG_BURN * (0.5 + 0.5 * quality) * (0.85 if smoky else 1.0))
+	Sfx.play_on(_glow, "fire", -6.0, 1.2)
+	game.mp.send({"t": "halko", "f": fire, "T": temp})
+	var how := "Hyvä veto, tuli lähti heti!" if quality >= 0.9 and not smoky else \
+		("Savutti vähän, mutta tuli syttyi." if smoky else "Tuli syttyi, mutta veto on heikko – parempi asettelu kestäisi pidempään.")
+	game.toast("%s Tuli palaa noin %d min (sylissä %d)." % [how, ceili(fire / 60.0), carried[i]], 5.0)
+
+
 func fire_text() -> String:
 	if fire <= 0.0:
 		return "tuli sammunut"
@@ -232,6 +244,8 @@ func _process(delta: float) -> void:
 	loyly -= loyly * 0.18 * delta
 	# Kiukaan tuli ja saunan lämpö: palaessa lämpenee, sammuneena jäähtyy.
 	fire = maxf(0.0, fire - delta)
+	if fire <= 0.0:
+		damper = false  # sammuneen kiukaan pelti käännetään kiinni
 	if fire > 0.0:
 		temp = move_toward(temp, HOT_AIR, 0.6 * delta)
 	else:

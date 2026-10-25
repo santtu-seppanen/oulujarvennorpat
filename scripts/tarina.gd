@@ -20,6 +20,7 @@ const DAY_NAMES := ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai
 const DAY_COUNT := 4
 ## Happy Beachin tehtävät: kun porukka on rannalla, mökin tehtävät ovat tauolla, ja päinvastoin.
 const BEACH_TASKS := ["happy", "baari", "laulu"]
+const RECORD_LOSS := 10  # mainepisteet, kun päivän ennätystavoite jää rikkomatta
 const END_HOUR := 18  # viimeisenä päivänä viikonloppu päättyy tähän kellonaikaan
 
 ## Päivät: nimi, otsikko ja johdanto sekä montako tehtävää arvotaan poolista (picks).
@@ -340,7 +341,15 @@ func _advance_day() -> void:
 		game.toast("%s – %s. %s" % [weekday, DAYS[day].title, DAYS[day].intro], 9.0)
 
 
+## Ennätystavoite (pinkiponki, amerikkalainen jalkapallo) jäi rikkomatta: 10 mainepistettä per tavoite.
+func _record_penalties(d: int) -> void:
+	for t: Dictionary in tasks_for(d):
+		if t.has("record") and not done[d].has(t.id):
+			game.lose_maine(RECORD_LOSS, "Ennätystavoite jäi rikkomatta (%s)" % RECORD_NAME[t.record].split(" (")[0].split(":")[0])
+
+
 func _day_summary(d: int) -> void:
+	_record_penalties(d)
 	var n := count_done(d)
 	var total := tasks_for(d).size()
 	var t := "%s päättyi: %d/%d tehtävää." % [DAYS[d].title, n, total]
@@ -353,6 +362,8 @@ func _day_summary(d: int) -> void:
 
 func _finish() -> void:
 	finished = true
+	if not lost and day == DAY_COUNT - 1:
+		_record_penalties(day)
 	var n := 0
 	var total := 0
 	for d in DAY_COUNT:

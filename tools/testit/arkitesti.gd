@@ -16,6 +16,7 @@ var fails := 0
 var step := 0
 var clock := 0.0
 var ts := 0.0
+var _lit := false
 var arcs := {}
 
 
@@ -220,13 +221,22 @@ func _process(delta: float) -> bool:
 		16:
 			if t > 0.3:
 				var sa: Node = main.sauna
-				var it: Dictionary = main._interaction()
-				check(str(it.get("text", "")).contains("halko kiukaaseen"), "kiukaan kehote: %s" % it.get("text", ""))
-				if it.has("cb"):
+				if main.sytytys == null and not _lit:
+					# Sammunut kiuas sytytetään minipelillä: pelti auki, klapit ja syttö pyramidiksi, tikku.
+					var it: Dictionary = main._interaction()
+					check(str(it.get("text", "")).contains("sytytä tuli"), "kiukaan kehote: %s" % it.get("text", ""))
 					it.cb.call()
-					it.cb.call()
-				check(sa.fire > 250.0 and sa.carried[0] == sa.CARRY - 2, "kaksi halkoa tuleen (%.0f s)" % sa.fire)
-				next()
+					check(main.sytytys != null, "sytytysminipeli aukeaa")
+					_lit = true
+					var g: Node = main.sytytys
+					g._t = 1.0
+					g.toggle_damper()
+					for slot in [0, 2, 1, 3, 4]:
+						g.place(slot)
+					g.light()
+				elif main.sytytys == null:
+					check(sa.fire > 550.0 and sa.carried[0] == 0 and sa.damper, "sytytys onnistui: neljä halkoa palaa (%.0f s)" % sa.fire)
+					next()
 		17:
 			if t > 5.0:
 				var sa: Node = main.sauna
@@ -260,6 +270,7 @@ func _process(delta: float) -> bool:
 			for j in [1, 2, 3]:
 				var c: CharacterBody3D = main.crew[j]
 				c.brain = load("res://scripts/ai.gd").new(c, m, main.sun, main.Porukka.CREW[j].name)
+				c.brain._start("aurinko")  # satunnainen puuha (sauna, ruoka) ei saa estää päikkäreille lähtöä
 			next()
 		21:
 			if t > 4.0:

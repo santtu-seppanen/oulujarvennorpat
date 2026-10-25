@@ -117,7 +117,7 @@ func singing() -> bool:
 func _process(delta: float) -> void:
 	if state == "":
 		var lt: Dictionary = game.sun.local()
-		if _host() and lt.hour == 0 and lt.minute < 15 and _day != lt.day and not game.retki.active:
+		if _host() and lt.hour == 0 and _day != lt.day and not game.retki.active:
 			_gather(true)
 		return
 	_t += delta

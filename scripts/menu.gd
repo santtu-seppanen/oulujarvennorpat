@@ -18,7 +18,8 @@ E	paista pyttipannua (vain Marko), istu pöytään (ristiseiska tai tuppi)
 Välilyönti / E	korttipöydässä: jaa kortit / pöytä ylhäältä
 W / S	nouse / lopeta
 E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
-E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen
+E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sytytetään minipelillä
+A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
 F	lopettaa rantatenniksen ja pallon heittelyn
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
