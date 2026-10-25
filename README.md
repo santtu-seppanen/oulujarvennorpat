@@ -28,7 +28,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
 | R | takaisin aloituspaikalle |
-| Esc | taukovalikko ja asetukset |
+| Esc | taukovalikko ja asetukset (Grafiikka: näkyvyysetäisyys 800 m – 9 km ja "Heikko kone" -painike; testi `tools/testit/asetustesti.gd`) |
 
 Vedessä kahlataan (hidastaa syvyyden mukaan), ja yli 1,35 m syvässä uidaan. HUD näyttää lähimmän paikannimen,
 sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä syvyyden.

@@ -1109,6 +1109,10 @@ func _apply_settings() -> void:
 	sun.shadows_allowed = q >= 1
 	sun.max_shadow = [70.0, 70.0, 120.0, 180.0][q]
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
+	# Näkyvyysetäisyys: usva ja kameran kaukoraja (cam_ctl.gd) yhdessä; täydellä 9 km on entiset 250–5500 m.
+	var far: float = Settings.view_far()
+	_env.fog_depth_begin = 250.0 * far / 9000.0
+	_env.fog_depth_end = 5500.0 * far / 9000.0
 	_fps_label.visible = Settings.get_v("show_fps")
 	get_tree().call_group(B.GUIDES, "set_visible", Settings.get_v("show_guides"))
 

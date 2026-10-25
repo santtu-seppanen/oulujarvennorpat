@@ -283,10 +283,22 @@ func _settings(from: String) -> void:
 	tabs.custom_minimum_size = Vector2(560, 380)
 	_box.add_child(tabs)
 	var g := _tab(tabs, "Grafiikka")
+	var weak := Button.new()
+	weak.text = "Heikko kone: valitse kevyimmät asetukset"
+	weak.tooltip_text = "Erittäin matala laatu, renderöintiskaala 70 % ja lyhyt näkyvyysetäisyys."
+	weak.custom_minimum_size = Vector2(0, 40)
+	weak.pressed.connect(func() -> void:
+		Settings.set_v("quality", 0)
+		Settings.set_v("render_scale", 0.7)
+		Settings.set_v("view_distance", 0)
+		_settings(from))
+	g.add_child(weak)
 	_option(g, "Laatu", Settings.QUALITY, Settings.get_v("quality"), func(i: int) -> void: Settings.set_v("quality", i))
 	_check(g, "Koko näyttö", "fullscreen")
 	_check(g, "Pystytahdistus (V-Sync)", "vsync")
 	_slider(g, "Renderöintiskaala", "render_scale", 0.5, 1.0, 0.05, "%d %%", 100.0)
+	_option(g, "Näkyvyysetäisyys (lyhyt keventää)", Settings.VIEW_NAMES, Settings.get_v("view_distance"),
+		func(i: int) -> void: Settings.set_v("view_distance", i))
 	_slider(g, "Näkökenttä (FOV)", "fov", 55.0, 95.0, 1.0, "%d°", 1.0)
 	_check(g, "Näytä FPS", "show_fps")
 	_check(g, "Näytä opasteet (paikkojen ja hahmojen nimet)", "show_guides")
