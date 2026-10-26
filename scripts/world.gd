@@ -15,6 +15,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
+const Satama := preload("res://scripts/satama.gd")
 const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 
@@ -28,6 +29,7 @@ var data := {}
 var trees: Node3D
 var mokki: Node3D
 var ranta: Node3D  # hiekkaranta, kätköpolku ja viinakätkö (ranta.gd)
+var satama: Node3D  # Äpätin venesatama niemen kärjessä (satama.gd)
 var happy: Node3D  # Camping Happy Beach leirintäalue törmällä (happybeach.gd)
 var ponds: Array = []   # [{level, poly: PackedVector2Array}]
 var names: Array = []   # [{name, p: Vector2}]
@@ -87,7 +89,9 @@ func _ready() -> void:
 	add_child(ranta)
 	happy = Happybeach.new()
 	add_child(happy)
-	_ajastus("mokki,ranta,happy")
+	satama = Satama.new()
+	add_child(satama)
+	_ajastus("mokki,ranta,happy,satama")
 	trees = Trees.new()
 	add_child(trees)
 	_ajastus("puut")

@@ -170,57 +170,104 @@ func _process(delta: float) -> bool:
 	return false
 
 
-## Afrikan tähti: kartta, arvonta, liikkuminen, kaupungin jakaminen ja koko peli tietokoneen pelaamana.
+## Afrikan tähti (alkuperäisten sääntöjen mukaan): verkko, kiekot, ostaminen, rahat, meritien maksu ja koko peli.
 func _afrikka() -> void:
 	var at: Node = main.afrikka
 	var A: GDScript = load("res://scripts/afrikantahti.gd")
+	var h: int = main.player_index
+	# Verkko: jokainen kaupunki saavutettavissa Tangerista.
+	var seen := {0: true}
+	var q: Array = [0]
+	while not q.is_empty():
+		var n: int = q.pop_front()
+		for e: Dictionary in at.adj[n]:
+			if not seen.has(e.to):
+				seen[e.to] = true
+				q.append(e.to)
 	var all_linked := true
 	for c in A.CITIES.size():
-		if A.distance(A.START, c) >= 99:
+		if not seen.has(c):
 			all_linked = false
-	check(all_linked and A.neighbors(A.START).size() >= 2, "kaikki kaupungit saavutettavissa Tunisista")
+	check(all_linked, "kaikki kaupungit saavutettavissa Tangerista maa- ja meriteitse")
 	main.start_activity("lautapeli")
 	main.lautapeli.choose(1)
 	await create_timer(0.3).timeout
 	check(main.activity == "afrikka" and at.phase == "roll", "Q-valinta 2 aloittaa Afrikan tähden")
-	var set_ok: bool = at.gem_city.size() == A.GEM_COUNT and not at.gem_city.has(A.START) and at.star_city != A.START \
-		and not at.gem_city.has(at.star_city)
-	check(set_ok, "timantit ja tähti arvottu eri kaupunkeihin (%s, tähti %d)" % [at.gem_city, at.star_city])
-	check(A.distance(A.START, at.star_city) >= 3, "tähti on kaukana aloituksesta")
-	# Pelaajan vuoro: noppa, liike vain naapuriin, timantti kerätään saapuessa.
-	at.turn = main.player_index
+	var counts := {}
+	for tk in at.tokens:
+		counts[tk] = int(counts.get(tk, 0)) + 1
+	check(counts.get("tahti", 0) == 1 and counts.get("rubiini", 0) == 2 and counts.get("smaragdi", 0) == 3 and counts.get("topaasi", 0) == 4
+		and counts.get("rosvo", 0) == 3 and counts.get("hevosenkenka", 0) == 5 and counts.get("tyhja", 0) == 8, "kiekot: tähti, 2 rubiinia, 3 smaragdia, 4 topaasia, 3 rosvoa, 5 hevosenkenkää, 8 tyhjää")
+	check(at.tokens[0] == "" and at.tokens[1] == "" and at.money[h] == 300 and at.pos[h] == 0, "Tangerissa ja Kairossa ei kiekkoa, rahaa 300 £")
+	# Vuoron valikko ja noppa.
+	at.turn = h
 	at.phase = "roll"
-	at.roll()
-	check(at.phase == "move" and at.left == at.dice and at.dice >= 1 and at.dice <= 6, "heitto antaa %d liikettä" % at.dice)
-	var far_city: int = at.gem_city[0]
-	var before: int = at.pos[main.player_index]
-	at.hop(far_city if not A.neighbors(before).has(far_city) else -1)
-	check(at.pos[main.player_index] == before or A.neighbors(before).has(far_city), "ei hypätä muuhun kuin naapuriin")
-	at.pos[main.player_index] = A.neighbors(at.gem_city[0])[0]
-	at.left = 3
-	at.phase = "move"
-	at.hop(at.gem_city[0])
-	check(at.gems[main.player_index].has(0) and at.left == 2, "timantti kerätty saapuessa")
-	# Toisen pelaajan kaupunkiin päättävä vuoro lähettää toisen takaisin Tunisiin.
-	var other: int = (main.player_index + 1) % 4
-	at.pos[other] = at.gem_city[0]
-	at.end_turn()
-	check(at.pos[other] == A.START and at.turn == (main.player_index + 1) % 4, "samaan kaupunkiin päätyvä lähettää toisen takaisin")
-	# Koko peli tietokoneen pelaamana: pelaaja heittää ja liikkuu myös automaattisesti.
+	at._build_opts()
+	check(at.opts.any(func(o: Dictionary) -> bool: return o.id == "roll"), "valikossa on nopan heitto")
+	at.confirm(0)
+	check(at.dice >= 1 and at.dice <= 6, "heitto antoi %d" % at.dice)
+	# Kiekon osto kaupungissa: rubiini +1000 £, kiekko pois.
+	var city := 9
+	at.turn = h
+	at.phase = "roll"
+	at.pos[h] = city
+	at.money[h] = 300
+	at.left = 0
+	at.tokens[city] = "rubiini"
+	at._build_opts()
+	var bi: int = at.opts.find_custom(func(o: Dictionary) -> bool: return o.id == "buy")
+	check(bi >= 0, "kaupungissa voi ostaa kiekon")
+	at.confirm(bi)
+	check(at.money[h] == 1200 and at.tokens[city] == "", "rubiini: -100 £ +1000 £ (%d £), kiekko pois" % at.money[h])
+	# Rosvo vie kaikki rahat; tähti jää mukaan; hevosenkenkä ennen tähteä on turha.
+	at.turn = h
+	at.phase = "roll"
+	at.tokens[city] = "rosvo"
+	at._build_opts()
+	at.confirm(at.opts.find_custom(func(o: Dictionary) -> bool: return o.id == "buy"))
+	check(at.money[h] == 0, "rosvo vie kaikki rahat")
+	at.star_found = false
+	at.tokens[city] = "hevosenkenka"
+	at.turn = h
+	at.phase = "roll"
+	at.money[h] = 300
+	at._open_token(true)
+	check(at.carry[h] == "", "hevosenkenkä ennen tähteä ei kelpaa")
+	at.tokens[city] = "tahti"
+	at._open_token(true)
+	check(at.carry[h] == "tahti" and at.star_found, "tähden löytäjä kantaa tähteä")
+	# Meritie maksaa 100 £: ilman rahaa satamasta ei lähdetä merelle.
+	var port := 23
+	at.turn = h
+	at.carry[h] = ""
+	at.prev = -1
+	at.pos[h] = port
+	at.money[h] = 50
+	var sea_poor := false
+	for e: Dictionary in at._cands():
+		if at.nodes[e.to].kind == "meri":
+			sea_poor = true
+	check(not sea_poor, "ilman 100 £ ei lähdetä merelle")
+	at.money[h] = 500
+	var sea_ok := false
+	for e: Dictionary in at._cands():
+		if at.nodes[e.to].kind == "meri":
+			sea_ok = true
+			at._step(e.to)
+			break
+	check(sea_ok and at.money[h] == 400, "meritien lähtö maksaa 100 £ (%d £)" % at.money[h])
+	# Koko peli tietokoneen pelaamana (myös pelaajan puolesta).
 	at.new_game()
 	var guard := 0
-	while at.phase != "over" and guard < 6000:
-		if at.turn == main.player_index:
-			if at.phase == "roll":
-				at.roll()
-			elif at.phase == "move":
-				at.hop(at._ai_pick())
+	while at.phase != "over" and guard < 40000:
+		if at.turn == h and (at.phase == "roll" or at.phase == "choose"):
+			at.confirm(at._ai_pick())
 		else:
 			at.step(5.0)
 		guard += 1
 	check(at.phase == "over" and at.winner >= 0, "peli päättyy voittoon (%d askelta)" % guard)
 	if at.winner >= 0:
-		check(at.gems[at.winner].size() == A.GEM_COUNT and at.star[at.winner] and at.pos[at.winner] == A.START, "voittajalla kaikki ja Tunisissa")
+		check(at.carry[at.winner] != "" and at.pos[at.winner] <= 1, "voittajalla tähti tai hevosenkenkä ja hän on Tangerissa tai Kairossa")
 		check(not at.ending_lines().is_empty(), "voitto kirjataan lopputulokseen")
 	main.end_activity()
 	next()

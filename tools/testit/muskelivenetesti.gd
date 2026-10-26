@@ -50,10 +50,12 @@ func _process(_d: float) -> bool:
 		0:
 			main.sun.t_utc = main.sun._local_to_utc(2026, 7, 11, 14, 0)
 			main.sun._update(true)
-			var h: Dictionary = main.world.mokki.harbor
+			var h: Dictionary = main.world.satama.harbor
 			check(not h.is_empty() and vn.at == 0 and vn.global_position.distance_to(h.pos) < 0.1, "vene on Äpätin satamassa")
 			check(vn.free_at(vn.global_position, vn.rotation.y), "veneen paikka laiturin kyljessä on riittävän syvää vettä")
-			check(M.HARBOR_DECK > 0.42 + 0.25, "sataman kansi (%.2f m) on korkeampi kuin mökkilaiturin (0,42 m)" % M.HARBOR_DECK)
+			var Sat: GDScript = load("res://scripts/satama.gd")
+			check(Sat.DECK > 0.42 + 0.25, "sataman kansi (%.2f m) on korkeampi kuin mökkilaiturin (0,42 m)" % Sat.DECK)
+			check(Vector2(h.pos.x - 150.0, h.pos.z + 104.0).length() < 40.0 and h.pos.z < -110.0, "satama on niemen kärjessä")
 			check(vn.moorings.size() == 2 and vn.moorings[1].name == "Happy Beachin laituri", "satamapaikkoja kaksi: Äpätti ja Happy Beach")
 			check(vn.free_at(vn.moorings[1].pos, vn.moorings[1].yaw), "Happy Beachin laiturin paikka on riittävän syvää vettä")
 			_put_player_on_deck(h.deck)
@@ -95,7 +97,7 @@ func _process(_d: float) -> bool:
 				# Reitti Happy Beachille syvässä vedessä.
 				var a: Vector3 = vn.moorings[0].pos
 				var b: Vector3 = vn.moorings[1].pos
-				var path := [Vector2(a.x, a.z), Vector2(a.x + 6.0, -70.0), Vector2(-200.0, -100.0), Vector2(-480.0, -110.0), Vector2(-535.0, -100.0),
+				var path := [Vector2(a.x, a.z), Vector2(a.x - 12.0, -134.0), Vector2(100.0, -136.0), Vector2(-200.0, -110.0), Vector2(-480.0, -110.0), Vector2(-535.0, -100.0),
 					Vector2(b.x, b.z)]
 				var blocked := 0
 				for i in path.size() - 1:

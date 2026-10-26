@@ -80,6 +80,7 @@ var _question: Label
 var _meter: Ui.Meter
 var _info: Label
 var _picks: Array = []
+var _pick := 0  # valikon valittu peli (↑/↓)
 
 
 func _ready() -> void:
@@ -122,6 +123,7 @@ func start() -> bool:
 	_on = true
 	_ui.visible = true
 	phase = "valinta"
+	_pick = 0
 	_refresh()
 	return true
 
@@ -160,36 +162,58 @@ func choose(k: int) -> void:
 		return
 	if k == 0:
 		_new_game()
+		game.ohje.open_first("trivia")
 	else:
 		game.call_deferred("start_activity", "afrikka")
 
 
+## Pelivalikossa ylös/alas-nuolet (ja W/S) valitsevat pelin, joten main.gd ei nosta pelaajaa pöydästä niistä (F nostaa).
+func keeps_arrows() -> bool:
+	return phase == "valinta"
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if not _on or phase != "valinta" or Chat.typing:
+	if not _on or Chat.typing:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H and phase != "valinta":
+		game.ohje.open("trivia")
+		get_viewport().set_input_as_handled()
+		return
+	if phase != "valinta":
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_1:
 			choose(0)
 		elif event.physical_keycode == KEY_2:
 			choose(1)
+	if event.is_action_pressed("forward") or event.is_action_pressed("left"):
+		_pick = (_pick + 1) % 2
+		_refresh()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("back") or event.is_action_pressed("right"):
+		_pick = (_pick + 1) % 2
+		_refresh()
+		get_viewport().set_input_as_handled()
 
 
 func prompt() -> String:
 	match phase:
 		"valinta":
-			return "1: ysäritrivia · 2: Afrikan tähti · W: nouse pöydästä"
+			return "↑/↓ tai 1/2: valitse peli · E: aloita · F: nouse pöydästä"
 		"ask":
 			if turn == human():
 				return "Enter: kirjoita vastaus chattiin · E: ohita · W: nouse pöydästä"
 			return "Vastaamassa: %s · W: nouse pöydästä" % _name(turn)
 		"over":
-			return "E: uusi peli · W: nouse pöydästä"
+			return "E: uusi peli · H: ohje · W: nouse pöydästä"
 		_:
 			return "E: jatka · W: nouse pöydästä"
 
 
 func act() -> void:
 	match phase:
+		"valinta":
+			choose(_pick)
 		"intro":
 			_begin_turn()
 		"ask":
@@ -319,8 +343,10 @@ func _refresh() -> void:
 	for i in 4:
 		parts.append("%s%s %d/%d" % ["> " if i == turn and phase != "intro" and phase != "over" else "", _name(i), wedges[i].size(), WIN])
 	_score.text = "   ·   ".join(parts)
-	for b: Button in _picks:
+	for k in _picks.size():
+		var b: Button = _picks[k]
 		b.visible = phase == "valinta"
+		b.text = "%s%d. %s" % ["> " if k == _pick else "   ", k + 1, ["Ysäritrivia", "Afrikan tähti"][k]]
 	_meter.visible = phase == "ask" and turn == human()
 	if _meter.visible:
 		_meter.zones = [[0.0, 1.0, Color(0.25, 0.5, 0.3, 0.6)]]

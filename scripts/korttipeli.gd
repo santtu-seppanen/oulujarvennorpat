@@ -98,7 +98,15 @@ func start() -> bool:
 	game.kokkaus.eat()
 	game.kahvi.drink()
 	_refresh()
+	game.ohje.open_first("kortit")
 	return true
+
+
+## H avaa korttipelien ohjeen.
+func _unhandled_input(event: InputEvent) -> void:
+	if _ui.visible and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H:
+		game.ohje.open("kortit")
+		get_viewport().set_input_as_handled()
 
 
 ## E: pöytä ylhäältä tai takaisin omalle paikalle.
@@ -125,8 +133,8 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	var look := "E: pöytä ylhäältä" if not top_view else "E: takaisin paikalle"
 	if not playing():
-		return "Välilyönti: jaa kortit (%s) · %s · W: nouse pöydästä" % [_kind_name(), look]
-	return "Klikkaa korttia · %s · A/D: katso ympärille · W: nouse pöydästä" % look
+		return "Välilyönti: jaa kortit (%s) · %s · H: ohje · W: nouse pöydästä" % [_kind_name(), look]
+	return "Klikkaa korttia · %s · A/D: katso ympärille · H: ohje · W: nouse pöydästä" % look
 
 
 func playing() -> bool:

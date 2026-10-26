@@ -142,6 +142,7 @@ func start() -> bool:
 	_sum = 0
 	_phase = "intro"
 	_refresh()
+	game.ohje.open_first("muistelu")
 	return true
 
 
@@ -155,11 +156,11 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	match _phase:
 		"choose":
-			return "1/2/3 tai A/D + E: valitse · W: poistu nuotiolta"
+			return "↑/↓ tai 1/2/3: valitse · E: vahvista · H: ohje · F: poistu nuotiolta"
 		"done":
 			return "E: poistu nuotiolta"
 		_:
-			return "E: jatka · W: poistu nuotiolta"
+			return "E: jatka · H: ohje · W: poistu nuotiolta"
 
 
 func act() -> void:
@@ -173,20 +174,33 @@ func act() -> void:
 	_refresh()
 
 
+## Vastausvalikossa ylös/alas-nuolet (ja W/S) siirtävät valintaa, joten main.gd ei lopeta tarinoita niistä (F lopettaa).
+func keeps_arrows() -> bool:
+	return _phase == "choose"
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if _phase != "choose" or Chat.typing or not _ui.visible:
+	if not _ui.visible or Chat.typing:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H:
+		game.ohje.open("muistelu")
+		get_viewport().set_input_as_handled()
+		return
+	if _phase != "choose":
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.physical_keycode - KEY_1
 		if k >= 0 and k < 3:
 			choose(k)
 			return
-	if event.is_action_pressed("left"):
+	if event.is_action_pressed("left") or event.is_action_pressed("forward"):
 		_sel = (_sel + 2) % 3
 		_refresh()
-	elif event.is_action_pressed("right"):
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("right") or event.is_action_pressed("back"):
 		_sel = (_sel + 1) % 3
 		_refresh()
+		get_viewport().set_input_as_handled()
 
 
 ## Seuraava tarina (tai illan päätös).

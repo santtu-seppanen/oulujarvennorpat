@@ -41,7 +41,7 @@ static func list(game: Node3D) -> Array:
 	out.append({"name": "Auton paikka", "p": Reitti.HOME_SPOT, "kind": "paikka", "major": false})
 	# Mökin paikat.
 	out.append({"name": "Huussi", "p": Mokki.yw(11.5, -1.7), "kind": "paikka", "major": false})
-	out.append({"name": "Äpätin satama", "p": Vector2(game.world.mokki.harbor.pos.x, game.world.mokki.harbor.pos.z), "kind": "paikka",
+	out.append({"name": "Äpätin venesatama (niemen kärki)", "p": Vector2(game.world.satama.harbor.pos.x, game.world.satama.harbor.pos.z), "kind": "paikka",
 		"major": true})
 	out.append({"name": "Grillikatos", "p": Mokki.yw(-9.0, -1.4), "kind": "paikka", "major": false})
 	out.append({"name": "Nuotiopaikka", "p": Vector2(game.nuotio.pos.x, game.nuotio.pos.z), "kind": "paikka", "major": false})

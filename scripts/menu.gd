@@ -20,8 +20,8 @@ W / S	nouse / lopeta
 E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
 E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sytytetään minipelillä
 A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
-E / Q	nuotiolla rannalla: paista makkaraa (A/D siirtää hiilloksella, ei liekkiin) / "Muistatko kun" -tarinat (1/2/3 tai A/D + E)
-Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: E heittää noppaa, A/D + E tai klikkaus liikuttaa, Q lopettaa liikkeen
+E / Q	nuotiolla rannalla: paista makkaraa (A/D siirtää hiilloksella, ei liekkiin) / "Muistatko kun" -tarinat (↑/↓ tai 1/2/3 + E, F poistuu)
+Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: valikko ↑/↓ + E tai klikkaus (noppa, reitti, kiekon osto, lento). H: ohje missä tahansa pelissä, F nousee pöydästä
 F	lopettaa rantatenniksen ja pallon heittelyn
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
@@ -29,7 +29,7 @@ M	kartta (koko 10 x 10 km alue)
 V	FPS / kolmas persoona
 Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
 Esc	taukovalikko
-R	takaisin aloituspaikalle"""
+R	takaisin aloituspaikalle (ei kesken minipelin)"""
 
 var game: Node3D
 var _root: Control

@@ -58,7 +58,7 @@ func _process(_d: float) -> bool:
 			check(main.player.promille < drunk, "kahvi laskee humalaa")
 			main.end_activity()
 			check(main.activity == "", "aktiviteetti loppuu")
-			for id: String in ["jukeboksi", "pajatso", "tanssi", "karaoke"]:
+			for id: String in ["jukeboksi", "pajatso", "hedelma", "pokeri", "tanssi", "karaoke"]:
 				_at(id)
 				check(h.spot_at(main.player.global_position).get("id", "") == id, "toimintopiste " + id)
 			_at("pajatso")
@@ -70,6 +70,19 @@ func _process(_d: float) -> bool:
 			main.start_activity("baari")
 			check(main.baari.in_game and is_instance_valid(main.baari._gnode), "hedelmäpeli (Normipäivän minipeli) aukeaa")
 			main.end_activity()
+			_at("pokeri")
+			main.start_activity("baari")
+			var pk = main.baari._gnode
+			check(main.baari.in_game and pk != null and pk.has_method("evaluate"), "videopokeri aukeaa")
+			pk._deal()
+			check(pk._phase == "hold" and pk._hand.all(func(c: int) -> bool: return c >= 0), "pokeri jakaa viisi korttia")
+			var PG: GDScript = load("res://scripts/pokeri_game.gd")
+			check(PG.evaluate([8, 9, 10, 11, 12]) == 0, "pokeri: kuninkaallinen värisuora")
+			check(PG.evaluate([9, 22, 0, 2, 4]) == 8, "pokeri: jätkäpari")
+			check(PG.evaluate([8, 21, 0, 2, 4]) == -1, "pokeri: kymppipari ei voita")
+			check(PG.evaluate([0, 13, 26, 39, 5]) == 2, "pokeri: neloset")
+			main.end_activity()
+			check(not main.baari.in_game and not is_instance_valid(main.baari._gnode), "pokeri sulkeutuu")
 			_at("jukeboksi")
 			main.start_activity("baari")
 			main.baari._play(main.baari.TRACKS[0])

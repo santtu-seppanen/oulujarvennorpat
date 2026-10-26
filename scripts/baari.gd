@@ -4,7 +4,9 @@ extends Node
 ## - karaoke: lavalla laulu osumalla E:llä tahtiin (osumapalkki), sanat baarin ruudulla; onnistuminen kuittaa tehtävän
 ## - jukeboksi: soittaa pelin musiikkikappaleita huoneessa, diskovalot pyörivät musiikin ajan
 ## - pajatso: kolme rullaa, pelimerkit (ei oikeaa rahaa)
-## - hedelmäpeli: kolme rullaa, voi lukita rullia ennen uutta pyöräytystä
+## - hedelmäpeli: kolme rullaa, voi lukita rullia ennen uutta pyöräytystä ja tuplata voiton
+## - videopokeri: Jacks or Better (pokeri_game.gd), viisi korttia, pidä ja vaihda, tuplaus
+## Jokaisella pelillä on ohje (ohje.gd): se aukeaa ensimmäisellä kerralla itsestään, ja H avaa sen uudelleen.
 ## - Sinikka: juttelu, drinkin tarjoaminen ja yhteistanssi; pöytäseurue ja korttipelaajat: jutustelu
 ## - tanssi: tanssilattialla eurodance-rytmipeli diskopallon alla (tanssi_game.gd), yksin tai Sinikan kanssa
 ## Käyttöliittymä on valikon tyylinen (ui.gd); W/S tai E (valikoissa) lopettaa.
@@ -12,6 +14,7 @@ extends Node
 const Ui := preload("res://scripts/ui.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
+const PokeriGame := preload("res://scripts/pokeri_game.gd")
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 
@@ -33,14 +36,14 @@ const SLOT_SYMBOLS := ["Kirs", "Sitr", "Kello", "Tähti", "777"]
 const FRUITS := ["Kirsikka", "Sitruuna", "Luumu", "Kello", "Seiska"]
 
 var game: Node3D
-var mode := ""  # tiski | karaoke | jukeboksi | pajatso | tanssi
+var mode := ""  # tiski | karaoke | jukeboksi | pajatso | hedelma | pokeri | tanssi
 var _ui: CanvasLayer
 var _box: VBoxContainer
 var _status: Label
 var _tokens := 10  # euroja pajatsolle ja hedelmäpelille
 var _pot := 12  # pajatson potti säilyy koneessa
 var _gnode: CanvasLayer
-var in_game := false  # pajatso tai hedelmäpeli (canvas-minipeli) on auki
+var in_game := false  # pajatso, hedelmäpeli, videopokeri, karaoke tai tanssi (canvas-minipeli tai sen ohje) on auki
 var _reels: Array[Label] = []
 var _held := [false, false, false]
 var _hold_btns: Array[Button] = []
@@ -116,7 +119,7 @@ func start() -> bool:
 	_build()
 	_ui.visible = true
 	CamCtl.free_mouse = true
-	if mode == "pajatso" or mode == "hedelma":
+	if mode == "pajatso" or mode == "hedelma" or mode == "pokeri":
 		_launch_game()
 	elif mode == "karaoke":
 		_launch_karaoke()
@@ -125,38 +128,58 @@ func start() -> bool:
 	return true
 
 
-## Karaoke on Normipäivän Frets on Fire -versio (karaoke_game.gd), kappaleena Oodi Oulujärvelle.
-func _launch_karaoke() -> void:
-	var g := KaraokeGame.new()
-	g.drunk = game.player.drunk()
-	var h: Node3D = game.world.happy
-	h.play_music(null)
-	h.disco_on = 1.0e6
-	g.line.connect(func(t: String) -> void: h.set_screen("♪ %s ♪" % t))
-	g.finished.connect(_karaoke_end)
-	_gnode = g
+## Pelin käynnistys: ensimmäisellä kerralla ohje (ohje.gd) aukeaa ensin, ja itse peli luodaan vasta ohjeen jälkeen.
+## in_game on tosi heti, joten main.gd ei lopeta aktiviteettia W/S:llä ohjeen aikana.
+func _begin(help_id: String, build: Callable) -> void:
 	in_game = true
 	_ui.visible = false
+	var m := mode
+	game.ohje.open_first(help_id, func() -> void:
+		if game.activity == "baari" and mode == m and in_game:
+			build.call())
+
+
+func _attach(g: CanvasLayer) -> void:
+	_gnode = g
 	game.add_child(g)
+
+
+## Karaoke on Normipäivän Frets on Fire -versio (karaoke_game.gd), kappaleena Oodi Oulujärvelle.
+func _launch_karaoke() -> void:
+	_begin("karaoke", func() -> void:
+		var g := KaraokeGame.new()
+		g.drunk = game.player.drunk()
+		var h: Node3D = game.world.happy
+		h.play_music(null)
+		h.disco_on = 1.0e6
+		g.line.connect(func(t: String) -> void: h.set_screen("♪ %s ♪" % t))
+		g.finished.connect(_karaoke_end)
+		_attach(g))
 
 
 ## Tanssilattia on eurodance-rytmipeli (tanssi_game.gd); Sinikan kanssa tanssiessa tulos paranee hieman.
 func _launch_dance() -> void:
-	var g := TanssiGame.new()
-	g.drunk = game.player.drunk()
-	var h: Node3D = game.world.happy
-	h.play_music(null)
-	h.disco_on = 1.0e6
-	h.set_screen("TANSSI\nA S W D")
-	g.finished.connect(_dance_end)
-	_gnode = g
-	in_game = true
-	_ui.visible = false
-	game.add_child(g)
+	_begin("tanssi", func() -> void:
+		var g := TanssiGame.new()
+		g.drunk = game.player.drunk()
+		var h: Node3D = game.world.happy
+		h.play_music(null)
+		h.disco_on = 1.0e6
+		h.set_screen("TANSSI\nA S W D")
+		g.finished.connect(_dance_end)
+		_attach(g))
+
+
+## Minipelin canvas-kerros pois näkyvistä: peli ei vapauta itseään, kun se päättyy signaaliin.
+func _drop_game() -> void:
+	if is_instance_valid(_gnode):
+		_gnode.queue_free()
+	_gnode = null
 
 
 func _dance_end(score: float, combo: int) -> void:
 	in_game = false
+	_drop_game()
 	var h: Node3D = game.world.happy
 	h.disco_on = 6.0
 	game.player.pose = ""
@@ -181,6 +204,7 @@ func _dance_end(score: float, combo: int) -> void:
 
 func _karaoke_end(score: float) -> void:
 	in_game = false
+	_drop_game()
 	var h: Node3D = game.world.happy
 	h.disco_on = 6.0
 	var t := "Oodi Oulujärvelle laulettu: %d %%. " % roundi(score * 100.0)
@@ -200,30 +224,47 @@ func _karaoke_end(score: float) -> void:
 		game.end_activity()
 
 
-## Pajatso ja hedelmäpeli ovat samat canvas-minipelit kuin Normipäivässä (pajatso_game.gd, hedelmapeli_game.gd).
+## Pajatso ja hedelmäpeli ovat samat canvas-minipelit kuin Normipäivässä (pajatso_game.gd, hedelmapeli_game.gd);
+## videopokeri on pokeri_game.gd.
 func _launch_game() -> void:
-	var g: CanvasLayer
-	if mode == "pajatso":
-		var pg := PajatsoGame.new()
-		pg.pot = _pot
-		pg.finished.connect(func(m: float, pot: int) -> void:
-			_pot = pot
-			_game_end(m))
-		g = pg
-	else:
-		var hg := HedelmapeliGame.new()
-		hg.finished.connect(func(m: float) -> void: _game_end(m))
-		g = hg
-	_gnode = g
-	g.drunk = game.player.drunk()
-	g.money = float(_tokens)
-	in_game = true
-	_ui.visible = false
-	game.add_child(g)
+	_begin(mode, func() -> void:
+		var g: CanvasLayer
+		if mode == "pajatso":
+			var pg := PajatsoGame.new()
+			pg.pot = _pot
+			pg.finished.connect(func(m: float, pot: int) -> void:
+				_pot = pot
+				_game_end(m))
+			g = pg
+		elif mode == "pokeri":
+			var kg := PokeriGame.new()
+			kg.finished.connect(func(m: float) -> void: _game_end(m))
+			g = kg
+		else:
+			var hg := HedelmapeliGame.new()
+			hg.finished.connect(func(m: float) -> void: _game_end(m))
+			g = hg
+		g.drunk = game.player.drunk()
+		g.money = float(_tokens)
+		_attach(g))
+
+
+## H avaa pelin ohjeen kesken pajatson, hedelmäpelin tai videopokerin (peli odottaa, kunnes ohje suljetaan).
+func _input(event: InputEvent) -> void:
+	if not in_game or mode not in ["pajatso", "hedelma", "pokeri"] or not is_instance_valid(_gnode) or game.ohje.is_open():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_H:
+		var g := _gnode
+		g.process_mode = Node.PROCESS_MODE_DISABLED
+		game.ohje.open(mode, func() -> void:
+			if is_instance_valid(g):
+				g.process_mode = Node.PROCESS_MODE_INHERIT)
+		get_viewport().set_input_as_handled()
 
 
 func _game_end(money_after: float) -> void:
 	in_game = false
+	_drop_game()
 	var net := int(money_after) - _tokens
 	_tokens = int(money_after)
 	if game.activity == "baari":
@@ -239,8 +280,9 @@ func _game_end(money_after: float) -> void:
 func stop(_why := "") -> void:
 	if in_game:
 		in_game = false
-		if is_instance_valid(_gnode):
-			_gnode.queue_free()
+		if game.ohje.is_open():
+			game.ohje.close()
+		_drop_game()
 	_ui.visible = false
 	CamCtl.free_mouse = false
 	if mode == "karaoke":
@@ -258,8 +300,8 @@ func prompt() -> String:
 	match mode:
 		"karaoke":
 			return ""
-		"pajatso", "hedelma":
-			return "E: pyöräytä · W/S: lopeta"
+		"pajatso", "hedelma", "pokeri":
+			return "H: ohje · F / Esc: lopeta"
 		"tanssi":
 			return "A S W D tai nuolet: askeleet tahtiin · Esc / F: lopeta"
 	return "Valitse klikkaamalla · E tai W/S: lopeta"
@@ -269,7 +311,7 @@ func act() -> void:
 	match mode:
 		"karaoke":
 			pass  # Frets on Fire -karaoke lukee näppäimet itse
-		"pajatso", "hedelma":
+		"pajatso", "hedelma", "pokeri":
 			pass  # minipeli lukee E:n itse
 		_:
 			game.end_activity()
@@ -284,7 +326,7 @@ func _build() -> void:
 	_meter = null
 	_box = Ui.panel(_ui, "bottom", 560)
 	var title: String = {"tiski": "HAPPY BEACH · BAARI", "karaoke": "KARAOKE", "jukeboksi": "JUKEBOKSI", "pajatso": "PAJATSO",
-		"hedelma": "HEDELMÄPELI", "tanssi": "TANSSILATTIA", "sinikka": "SINIKKA", "seurue": "PÖYTÄSEURUE"}[mode]
+		"pokeri": "VIDEOPOKERI", "hedelma": "HEDELMÄPELI", "tanssi": "TANSSILATTIA", "sinikka": "SINIKKA", "seurue": "PÖYTÄSEURUE"}[mode]
 	Ui.label(_box, title, 22, Ui.YELLOW)
 	_status = Ui.label(_box, "", 16)
 	match mode:

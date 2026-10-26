@@ -1,7 +1,7 @@
 extends CharacterBody3D
 ## Muskelivene: punavalkoinen nopea moottorivene (7 x 2,4 m, perämoottori, huippu n. 60 km/h), toteutus Normipäivä
-## Saloisissa -pelin muskeliveneestä. Vene on aina jossain satamassa (moorings): mökin viereisessä Äpätin satamassa
-## tai Happy Beachin laiturilla. Pelaaja nousee veneeseen satamassa (E) ja istuu ohjaamon oikealle penkille; W/S kaasu
+## Saloisissa -pelin muskeliveneestä. Vene on aina jossain satamassa (moorings): Äpätin venesatamassa niemen kärjessä
+## (satama.gd) tai Happy Beachin laiturilla. Pelaaja nousee veneeseen satamassa (E) ja istuu ohjaamon oikealle penkille; W/S kaasu
 ## ja peruutus, A/D ohjaus, V vaihtaa kuljettajan näkymään. Vene kulkee vain riittävän syvässä vedessä (pohjan korkeus
 ## alle FREE_H) ja törmää laitureihin ja lohkareisiin (törmäyskerros 1). Veneen voi jättää vain satamaan: E sataman
 ## lähellä (alle DOCK_R) ja hiljaa kulkiessa liu'uttaa veneen laituriin, ja pelaaja nousee laiturille. Mökkilaituri

@@ -42,6 +42,7 @@ const Grilli := preload("res://scripts/grilli.gd")
 const Nuotio := preload("res://scripts/nuotio.gd")
 const Makkara := preload("res://scripts/makkara.gd")
 const Muistelu := preload("res://scripts/muistelu.gd")
+const Ohje := preload("res://scripts/ohje.gd")
 const Lautapeli := preload("res://scripts/lautapeli.gd")
 const Afrikantahti := preload("res://scripts/afrikantahti.gd")
 const Tyopuhelu := preload("res://scripts/tyopuhelu.gd")
@@ -97,6 +98,7 @@ var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta S
 var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
 var nuotio: Node  # nuotiopaikka rannalla (nuotio.gd)
 var makkara: Node  # makkaranpaisto nuotiolla (makkara.gd)
+var ohje: Node  # minipelien ohjeruutu (ohje.gd)
 var muistelu: Node  # "Muistatko kun" -tarinat nuotiolla (muistelu.gd)
 var lautapeli: Node  # lautapelien valinta ja ysäritrivia keittiön pöydässä (lautapeli.gd)
 var afrikka: Node  # Afrikan tähti -lautapeli keittiön pöydässä (afrikantahti.gd)
@@ -201,6 +203,9 @@ func _ready() -> void:
 	muistelu = Muistelu.new()
 	muistelu.game = self
 	add_child(muistelu)
+	ohje = Ohje.new()
+	ohje.auto = not skip_menu
+	add_child(ohje)
 	lautapeli = Lautapeli.new()
 	lautapeli.game = self
 	add_child(lautapeli)
@@ -212,7 +217,7 @@ func _ready() -> void:
 	add_child(tyopuhelu)
 	muskelivene = Muskelivene.new()
 	muskelivene.game = self
-	muskelivene.moorings = [world.mokki.harbor, Happybeach.jetty_mooring()]
+	muskelivene.moorings = [world.satama.harbor, Happybeach.jetty_mooring()]
 	add_child(muskelivene)
 	muskelivene.place(0)
 	muskelivene.docked.connect(_motorboat_docked)
@@ -383,6 +388,8 @@ func _process(delta: float) -> void:
 		world.mokki.set_lamp(night)
 	if world.happy != null:
 		world.happy.set_lamp(night)
+	if world.satama != null:
+		world.satama.set_lamp(night)
 	if car != null:
 		car.set_night(night)
 		_ride_check()
@@ -439,7 +446,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_map.open()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("restart"):
-		respawn()
+		# R vie takaisin aloituspaikalle vain vapaana: ei minipelin, ohjeen tai kirjoittamisen aikana.
+		if activity == "" and not ohje.is_open() and not Chat.typing and _ballgame() == null:
+			respawn()
 	elif event.is_action_pressed("interact"):
 		if activity == "baari" and baari.in_game:
 			pass  # pajatso tai hedelmäpeli lukee E:n itse
@@ -457,6 +466,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		kortit.deal()  # välilyönti jakaa kortit
 	elif _ballgame() != null and event is InputEventKey and event.pressed and event.keycode == KEY_F:
 		_ballgame().stop()  # F lopettaa pallopelin
+	elif activity != "" and not (activity == "baari" and baari.in_game) and _activity_node().has_method("keeps_arrows") \
+			and _activity_node().keeps_arrows() and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
+		pass  # valikko käyttää ylös/alas-näppäimiä valintaan (muistelu.gd, lautapeli.gd, afrikantahti.gd): F lopettaa
+	elif activity != "" and _activity_node().has_method("keeps_arrows") and _activity_node().keeps_arrows() \
+			and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F:
+		end_activity()
 	elif activity != "" and not (activity == "baari" and baari.in_game) \
 			and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
 		end_activity()
@@ -789,7 +804,7 @@ func _interaction() -> Dictionary:
 	if _near_boat():
 		return {"text": "E: nouse kumiveneeseen", "cb": func() -> void: player.enter_boat(boat)}
 	if muskelivene.can_board(player.global_position) and player.boat == null and not player.hidden_inside:
-		return {"text": "E: nouse muskeliveneeseen (ajo Happy Beachin laituriin ja takaisin Äpätin satamaan)",
+		return {"text": "E: nouse muskeliveneeseen (ajo Happy Beachin laituriin ja takaisin Äpätin venesatamaan)",
 			"cb": _enter_motorboat}
 	if _near_car():
 		return {"text": "E: nouse autoon (ajo Happy Beachille ja takaisin · G: automaattiajo)", "cb": _enter_car}
@@ -914,7 +929,7 @@ func _enter_motorboat() -> void:
 	muskelivene.board(player)
 	_board_crew_boat(player_index)
 	mp.send({"t": "vene", "on": true, "i": player_index})
-	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin satamaan tai Happy Beachin laituriin.", 8.0)
+	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 8.0)
 	var other: Dictionary = muskelivene.moorings[1 - maxi(muskelivene.from_mooring, 0)]
 	_map.has_target = true
 	_map.target = Vector2(other.pos.x, other.pos.z)  # kompassi osoittaa toiseen satamaan
@@ -926,9 +941,9 @@ func _leave_motorboat() -> void:
 	if idx < 0:
 		var dock: Vector2 = Mokki.yw(-2.2, 14.0)
 		if Vector2(muskelivene.global_position.x - dock.x, muskelivene.global_position.z - dock.y).length() < 16.0:
-			toast("Mökkilaituri on liian matala muskeliveneelle. Aja Äpätin satamaan (itään, pitkä laituri).", 4.0)
+			toast("Mökkilaituri on liian matala muskeliveneelle. Aja Äpätin venesatamaan (niemen kärkeen, koilliseen).", 4.0)
 		else:
-			toast("Muskelivenettä ei voi jättää tähän. Aja Äpätin satamaan tai Happy Beachin laituriin.", 4.0)
+			toast("Muskelivenettä ei voi jättää tähän. Aja Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 4.0)
 		return
 	if absf(muskelivene.speed) > Muskelivene.DOCK_SPEED:
 		toast("Hidasta ensin (S), sitten E telakoi.", 2.5)
@@ -1483,7 +1498,7 @@ func _update_hud() -> void:
 	elif muskelivene.driver != null:
 		var mi: int = muskelivene.near_mooring()
 		_prompt.text = "%d km/h · W/S kaasu · A/D ohjaa · V näkymä · %s" % [roundi(absf(muskelivene.speed) * 3.6),
-			"E: telakoi (%s)" % muskelivene.moorings[mi].name if mi >= 0 else "E: aja satamaan (Äpätti tai Happy Beach)"]
+			"E: telakoi (%s)" % muskelivene.moorings[mi].name if mi >= 0 else "E: aja satamaan (Äpätin venesatama tai Happy Beach)"]
 	elif car.driver != null:
 		_prompt.text = "%d km/h · W/S kaasu ja jarru · A/D ohjaa · välilyönti käsijarru · G automaattiajo%s · H torvi · E pois" \
 			% [roundi(absf(car.speed) * 3.6), " (päällä)" if car.autopilot else ""]
