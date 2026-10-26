@@ -9,6 +9,7 @@ extends CharacterBody3D
 ## build(parent) rakentaa pelkän veneen: keula -Z, vesiraja y = 0.
 
 signal docked(idx: int)
+signal arrived(idx: int)  # automaattiajo pääsi satamaan idx
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -27,6 +28,12 @@ const DRAG := 2.2
 const TURN := 0.75
 const DOCK_R := 12.0        # näin lähellä satamapaikkaa telakointi onnistuu
 const DOCK_SPEED := 3.0     # telakointi vain tätä hitaammin (m/s)
+const AUTO_SPEED := 13.0    # automaattiajon matkavauhti (m/s)
+const SHORE_MARGIN := 4.0   # vapaata syvää vettä rungon ympärillä (m): vene ei pääse rannan lähelle jumiin
+const ARRIVE_R := 16.0      # automaattiajo telakoi tätä lähempänä satamapaikkaa (veneellä on iso kääntösäde)
+const HARBOR_R := 16.0      # näin lähellä satamapaikkaa ranta-esto lientyy (laituriin pitää päästä)
+const HARBOR_MARGIN := 0.8
+const ROUTE_CELL := 8.0     # reitinhaun ruutu (m)
 const SEAT_Z := 0.6
 const SEAT_TOP := 0.62
 ## Kuljettajan paikka veneen avaruudessa: origo ohjaamon lattialla, lantio penkillä.
@@ -43,10 +50,13 @@ var passenger: CharacterBody3D = null
 var passenger_seat := 1
 var remote := false
 var speed := 0.0
-## Satamapaikat: [{name, pos (veneen origo vedenpinnassa), yaw, deck (laiturin kohta, johon pelaaja nousee)}].
+## Satamapaikat: [{name, pos (veneen origo vedenpinnassa), yaw, deck (laiturin kohta, johon pelaaja nousee), avoid (valinnainen:
+## laiturirakenteiden Rect2-alueet maailman x, z, joita automaattiajon reitti kiertää)}].
 var moorings: Array = []
 var at := -1  # satamapaikka, jossa vene on (-1 = vapaana vedessä)
 var from_mooring := 0  # satamapaikka, josta ajo alkoi
+var autopilot := false
+var route: Array = []  # automaattiajon reittipisteet (x, z)
 
 var _parts := {}
 var _body: Node3D
@@ -68,6 +78,8 @@ var _throttle := 0.0
 var _net_pos := Vector3.ZERO
 var _net_yaw := 0.0
 var _send_t := 0.0
+var _ri := 0
+var _auto_to := 0
 
 
 func _ready() -> void:
@@ -329,14 +341,196 @@ func _fwd() -> Vector3:
 	return Vector3(-sin(_yaw), 0, -cos(_yaw))
 
 
-## Vene vapaassa vedessä: keula, perä, kyljet ja keskipiste riittävän syvässä (pohja alle FREE_H).
+## Vene vapaassa vedessä: keula, perä, kyljet ja keskipiste riittävän syvässä (pohja alle FREE_H), ja rungon ympärillä
+## SHORE_MARGIN:n verran syvää vettä, joten rantaan ei päästä kiinni. Satamapaikan lähellä marginaali on pieni.
 func free_at(p: Vector3, yaw: float) -> bool:
 	var f := Vector3(-sin(yaw), 0, -cos(yaw))
 	var s := Vector3(f.z, 0, -f.x)
 	for q in [f * (L * 0.5), -f * (L * 0.5), s * (W * 0.5), -s * (W * 0.5), Vector3.ZERO]:
 		if Terrain.h(p.x + q.x, p.z + q.z) >= FREE_H:
 			return false
+	var m := HARBOR_MARGIN if _in_harbor(p.x, p.z) else SHORE_MARGIN
+	var fl := L * 0.5 + m
+	var sw := W * 0.5 + m
+	for q in [f * fl, -f * fl, s * sw, -s * sw, f * fl + s * sw, f * fl - s * sw, -f * fl + s * sw, -f * fl - s * sw]:
+		if Terrain.h(p.x + q.x, p.z + q.z) >= FREE_H:
+			return false
 	return true
+
+
+func _in_harbor(x: float, z: float) -> bool:
+	for m: Dictionary in moorings:
+		if Vector2(x - m.pos.x, z - m.pos.z).length() < HARBOR_R:
+			return true
+	return false
+
+
+# ---------- Automaattiajo ----------
+
+## Piste on laiturirakenteiden varoalueella (satamapaikan "avoid": Rect2-lista maailman x, z): reitti kiertää ne.
+func _in_avoid(x: float, z: float) -> bool:
+	for m: Dictionary in moorings:
+		for r: Rect2 in m.get("avoid", []):
+			if r.has_point(Vector2(x, z)):
+				return true
+	return false
+
+
+## Piste p on riittävän kaukana rannasta reitille (säde r kaikkiin suuntiin syvää vettä).
+func _clear_pt(x: float, z: float, r: float) -> bool:
+	if _in_avoid(x, z):
+		return false
+	if _in_harbor(x, z):
+		return Terrain.h(x, z) < FREE_H
+	if Terrain.h(x, z) >= FREE_H - 0.3:
+		return false
+	for k in 8:
+		var a := k * TAU / 8.0
+		if Terrain.h(x + cos(a) * r, z + sin(a) * r) >= FREE_H:
+			return false
+	return true
+
+
+## Satamapaikan idx lähestymispiste: laiturista poispäin, josta vene liukuu paikalleen.
+func approach_point(idx: int) -> Vector2:
+	var m: Dictionary = moorings[idx]
+	var away := Vector2(m.pos.x - m.deck.x, m.pos.z - m.deck.z).normalized()
+	return Vector2(m.pos.x, m.pos.z) + away * 8.0
+
+
+## Vesireitti nykyisestä paikasta satamaan idx (A* ruudukossa, sitten suoristus). Tyhjä, jos reittiä ei löydy.
+func plan_route(idx: int, from := Vector2.INF) -> Array:
+	var start := Vector2(global_position.x, global_position.z) if from == Vector2.INF else from
+	var goal := approach_point(idx)
+	var lo := start.min(goal) - Vector2.ONE * 320.0
+	var hi := start.max(goal) + Vector2.ONE * 320.0
+	var i0 := floori(lo.x / ROUTE_CELL)
+	var j0 := floori(lo.y / ROUTE_CELL)
+	var w := ceili(hi.x / ROUTE_CELL) - i0 + 1
+	var h := ceili(hi.y / ROUTE_CELL) - j0 + 1
+	var g := AStarGrid2D.new()
+	g.region = Rect2i(i0, j0, w, h)
+	g.cell_size = Vector2.ONE * ROUTE_CELL
+	g.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	g.update()
+	for j in h:
+		for i in w:
+			var c := Vector2i(i0 + i, j0 + j)
+			if not _clear_pt(c.x * ROUTE_CELL, c.y * ROUTE_CELL, 6.0):
+				g.set_point_solid(c, true)
+	var cs := Vector2i(roundi(start.x / ROUTE_CELL), roundi(start.y / ROUTE_CELL))
+	var cg := Vector2i(roundi(goal.x / ROUTE_CELL), roundi(goal.y / ROUTE_CELL))
+	for c: Vector2i in [cs, cg]:
+		if not g.region.has_point(c):
+			return []
+		g.set_point_solid(c, false)
+	var path: PackedVector2Array = g.get_point_path(cs, cg)
+	if path.is_empty():
+		return []
+	# Suoristus: hypätään pisteestä kauimmaiseen pisteeseen, jolle suora väli on riittävän syvää vettä.
+	var out: Array = [start]
+	var i := 0
+	var pts: Array = [start]
+	pts.append_array(Array(path).slice(1, path.size() - 1))
+	pts.append(goal)
+	while i < pts.size() - 1:
+		var j := pts.size() - 1
+		while j > i + 1 and not _line_clear(pts[i], pts[j]):
+			j -= 1
+		out.append(pts[j])
+		i = j
+	return out
+
+
+## Liukuminen satamapaikkaan ei kulje laiturirakenteiden läpi.
+func _dock_line_clear(a: Vector2, b: Vector2) -> bool:
+	for k in 8:
+		var q := a.lerp(b, k / 8.0)
+		if _in_avoid(q.x, q.y):
+			return false
+	return true
+
+
+func _line_clear(a: Vector2, b: Vector2) -> bool:
+	var n := maxi(1, ceili(a.distance_to(b) / 3.0))
+	for k in n + 1:
+		var p := a.lerp(b, float(k) / n)
+		if not _clear_pt(p.x, p.y, 5.0):
+			return false
+	return true
+
+
+## Käynnistää automaattiajon satamaan idx. Satamapaikasta lähdettäessä vene liukuu ensin laiturista irti lähtöpisteeseen
+## (kuten telakoinnissa), koska paikallaan olevalla veneellä ei voi kääntyä laiturin kupeessa. Palauttaa false, jos
+## reittiä ei löydy.
+func start_autopilot(idx: int) -> bool:
+	var here := near_mooring()
+	var depart := here >= 0 and Vector2(global_position.x - moorings[here].pos.x, global_position.z - moorings[here].pos.z).length() < 4.0
+	var sp := approach_point(here) if depart else Vector2.INF
+	var r := plan_route(idx, sp)
+	if r.size() < 2:
+		return false
+	route = r
+	_ri = 1
+	_auto_to = idx
+	if not depart:
+		autopilot = true
+		return true
+	_docking = true
+	speed = 0.0
+	_turn_v = 0.0
+	var from_pos := global_position
+	var from_yaw := _yaw
+	var d: Vector2 = route[1] - route[0]
+	var to_yaw := atan2(-d.x, -d.y)
+	var to_pos := Vector3(sp.x, 0.0, sp.y)
+	var tw := create_tween()
+	tw.tween_method(func(k: float) -> void:
+		global_position = from_pos.lerp(to_pos, k)
+		_yaw = lerp_angle(from_yaw, to_yaw, k)
+		rotation.y = _yaw, 0.0, 1.0, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.finished.connect(func() -> void:
+		_docking = false
+		_hist.clear()
+		autopilot = driver != null)
+	return true
+
+
+func stop_autopilot() -> void:
+	autopilot = false
+
+
+## Mihin automaattiajo vie: satamaan, jossa vene ei ole: lähtösatamasta toiseen, avovedeltä toiseen kuin mistä lähdettiin.
+func auto_target() -> int:
+	var near := near_mooring()
+	if near >= 0:
+		return (near + 1) % moorings.size()
+	return (from_mooring + 1) % moorings.size()
+
+
+## Automaattiajo: x = kaasu 0..1, y = ohjaus. Seuraa reittiä tähtäyspisteellä, hidastaa käännöksissä ja perillä.
+func _autopilot_inputs() -> Vector2:
+	var p := Vector2(global_position.x, global_position.z)
+	var rest := p.distance_to(route[route.size() - 1])
+	while _ri < route.size() - 1 and p.distance_to(route[_ri]) < 5.0:
+		_ri += 1
+	var look := clampf(absf(speed) * 1.6, 7.0, 22.0)  # hitaalla vauhdilla lyhyt tähtäys: ahtaassa satamassa ei oikaista
+	var ti := _ri
+	while ti < route.size() - 1 and p.distance_to(route[ti]) < look:
+		ti += 1
+	var d: Vector2 = route[ti] - p
+	var err := wrapf(atan2(-d.x, -d.y) - _yaw, -PI, PI)
+	var v := AUTO_SPEED * (1.0 - 0.8 * minf(absf(err) / 0.8, 1.0))
+	if rest < 70.0:
+		v = minf(v, maxf(3.0, rest * 0.18))
+	# Perillä, kun satamapaikka on telakointietäisyydellä: telakointi liu'uttaa veneen paikalleen.
+	var mp_: Dictionary = moorings[_auto_to]
+	var mp2 := Vector2(mp_.pos.x, mp_.pos.z)
+	if rest < 3.0 or (p.distance_to(mp2) < ARRIVE_R and _dock_line_clear(p, mp2)):
+		autopilot = false
+		arrived.emit(_auto_to)
+		return Vector2(0.0, 0.0)
+	return Vector2(clampf(v / MAX_SPEED, 0.0, 1.0) if speed < v + 0.5 else 0.0, clampf(err * 1.5, -1.0, 1.0))
 
 
 ## Satamapaikka, jonka luona vene on (alle DOCK_R), tai -1.
@@ -365,6 +559,7 @@ func can_board(p: Vector3) -> bool:
 
 func board(p: CharacterBody3D) -> void:
 	driver = p
+	autopilot = false
 	from_mooring = maxi(at, 0)
 	at = -1
 	p.controls_enabled = false
@@ -473,6 +668,7 @@ func leave_passenger(where: Vector3) -> void:
 func release(where: Vector3) -> CharacterBody3D:
 	var p := driver
 	driver = null
+	autopilot = false
 	speed = 0.0
 	_engine.stream_paused = true
 	if p == null:
@@ -508,7 +704,11 @@ func _physics_process(delta: float) -> void:
 		return
 	var fwd_in := 0.0
 	var turn_in := 0.0
-	if driver.controls_enabled == false and not Chat.typing:
+	if autopilot:
+		var a := _autopilot_inputs()
+		fwd_in = a.x
+		turn_in = a.y
+	elif driver.controls_enabled == false and not Chat.typing:
 		fwd_in = Input.get_axis("back", "forward")
 		turn_in = Input.get_axis("right", "left")
 	var drunk: float = driver.drunk()
@@ -547,7 +747,12 @@ func _physics_process(delta: float) -> void:
 		speed = -speed * 0.25
 		_turn_v = 0.0
 		_blocked_t += delta
-		if _blocked_t > 1.5 and not _hist.is_empty():  # jumi: takaisin vanhaan vapaaseen asentoon
+		if _blocked_t > 4.0 and _hist.is_empty():  # ei vapaata asentoa tallessa: vene takaisin lähtösatamaan
+			autopilot = false
+			place(from_mooring)
+			at = -1
+			_blocked_t = 0.0
+		elif _blocked_t > 1.5 and not _hist.is_empty():  # jumi: takaisin vanhaan vapaaseen asentoon
 			var h: Array = _hist[0]
 			global_position = h[0]
 			_yaw = h[1]

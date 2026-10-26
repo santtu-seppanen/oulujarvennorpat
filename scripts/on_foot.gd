@@ -43,7 +43,17 @@ var pose := ""  # tekoälyn asento paikallaan (Sitting_Idle, Idle_Talking, ...)
 var airborne := false
 var boat: CharacterBody3D = null
 var hidden_inside := false
-var vehicle: Node3D = null  # istuu ajoneuvossa (muskelivene.gd): paikka ja suunta tulevat ajoneuvolta (seat_global)
+## Istuu ajoneuvossa (muskelivene.gd): paikka ja suunta tulevat ajoneuvolta (seat_global). Kyydissä oma törmäyskerros
+## pois, ettei istuja työnnä venettä (vene törmää kerrokseen 1).
+var vehicle: Node3D = null:
+	set(v):
+		if v != null and vehicle == null:
+			_veh_layer = collision_layer
+			collision_layer = 0
+		elif v == null and vehicle != null:
+			collision_layer = _veh_layer
+		vehicle = v
+var _veh_layer := 1
 var vehicle_seat := 0  # istumapaikka ajoneuvossa (0 = kuljettaja)
 var view_override_on := false  # minipelin kuvakulma (view_override) kameran tilalle
 var view_override := Transform3D()

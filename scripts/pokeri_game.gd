@@ -1,8 +1,10 @@
 extends CanvasLayer
-## Videopokeri (Jacks or Better) hedelmäpelin ja pajatson vieressä. Viisi korttia jaetaan, pelaaja pitää haluamansa
-## (1–5, A/D + välilyönti tai klikkaus) ja loput vaihdetaan uusiin. Käsi maksaa voittotaulukon kertoimen × panos
-## (1–5 €, W/S), vähintään jätkäpari (J–J) voittaa. Viiden euron panoksella kuninkaallinen värisuora maksaa 800-kertaisen.
-## Voiton voi tuplata: kortti A–6 PIENI, 8–K SUURI, seiska vie aina (vasen = pieni, oikea = suuri), E vie talteen.
+## Pokeri (Coinline Casino, Veikkauksen/RAYn pokeriautomaatti, ks. Wikipedia "Pokeri (automaatti)") hedelmäpelin ja pajatson
+## vieressä. Jokeripokeri: 52 kortin pakka ja jokeri (villi kortti). Viisi korttia jaetaan, pelaaja pitää haluamansa
+## (1–5, A/D + välilyönti tai klikkaus) ja loput vaihdetaan kerran uusiin. Pienin voittava käsi on kaksi paria; päävoitto
+## (50 × panos) tulee viitosilla (neloset ja jokeri) tai värisuoralla. Panos 1–5 € (W/S).
+## Voiton voi tuplata, jos se on korkeintaan puolet päävoitosta: kortti 2–6 PIENI, 8–K SUURI (ässä = 1, pieni), seiska vie
+## (vasen = pieni, oikea = suuri), mutta punainen seiska päättää tuplauksen ja voitot saa pitää. E vie talteen.
 ## E jakaa ja vaihtaa. F / Esc lopettaa (voitto talteen). finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
@@ -11,14 +13,14 @@ signal comment(text: String)
 const MG := preload("res://scripts/mg_draw.gd")
 
 const RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+const JOKER := 52  # kortti 52 = jokeri (villi)
 ## [nimi, kerroin]; järjestys on voittotaulukon järjestys.
-const HANDS := [["Kuninkaallinen väri", 250], ["Värisuora", 50], ["Neloset", 25], ["Täyskäsi", 9], ["Väri", 6], ["Suora", 4],
-	["Kolmoset", 3], ["Kaksi paria", 2], ["Jätkäpari tai parempi", 1]]
-const ROYAL_MAX := 800
-const TUPLA_MAX := 100.0
-const LINES := ["Vanha kunnon videopokeri. Jätkäpari on pienin voittava käsi.",
-	"Pidä pari ja kolme samaa. Yksi iso kortti ei ole käsi.",
-	"Neljä samaa väriä kannattaa pitää: väri maksaa kuusinkertaisesti."]
+const HANDS := [["Viitoset", 50], ["Värisuora", 50], ["Neloset", 25], ["Täyskäsi", 10], ["Väri", 6], ["Suora", 4],
+	["Kolmoset", 2], ["Kaksi paria", 1]]
+const MAIN_WIN := 50  # päävoitto (€ per panos-euro): tuplata saa korkeintaan puolet tästä
+const LINES := ["Coinline Casino. Kaksi paria on pienin voittava käsi, ja jokeri on villi.",
+	"Jokeri ja pari on jo kolmoset. Pidä jokeri aina.",
+	"Neljä samaa ja jokeri on viitoset: päävoitto."]
 const CARD_W := 150.0
 const CARD_H := 210.0
 
@@ -41,6 +43,7 @@ var _win := 0.0
 var _draw_t := 0.0
 var _reveal := [1.0, 1.0, 1.0, 1.0, 1.0]  # kortin kääntymisen edistyminen 0…1
 var _card := 0
+var _card_red := false
 var _card_t := 0.0
 var _guess := ""
 var _msg := ""
@@ -101,62 +104,74 @@ static func suit(c: int) -> int:
 	return c / 13
 
 
+static func is_joker(c: int) -> bool:
+	return c == JOKER
+
+
 func _new_deck() -> void:
 	_deck.clear()
-	for c in 52:
+	for c in 53:
 		_deck.append(c)
-	for i in range(51, 0, -1):
+	for i in range(52, 0, -1):
 		var j := _rng.randi_range(0, i)
 		var tmp := _deck[i]
 		_deck[i] = _deck[j]
 		_deck[j] = tmp
 
 
-## Käden arvo: indeksi HANDS-taulukkoon tai -1 (ei voittoa).
+## Voiko (uniikit, ilman jokeria olevat) arvot muodostaa suoran jokerin avulla? Ässä on myös alin (pyörä A-2-3-4-5).
+static func _fits_straight(rs: Array) -> bool:
+	for st in range(-1, 9):
+		var ok := true
+		for r: int in rs:
+			if not ((r >= st and r <= st + 4) or (r == 12 and st == -1)):
+				ok = false
+		if ok:
+			return true
+	return false
+
+
+## Käden arvo: indeksi HANDS-taulukkoon tai -1 (ei voittoa). Jokeri on villi kortti.
 static func evaluate(cards: Array) -> int:
 	var counts := {}
-	var flush := true
-	var rs: Array[int] = []
+	var rs: Array = []
+	var suits := {}
+	var jokers := 0
 	for c: int in cards:
+		if is_joker(c):
+			jokers += 1
+			continue
 		counts[rank(c)] = int(counts.get(rank(c), 0)) + 1
 		rs.append(rank(c))
-		if suit(c) != suit(cards[0]):
-			flush = false
-	rs.sort()
-	var straight := true
-	for i in 4:
-		if rs[i + 1] != rs[i] + 1:
-			straight = false
-	if rs == [0, 1, 2, 3, 12]:  # pyörä A-2-3-4-5
-		straight = true
+		suits[suit(c)] = true
 	var vals: Array = counts.values()
 	vals.sort()
+	var top: int = vals[vals.size() - 1]
+	var unique := vals.size() == rs.size()
+	var flush := suits.size() == 1
+	var straight := unique and _fits_straight(rs)
+	if top + jokers >= 5:
+		return 0
 	if straight and flush:
-		return 0 if rs == [8, 9, 10, 11, 12] else 1
-	if vals == [1, 4]:
+		return 1
+	if top + jokers >= 4:
 		return 2
-	if vals == [2, 3]:
+	if vals == [2, 3] or (jokers == 1 and vals == [2, 2]):
 		return 3
 	if flush:
 		return 4
 	if straight:
 		return 5
-	if vals == [1, 1, 3]:
+	if top + jokers >= 3:
 		return 6
 	if vals == [1, 2, 2]:
 		return 7
-	if vals == [1, 1, 1, 2]:
-		for r: int in counts:
-			if counts[r] == 2 and r >= 9:
-				return 8
 	return -1
 
 
 func payout(idx: int, bet: int) -> int:
 	if idx < 0:
 		return 0
-	if idx == 0 and bet == 5:
-		return ROYAL_MAX * bet
 	return int(HANDS[idx][1]) * bet
 
 
@@ -206,8 +221,8 @@ func _resolve() -> void:
 		_msg = "%s  %s €" % [_hand_name.to_upper(), _eur(_win)]
 		Sfx.play("win" if idx <= 5 else "win_small", -4.0)
 		MG.sparks_burst(_sparks, Vector2(_root.size.x * 0.5, 300.0), Color(1.0, 0.85, 0.2), 40 if idx <= 5 else 18)
-		if idx <= 2:
-			comment.emit("%s! Nyt on onni mukana." % HANDS[idx][0])
+		if idx <= 1:
+			comment.emit("%s! Päävoitto, nyt on onni mukana." % HANDS[idx][0])
 	else:
 		_phase = "idle"
 		_msg = "EI VOITTOA"
@@ -226,29 +241,39 @@ func _collect() -> void:
 func _double(guess: String) -> void:
 	_guess = guess
 	_card = _rng.randi_range(1, 13)
+	_card_red = _rng.randi() % 2 == 0
 	_card_t = 0.0
 	_phase = "tupla"
 	Sfx.play("cloth", -10.0, 1.4)
 
 
 func _double_result() -> void:
+	if _card == 7 and _card_red:
+		comment.emit("Punainen seiska! Tuplaus päättyy, ja voitot saa pitää.")
+		_collect()
+		return
 	var ok := (_guess == "pieni" and _card <= 6) or (_guess == "suuri" and _card >= 8)
 	if ok:
 		_win *= 2.0
 		_flash = 1.0
 		Sfx.play("win_small", -6.0, 1.1)
 		_msg = "TUPLAUS %s €" % _eur(_win)
-		if _win >= TUPLA_MAX:
-			comment.emit("Tuplausraja täynnä. Kone maksaa voiton ulos.")
+		if not _can_double():
+			comment.emit("Tuplausraja täynnä (puolet päävoitosta). Kone maksaa voiton ulos.")
 			_collect()
 			return
 		_phase = "win"
 	else:
 		Sfx.play("lose", -6.0)
-		comment.emit("Seiska! Seiska vie aina." if _card == 7 else ["Väärin arvattu. Voitto meni.", "Ahneella on paskanen loppu."].pick_random())
+		comment.emit("Musta seiska vie aina." if _card == 7 else ["Väärin arvattu. Voitto meni.", "Ahneella on paskanen loppu."].pick_random())
 		_win = 0.0
 		_msg = "PANOS %d €" % _bet
 		_phase = "idle"
+
+
+## Tuplata saa, jos voitto on korkeintaan puolet päävoitosta (50 € × panos / 2).
+func _can_double() -> bool:
+	return _win <= float(MAIN_WIN * _bet) * 0.5
 
 
 func _toggle(i: int) -> void:
@@ -336,15 +361,15 @@ func _process(delta: float) -> void:
 		"win":
 			if Input.is_action_just_pressed("interact"):
 				_collect()
-			elif Input.is_action_just_pressed("left"):
+			elif _can_double() and Input.is_action_just_pressed("left"):
 				_double("pieni")
-			elif Input.is_action_just_pressed("right"):
+			elif _can_double() and Input.is_action_just_pressed("right"):
 				_double("suuri")
 		"tupla":
 			_card_t += delta
 			if _card_t > 1.1:
 				_double_result()
-	_info.text = "VIDEOPOKERI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
+	_info.text = "POKERI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
 	match _phase:
 		"idle":
 			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
@@ -352,8 +377,11 @@ func _process(delta: float) -> void:
 		"hold":
 			_keys.set_text("[1]–[5] / klikkaus pitää kortin   %s vaihda loput   H ohje" % Settings.cap("interact"))
 		"win":
-			_keys.set_text("%s voitto talteen   %s PIENI (A–6)   %s SUURI (8–K)" % [Settings.cap("interact"), Settings.cap("left"),
-				Settings.cap("right")])
+			if _can_double():
+				_keys.set_text("%s voitto talteen   %s PIENI (A–6)   %s SUURI (8–K)   punainen 7 = voitot talteen" % [
+					Settings.cap("interact"), Settings.cap("left"), Settings.cap("right")])
+			else:
+				_keys.set_text("%s voitto talteen (liian suuri tuplattavaksi)" % Settings.cap("interact"))
 		_:
 			_keys.set_text("")
 
@@ -380,10 +408,10 @@ func _draw_root() -> void:
 	var o := _origin()
 	# Kaappi.
 	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 640))
-	MG.box(_root, cab, Color(0.1, 0.1, 0.14), 20, 14, MG.OUTLINE, 3)
-	MG.grad_rect(_root, Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), Color(0.15, 0.1, 0.4), Color(0.45, 0.05, 0.25))
-	_root.draw_string(font, cab.position + Vector2(0, 54), "VIDEOPOKERI · JACKS OR BETTER", HORIZONTAL_ALIGNMENT_CENTER, cab.size.x, 36,
-		Color(1.0, 0.92, 0.3))
+	MG.box(_root, cab, Color(0.62, 0.1, 0.07), 20, 14, MG.OUTLINE, 3)
+	MG.grad_rect(_root, Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), Color(0.08, 0.08, 0.1), Color(0.18, 0.16, 0.14))
+	_root.draw_string(font, cab.position + Vector2(0, 54), "♣ POKERI · COINLINE CASINO", HORIZONTAL_ALIGNMENT_CENTER, cab.size.x, 36,
+		Color(1.0, 0.8, 0.2))
 	_draw_paytable(Rect2(o + Vector2(0, -10), Vector2(900, 240)), font)
 	for i in 5:
 		_draw_card(i, font)
@@ -413,8 +441,6 @@ func _draw_paytable(r: Rect2, font: Font) -> void:
 		_root.draw_string(font, Vector2(r.position.x + 20, y), HANDS[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color(0.95, 0.95, 1.0))
 		for b in 5:
 			var v: int = int(HANDS[i][1]) * (b + 1)
-			if i == 0 and b == 4:
-				v = ROYAL_MAX * 5
 			var col := Color(1.0, 0.9, 0.3) if b + 1 == _bet else Color(0.7, 0.75, 0.9)
 			_root.draw_string(font, Vector2(r.position.x + 380 + b * 100, y), str(v), HORIZONTAL_ALIGNMENT_RIGHT, 80, 19, col)
 
@@ -437,6 +463,17 @@ func _draw_card(i: int, font: Font) -> void:
 	if not face:
 		for k in 8:
 			_root.draw_line(rr.position + Vector2(8, 20 + k * 24), rr.end - Vector2(8, 200 - k * 24), Color(1, 0.8, 0.8, 0.4), 2.0)
+		return
+	if is_joker(c):
+		_root.draw_string(font, rr.position + Vector2(0, 100), "JOKER", HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 30, Color(0.7, 0.1, 0.5))
+		_root.draw_string(font, rr.position + Vector2(0, 160), "★", HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 60, Color(0.95, 0.7, 0.1))
+		if _held[i] and _phase != "idle":
+			MG.sign(_root, Rect2(rr.position + Vector2(rr.size.x / 2.0 - 45, rr.size.y + 8), Vector2(90, 28)), "PIDÄ", Color(0.75, 0.1, 0.06),
+				Color(1, 0.95, 0.8), 18, Color(0.95, 0.8, 0.3))
+		if _phase == "hold" and i == _cursor:
+			_root.draw_rect(rr.grow(6), Color(0.4, 1.0, 0.5, 0.9), false, 4.0)
+		_root.draw_string(font, rr.position + Vector2(0, rr.size.y + 56), "[%d]" % (i + 1), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 16,
+			Color(0.85, 0.85, 0.9))
 		return
 	var red := suit(c) in [1, 2]
 	var col := Color(0.85, 0.08, 0.1) if red else Color(0.06, 0.06, 0.1)
@@ -486,6 +523,6 @@ func _draw_double_card(c: Vector2, font: Font) -> void:
 	elif w > 60.0:
 		var names := {1: "A", 11: "J", 12: "Q", 13: "K"}
 		var v: String = names.get(_card, str(_card))
-		var col := Color(0.8, 0.1, 0.1) if _card % 2 == 0 else Color(0.08, 0.08, 0.1)
+		var col := Color(0.8, 0.1, 0.1) if _card_red else Color(0.08, 0.08, 0.1)
 		_root.draw_string(font, r.position + Vector2(0, 108), v, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 64, col)
 	_root.draw_string(font, c + Vector2(-80, 120), "Arvaus: %s" % _guess.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color.WHITE)

@@ -22,6 +22,8 @@ const BLEND := 5.0
 ## Pitkospolku törmältä rantaan (a, alku-b, loppu-b).
 const PATH_A := 6.5
 const PATH_B := [24.0, 47.5]
+## Portaat baarin tasanteelta rannalle (b-väli); pitkospolku jatkuu portaiden alapäästä rantaan.
+const STAIR_B := [25.0, 38.0]
 ## Aukioloaika joka päivä: auki klo 20 ja kiinni klo 02 (yli keskiyön).
 const OPEN_HOUR := 20
 const CLOSE_HOUR := 2
@@ -134,11 +136,33 @@ static func open_text(_lt: Dictionary) -> String:
 
 ## Laiturin (kehyksessä a = 14, b = 46…60) muskelivenepaikka (muskelivene.gd): vene laiturin kaakkoispuolella keula
 ## järvelle, pelaaja nousee laiturille. Vesi on tässä yli 0,5 m syvää.
+## Sataman rakenteet kehyksessä (a, b): [a1, b1, a2, b2, varoalueen puolikas leveys]. Satelliittikuvan mukaan satama on suorakaiteen
+## muotoinen allas, jota rajaavat louhikkoaallonmurtajat (etelässä rantapenger ja itäpäässä kärki, pohjoisessa pitkä
+## murtaja) ja sisällä kolme kelluvaa laituria; sisääntulo on idässä, ja länsipäässä ovat pysäköintialue ja nostoramppi.
+const MARINA_LINES := [[-2.0, 50.4, 76.0, 50.4, 4.5], [75.0, 50.4, 75.0, 62.0, 4.5], [-2.0, 50.4, -2.0, 90.0, 4.0],
+	[-2.0, 90.0, 52.0, 90.0, 4.5], [24.0, 80.0, 66.0, 80.0, 8.5]]
+const JETTY_W := 2.4  # laiturin leveys (m), kuten Äpätin pääsillassa
+const MARINA_TOP := 0.9  # penkereen harja vedenpinnan (y = 0) yläpuolella
+
 static func jetty_mooring() -> Dictionary:
-	var bw := Reitti.cw(16.4, 57.2)
-	var dw := Reitti.cw(14.0, 56.0)
-	return {"name": "Happy Beachin laituri", "pos": Vector3(bw.x, 0.0, bw.y), "yaw": atan2(-Reitti.N.x, -Reitti.N.y),
-		"deck": Vector3(dw.x, 1.4, dw.y)}
+	var bw := Reitti.cw(17.2, 57.2)
+	var dw := Reitti.cw(14.7, 56.0)
+	return {"name": "Happy Beachin satama", "pos": Vector3(bw.x, 0.0, bw.y), "yaw": atan2(-Reitti.N.x, -Reitti.N.y),
+		"deck": Vector3(dw.x, 1.4, dw.y), "avoid": _marina_avoid()}
+
+
+## Sataman rakenteet (aallonmurtajat, päälaituri ja kelluvat laiturit) automaattiajon varoalueina: pieniä Rect2-ruutuja
+## viivojen (a1, b1, a2, b2) varrella; ruudun puolikas leveys on r (m).
+static func _marina_avoid() -> Array:
+	var out: Array = []
+	for l: Array in MARINA_LINES:
+		var p0 := Vector2(l[0], l[1])
+		var p1 := Vector2(l[2], l[3])
+		var n := maxi(1, ceili(p0.distance_to(p1) / 5.0))
+		for k in n + 1:
+			var q := Reitti.cw(lerpf(p0.x, p1.x, float(k) / n), lerpf(p0.y, p1.y, float(k) / n))
+			out.append(Rect2(q - Vector2(l[4], l[4]), Vector2(l[4], l[4]) * 2.0))
+	return out
 
 
 ## Pelaaja alueella (parkkipaikka, rakennukset ja terassi).
@@ -240,7 +264,7 @@ func set_lamp(k: float) -> void:
 
 ## Ravintolan sisätila on erillinen "tasku" taivaalla leirintäalueen yläpuolella (Normipäivän Siitarin tapaan): ulko-ovelta
 ## E astuu sisään, ja sisällä on baaritiski ja baarimikko, lava ja karaoke, tanssilattia diskopalloineen, Sinikka, pöytäseurue,
-## korttipelaajat, jukeboksi, pajatso, hedelmäpeli ja videopokeri (baari.gd). Taskun paikallinen kehys on (a, b) kuten leirintäalueella:
+## korttipelaajat, jukeboksi, pajatso, hedelmäpeli ja pokeri (baari.gd). Taskun paikallinen kehys on (a, b) kuten leirintäalueella:
 ## taskun solmu on kiertämätön, a = +x ja b = -z, ja pelaaja kävelee lattialla (törmäyslattia) POCKET_UP metriä alueen yläpuolella.
 const IN_A := Vector2(-11.0, 3.0)
 const IN_B := Vector2(9.0, 16.0)
@@ -257,7 +281,7 @@ const SPOTS := {
 	"tiski": [-3.75, 11.8, 1.7, "E: tilaa baaritiskiltä"],
 	"karaoke": [1.5, 12.2, 0.9, "E: laula karaokea lavalla"],
 	"jukeboksi": [-9.9, 15.1, 0.8, "E: jukeboksi, valitse biisi"],
-	"pokeri": [-9.9, 13.4, 0.8, "E: pelaa videopokeria"],
+	"pokeri": [-9.9, 13.4, 0.8, "E: pelaa pokeria"],
 	"hedelma": [-9.9, 11.7, 0.8, "E: pelaa hedelmäpeliä"],
 	"pajatso": [-9.9, 10.0, 0.8, "E: pelaa pajatsoa"],
 	"tanssi": [0.8, 14.5, 1.3, "E: tanssimaan"],
@@ -413,6 +437,8 @@ func play_music(stream: AudioStream) -> void:
 		return
 	if stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
 	_jukebox.stream = stream
 	_jukebox.play()
 	disco_on = 1.0e6
@@ -520,32 +546,99 @@ func _main_building() -> void:
 		_window(a, 1.7, 9.0, 1.2, 1.1, -1.0)
 	_box(Vector3(-8.0, 1.1, 8.96), Vector3(1.0, 2.2, 0.06), TRIM, false)
 	_box(Vector3(-8.0, 2.4, 8.7), Vector3(1.6, 0.06, 0.6), TRIM, false)
-	# Terassi järven puolella: pöytiä, päivänvarjoja ja valoköynnös.
-	_box(Vector3(-4.0, DECK_H * 0.5, 18.6), Vector3(16.0, DECK_H, 5.2), WOOD)
-	for a in range(-11, 5, 2):
-		_box(Vector3(float(a), DECK_H + 0.4, 21.15), Vector3(0.1, 0.8, 0.1), WOOD, false)
-	_box(Vector3(-4.0, DECK_H + 0.8, 21.15), Vector3(16.0, 0.07, 0.1), WOOD, false)
+	_terrace()
 	# Kyltit: nimi päätykolmion levyssä ja aukioloajat oven vieressä.
 	var big := B.sign_plate(_root, "CAMPING HAPPY BEACH", TRIM, Color.WHITE, 0.3, 54, Color(0.95, 0.9, 0.5))
 	big.position = P(-4.0, 3.5, 16.45)
 	var hours := B.sign_plate(_root, "KIOSKI JA BAARI\n" + HOURS_TEXT, Color(0.97, 0.95, 0.88), Color(0.1, 0.1, 0.12), 0.18, 34,
 		TRIM)
 	hours.position = P(-6.75, 1.9, 16.12)
-	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8), Vector2(2.9, 19.0)]:
+
+
+## Terassi järven puolella (a -12…4, b 16…21,2): lankkulattia, portaat järvelle, kaide, pöytäryhmät tuoleineen,
+## baaripöydät jakkaroineen, päivänvarjot, lämmittimet, istutuslaatikot, annostaulu ja valoköynnös.
+func _terrace() -> void:
+	var a0 := -12.0
+	var a1 := 4.0
+	var b0 := 16.0
+	var b1 := 21.2
+	var top := DECK_H
+	_box(Vector3((a0 + a1) * 0.5, top * 0.5, (b0 + b1) * 0.5), Vector3(a1 - a0, top, b1 - b0), WOOD)
+	# Lankkujen saumat b-suunnassa ja kantavat palkit reunassa.
+	var a := a0 + 0.45
+	while a < a1:
+		_batch.add(B.boxm(Vector3(0.025, 0.012, b1 - b0)), Transform3D(Basis(), P(a, top + 0.006, (b0 + b1) * 0.5)), WOOD.darkened(0.3))
+		a += 0.45
+	_box(Vector3((a0 + a1) * 0.5, top * 0.5, b1 + 0.04), Vector3(a1 - a0 + 0.2, top + 0.04, 0.1), WOOD.darkened(0.25), false)
+	for sa: float in [a0, -8.0, -4.0, 0.0, a1]:
+		_box(Vector3(sa, -0.35, b1), Vector3(0.14, 0.9, 0.14), WOOD.darkened(0.35), false)
+	# Portaat terassin etureunasta nurmelle (a -5,2…-2,8): kaksi askelta.
+	for k in 2:
+		_box(Vector3(-4.0, top - 0.06 - 0.12 * k, b1 + 0.3 + 0.35 * k), Vector3(2.4, 0.06, 0.35), WOOD.lightened(0.05), false)
+	# Kaide: pylväät 2 m välein, ylä- ja välijohde; aukko portaiden kohdalla ja itäpäässä.
+	var rail := WOOD.darkened(0.1)
+	for pa in range(-12, 5, 2):
+		if absf(float(pa) + 4.0) < 1.5:
+			continue
+		_box(Vector3(float(pa), top + 0.5, b1 - 0.05), Vector3(0.1, 1.0, 0.1), rail, false)
+	for seg: Vector2 in [Vector2(-12.0, -5.3), Vector2(-2.7, 4.0)]:
+		for ry: float in [0.95, 0.5]:
+			_box(Vector3((seg.x + seg.y) * 0.5, top + ry, b1 - 0.05), Vector3(seg.y - seg.x, 0.05, 0.09), rail, false)
+	for pb: float in [18.0, 20.0, 21.15]:
+		_box(Vector3(a0 + 0.05, top + 0.5, pb), Vector3(0.1, 1.0, 0.1), rail, false)
+	_box(Vector3(a0 + 0.05, top + 0.95, 19.2), Vector3(0.09, 0.05, 4.3), rail, false)
+	_box(Vector3(a0 + 0.05, top + 0.5, 19.2), Vector3(0.09, 0.05, 4.3), rail, false)
+	# Pöytäryhmät: kolme piknikpöytää ja kaksi pyöreää pöytää tuoleineen.
+	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8), Vector2(2.9, 18.6)]:
 		_picnic(pos.x, pos.y)
-	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8)]:
+		B.mesh(_root, B.cyl(0.07, 0.07, 0.16, 8), P(pos.x, top + 0.84, pos.y), Color(0.95, 0.85, 0.5))  # tuikkulyhty
+	for pos: Vector2 in [Vector2(-6.4, 19.9), Vector2(-1.9, 19.9)]:
+		B.mesh(_root, B.cyl(0.55, 0.55, 0.05, 14), P(pos.x, top + 0.76, pos.y), WOOD.lightened(0.1))
+		B.mesh(_root, B.cyl(0.05, 0.05, 0.74, 8), P(pos.x, top + 0.38, pos.y), Color(0.25, 0.25, 0.27))
+		B.mesh(_root, B.cyl(0.3, 0.3, 0.04, 10), P(pos.x, top + 0.02, pos.y), Color(0.25, 0.25, 0.27))
+		for k in 4:
+			var ang := k * PI * 0.5 + 0.4
+			var cp := pos + Vector2(cos(ang), sin(ang)) * 0.95
+			_box(Vector3(cp.x, top + 0.45, cp.y), Vector3(0.42, 0.05, 0.42), TRIM.darkened(0.1), false)
+			_box(Vector3(cp.x, top + 0.22, cp.y), Vector3(0.05, 0.44, 0.05), Color(0.25, 0.25, 0.27), false)
+			_box(Vector3(cp.x - cos(ang) * 0.2, top + 0.72, cp.y - sin(ang) * 0.2), Vector3(0.4, 0.4, 0.04), TRIM.darkened(0.1), false)
+	# Baaritasku ja jakkarat kaiteen vieressä.
+	_box(Vector3(-11.4, top + 0.55, 19.2), Vector3(0.5, 0.06, 3.0), WOOD.lightened(0.1), false)
+	_box(Vector3(-11.4, top + 0.27, 19.2), Vector3(0.4, 0.54, 2.9), WOOD.darkened(0.2), false)
+	for jb: float in [18.2, 19.2, 20.2]:
+		B.mesh(_root, B.cyl(0.19, 0.19, 0.05, 10), P(-10.6, top + 0.72, jb), RED)
+		B.mesh(_root, B.cyl(0.03, 0.03, 0.7, 6), P(-10.6, top + 0.36, jb), Color(0.3, 0.3, 0.32))
+	# Päivänvarjot (kahdeksan kiilaa, keltainen ja valkoinen vuorotellen) ja terassilämmittimet.
+	for pos: Vector2 in [Vector2(-9.5, 19.6), Vector2(0.6, 19.8), Vector2(-6.4, 19.9), Vector2(-1.9, 19.9)]:
 		_box(Vector3(pos.x, 1.2, pos.y), Vector3(0.07, 2.4, 0.07), Color(0.4, 0.4, 0.4), false)
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
 		cone.bottom_radius = 1.5
 		cone.height = 0.55
-		cone.radial_segments = 12
+		cone.radial_segments = 8
 		cone.rings = 0
 		B.mesh(_root, cone, P(pos.x, 2.5, pos.y), Color(0.95, 0.75, 0.15))
+		var cap := B.mesh(_root, cone, P(pos.x, 2.52, pos.y), Color(0.97, 0.97, 0.94))
+		cap.scale = Vector3(1.002, 0.995, 1.002)
+		cap.rotation.y = PI / 8.0
+		B.mesh(_root, B.cyl(0.02, 0.02, 0.22, 6), P(pos.x, 2.86, pos.y), Color(0.4, 0.4, 0.4))
+	for hp: Vector2 in [Vector2(-8.0, 16.8), Vector2(-0.4, 16.8)]:
+		_box(Vector3(hp.x, 1.1, hp.y), Vector3(0.06, 2.2, 0.06), Color(0.45, 0.46, 0.48), false)
+		B.mesh(_root, B.cyl(0.28, 0.12, 0.08, 10), P(hp.x, 2.25, hp.y), Color(0.7, 0.72, 0.75))
+		B.mesh(_root, B.cyl(0.14, 0.14, 0.05, 10), P(hp.x, 2.18, hp.y), Color(1.0, 0.45, 0.15))
+	# Istutuslaatikot seinustalla ja kukat, sekä annostaulu oven vieressä.
+	for fa: float in [-11.0, -1.0, 2.0]:
+		_box(Vector3(fa, top + 0.2, 16.3), Vector3(1.4, 0.4, 0.4), WOOD.darkened(0.3), false)
+		for k in 4:
+			B.mesh(_root, B.sphere(0.17, 6), P(fa - 0.5 + k * 0.33, top + 0.5, 16.3), [Color(0.85, 0.3, 0.5), Color(0.95, 0.8, 0.2), Color(0.9, 0.9, 0.95), Color(0.85, 0.3, 0.5)][k])
+	_box(Vector3(-5.6, top + 0.55, 16.7), Vector3(0.7, 1.1, 0.06), Color(0.12, 0.12, 0.14), false)
+	_box(Vector3(-5.6, top + 0.55, 16.65), Vector3(0.58, 0.9, 0.02), Color(0.9, 0.9, 0.85), false)
+	# Valoköynnös etukaiteen yli ja pylväistä seinään.
 	for k in 9:
-		var a := -11.0 + k * 2.0
-		_lamp_bulb(P(a, 2.55 - 0.2 * float(k % 2), 21.15))
-
+		var la := -11.0 + k * 2.0
+		_lamp_bulb(P(la, 2.55 - 0.2 * float(k % 2), 21.15))
+	for ka: float in [-11.0, -1.0, 3.0]:
+		_box(Vector3(ka, 1.3, 21.15), Vector3(0.07, 2.6, 0.07), Color(0.4, 0.4, 0.4), false)
 
 ## Sisätila taskussa: lattia, seinät, ovet ja sisustus. Rakennetaan omaan solmuunsa taivaalle (_root ja _batch vaihdetaan
 ## väliaikaisesti, jotta ulkorakennuksen apufunktiot kelpaavat).
@@ -686,11 +779,14 @@ func _interior() -> void:
 	_box(Vector3(-10.18, f + 1.2, 15.1), Vector3(0.04, 0.5, 0.7), Color(1.0, 0.75, 0.2), false)
 	_box(Vector3(-10.18, f + 0.55, 15.1), Vector3(0.04, 0.3, 0.7), Color(0.2, 0.8, 0.9), false)
 	_lamp_bulb(P(-10.1, f + 1.7, 15.1))
-	# Videopokeri hedelmäpelin vieressä: musta kaappi, vihreä ruutu ja punainen painikerivi.
-	_box(Vector3(-10.5, f + 0.85, 13.4), Vector3(0.6, 1.7, 0.7), Color(0.08, 0.1, 0.14))
-	_box(Vector3(-10.18, f + 1.35, 13.4), Vector3(0.04, 0.5, 0.55), Color(0.15, 0.7, 0.4), false)
-	_box(Vector3(-10.18, f + 1.7, 13.4), Vector3(0.04, 0.12, 0.55), Color(0.95, 0.8, 0.2), false)
-	_box(Vector3(-10.18, f + 0.95, 13.4), Vector3(0.04, 0.1, 0.5), Color(0.8, 0.1, 0.1), false)
+	# Pokeri (Coinline Casino) hedelmäpelin vieressä: punainen kaappi, musta otsikkopalkki ja painikepaneeli, sininen ruutu.
+	_box(Vector3(-10.5, f + 0.85, 13.4), Vector3(0.6, 1.7, 0.7), Color(0.65, 0.1, 0.07))
+	_box(Vector3(-10.18, f + 1.62, 13.4), Vector3(0.04, 0.16, 0.62), Color(0.07, 0.07, 0.08), false)  # POKERI-palkki
+	_box(Vector3(-10.18, f + 1.7, 13.4), Vector3(0.045, 0.06, 0.3), Color(0.95, 0.8, 0.2), false)
+	_box(Vector3(-10.18, f + 1.25, 13.4), Vector3(0.04, 0.4, 0.45), Color(0.2, 0.35, 0.8), false)  # ruutu
+	_box(Vector3(-10.18, f + 0.9, 13.4), Vector3(0.04, 0.22, 0.62), Color(0.07, 0.07, 0.08), false)  # painikepaneeli
+	for k in 5:
+		_box(Vector3(-10.16, f + 0.95, 13.4 - 0.22 + k * 0.11), Vector3(0.05, 0.05, 0.08), Color(0.9, 0.2, 0.35), false)
 	_box(Vector3(-10.5, f + 0.9, 10.0), Vector3(0.6, 1.8, 0.6), Color(0.1, 0.25, 0.55))
 	_box(Vector3(-10.18, f + 1.35, 10.0), Vector3(0.04, 0.4, 0.45), Color(0.95, 0.9, 0.3), false)
 	_box(Vector3(-10.18, f + 0.95, 10.0), Vector3(0.04, 0.12, 0.2), Color(0.8, 0.1, 0.1), false)
@@ -826,18 +922,77 @@ func _benches() -> void:
 
 ## Pitkospolku törmältä hiekkarannalle: lankut maaston pinnalla ja kaide yhdellä sivulla.
 func _beach_path() -> void:
-	var b: float = PATH_B[0]
+	var b: float = STAIR_B[1]
 	while b < PATH_B[1]:
 		var y0 := ground(PATH_A, b - 0.5)
 		var y1 := ground(PATH_A, b + 0.5)
 		var xf := Transform3D(Basis(Vector3.RIGHT, atan2(y1 - y0, 1.0)), P(PATH_A, (y0 + y1) * 0.5 + 0.05, b))
 		_batch.add(B.boxm(Vector3(1.3, 0.05, 0.38)), xf, WOOD)
 		b += 0.5
-	b = PATH_B[0]
+	b = STAIR_B[1]
 	while b < PATH_B[1]:
 		_batch.add(B.boxm(Vector3(0.07, 0.9, 0.07)), Transform3D(Basis(), P(PATH_A + 0.7, ground(PATH_A + 0.7, b) + 0.45, b)),
 			WOOD.darkened(0.2))
 		b += 3.0
+
+
+## Portaat baarin tasanteelta törmää alas rannalle (pitkospolun kohdalla, a = PATH_A), mökin portaiden tapaan: valkoiset
+## askelmat ja nousut, sivupalkit, tolpalliset kaiteet molemmin puolin, tasanteet ylä- ja alapäässä sekä tuet maahan.
+## Törmäyskappale on rampin pinta askelmien etureunojen kautta.
+func _bar_stairs() -> void:
+	var w := 1.5
+	var white := Color(0.8, 0.8, 0.78)
+	var b0: float = STAIR_B[0]
+	var b1: float = STAIR_B[1]
+	var y0 := ground(PATH_A, b0) + 0.0
+	var y1 := ground(PATH_A, b1) + 0.05
+	var rise := y1 - y0
+	var n := maxi(1, int(round(absf(rise) / 0.185)))
+	var tr := (b1 - b0) / n
+	var rs := rise / n
+	for k in n:
+		var ty := y0 + rs * (k + 1)
+		var bk := b0 + tr * k
+		_batch.add(B.boxm(Vector3(w, 0.05, tr + 0.04)), Transform3D(Basis(), P(PATH_A, ty - 0.025, bk + tr * 0.5)), white)
+		_batch.add(B.boxm(Vector3(w - 0.06, absf(rs), 0.03)), Transform3D(Basis(), P(PATH_A, ty - rs * 0.5 - 0.04, bk + 0.015)), white.darkened(0.08))
+	# Sivupalkit, kaiteet (tolpat, käsijohde ja välijohde) ja tuet maahan.
+	var ang := atan2(rise, b1 - b0)  # nousukulma (b kasvaa alas)
+	var len_s := Vector2(b1 - b0, rise).length()
+	for sa: float in [PATH_A - w * 0.5 - 0.03, PATH_A + w * 0.5 + 0.03]:
+		var mid := P(sa, (y0 + y1) * 0.5 - 0.1, (b0 + b1) * 0.5)
+		var bas := Basis(Vector3.RIGHT, ang)  # b = -z paikallisessa kehyksessä
+		_batch.add(B.boxm(Vector3(0.05, 0.3, len_s)), Transform3D(bas, mid), white)
+		for rail_y: float in [0.93, 0.5]:
+			_batch.add(B.boxm(Vector3(0.1 if rail_y > 0.9 else 0.03, 0.04 if rail_y > 0.9 else 0.09, len_s)),
+				Transform3D(bas, P(sa, (y0 + y1) * 0.5 + rail_y, (b0 + b1) * 0.5)), white)
+		var nn := int((b1 - b0) / 1.3)
+		for k in nn + 1:
+			var bb := b0 + 0.3 + (b1 - b0 - 0.6) * float(k) / nn
+			var yy := lerpf(y0, y1, (bb - b0) / (b1 - b0))
+			_batch.add(B.boxm(Vector3(0.07, 0.95, 0.07)), Transform3D(Basis(), P(sa, yy + 0.47, bb)), white)
+	var bb := b0 + 1.6
+	while bb < b1:
+		var yy := lerpf(y0, y1, (bb - b0) / (b1 - b0)) - 0.15
+		var g := ground(PATH_A, bb)
+		if yy - g > 0.2:
+			for sa: float in [PATH_A - w * 0.5, PATH_A + w * 0.5]:
+				_batch.add(B.boxm(Vector3(0.1, yy - g + 0.2, 0.1)), Transform3D(Basis(), P(sa, (yy + g - 0.2) * 0.5, bb)), white.darkened(0.15))
+		bb += 1.6
+	# Tasanteet: ylhäällä baarin puolella ja alhaalla rannalla.
+	_box(Vector3(PATH_A, y0 - 0.03, b0 - 0.6), Vector3(w + 0.3, 0.06, 1.2), white, false)
+	_box(Vector3(PATH_A, y1 - 0.03, b1 + 0.6), Vector3(w + 0.3, 0.06, 1.2), white, false)
+	# Törmäys: ramppi askelmien etureunojen kautta.
+	var body := StaticBody3D.new()
+	var cs := B.box_shape(Vector3(w, 0.2, len_s + 0.1))
+	body.add_child(cs)
+	body.position = P(PATH_A, (y0 + y1) * 0.5 - 0.1, (b0 + b1) * 0.5)
+	body.rotation.x = ang
+	_root.add_child(body)
+	# Kyltti ylhäällä: "BAARI".
+	var sg := B.sign_plate(_root, "BAARI ↑\nkioski · karaoke", TRIM, Color.WHITE, 0.2, 38, Color(0.95, 0.9, 0.5))
+	sg.position = P(PATH_A - 1.4, y0 + 1.5, b0 - 0.4)
+	sg.rotation.y = PI
+	_box(Vector3(PATH_A - 1.4, y0 + 0.75, b0 - 0.4), Vector3(0.08, 1.5, 0.08), WOOD.darkened(0.3), false)
 
 
 ## Hiekkarannalla aurinkotuolit ja rantapallo, laituri järveen.
@@ -852,12 +1007,176 @@ func _beach_and_jetty() -> void:
 	# Laituri: kansi n. 1 m järven pinnan yläpuolella rannasta 14 m ulos, tolpat pohjaan.
 	var ja := 14.0
 	var b0 := 46.0
-	var deck_y := maxf(0.7, ground(ja, b0) + pad_y + 0.05)
-	var reach := 14.0
-	_box(Vector3(ja, deck_y - pad_y, b0 + reach * 0.5), Vector3(1.5, 0.1, reach), WOOD)
+	var deck_y := maxf(0.75, ground(ja, b0) + pad_y + 0.05)  # kansi 0,75 m vedenpinnan yläpuolella kuten Äpätin sillalla
+	var reach := 26.0
+	var hw := JETTY_W * 0.5
+	_box(Vector3(ja, deck_y - pad_y, b0 + reach * 0.5), Vector3(JETTY_W, 0.1, reach), WOOD)
+	_box(Vector3(ja, deck_y - pad_y - 0.28, b0 + reach * 0.5), Vector3(JETTY_W, 0.35, reach), Color(0, 0, 0, 0), false)
 	var k := 0.0
 	while k <= reach:
-		for s: float in [-0.7, 0.7]:
+		for s: float in [-hw + 0.12, hw - 0.12]:
 			_box(Vector3(ja + s, deck_y - pad_y - 1.0, b0 + k), Vector3(0.12, 2.0, 0.12), WOOD.darkened(0.3), false)
 		k += 3.5
-	_box(Vector3(ja, deck_y - pad_y + 0.2, b0 + reach), Vector3(1.5, 0.4, 0.08), WOOD.darkened(0.2), false)  # päätyreunus
+	# T-pää (a 8…20) kuten Äpätin sillassa.
+	_box(Vector3(ja, deck_y - pad_y, b0 + reach - 0.7), Vector3(12.0, 0.1, 1.6), WOOD)
+	for pa: float in [8.4, 11.2, 14.0, 16.8, 19.6]:
+		_box(Vector3(pa, deck_y - pad_y - 1.0, b0 + reach - 1.3), Vector3(0.12, 2.0, 0.12), WOOD.darkened(0.3), false)
+		_box(Vector3(pa, deck_y - pad_y - 1.0, b0 + reach - 0.1), Vector3(0.12, 2.0, 0.12), WOOD.darkened(0.3), false)
+	_box(Vector3(ja, deck_y - pad_y + 0.12, b0 + reach), Vector3(12.0, 0.3, 0.1), WOOD.darkened(0.3), false)  # päätyreunus
+	for sa: float in [ja - hw, ja + hw - 0.1]:  # reunapalkit koko sillan matkalla
+		_box(Vector3(sa + 0.05, deck_y - pad_y + 0.01, b0 + reach * 0.5), Vector3(0.1, 0.3, reach), WOOD.darkened(0.3), false)
+	_harbor(ja, b0, reach, deck_y - pad_y + 0.05)
+	_marina()
+	_bar_stairs()
+
+
+## Satama satelliittikuvan mukaan: rantapenger ja itäkärki, pohjoinen aallonmurtaja ja länsimuuri louhikkoa (törmäyskappaleet
+## veneelle ja kävelyreitti penkereellä), kolme kelluvaa laituria sormilaitureineen ja pienveneineen, pysäköintialue ja
+## nostoramppi länsipäässä sekä lamput ja kyltti.
+func _marina() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var top := MARINA_TOP - pad_y
+	var rock := Color(0.5, 0.48, 0.45)
+	# Louhikkopenkereet: tasainen harja (kävelypinta) ja päälle ripoteltuja lohkareita.
+	var mole := func(a0: float, b0: float, a1: float, b1: float, w: float) -> void:
+		var ac := (a0 + a1) * 0.5
+		var bc := (b0 + b1) * 0.5
+		var len_a := absf(a1 - a0) + (w if b0 == b1 else 0.0)
+		var len_b := absf(b1 - b0) + (w if a0 == a1 else 0.0)
+		var bottom := -pad_y - 2.5
+		_box(Vector3(ac, (top + bottom) * 0.5, bc), Vector3(maxf(len_a, w), top - bottom, maxf(len_b, w)), rock.darkened(0.15))
+		var n := int(maxf(len_a, len_b) / 0.9)
+		for k in n:
+			var t := rng.randf()
+			var pa := lerpf(a0, a1, t)
+			var pb := lerpf(b0, b1, t)
+			if b0 == b1:
+				pb += rng.randf_range(-w * 0.5, w * 0.5)
+			else:
+				pa += rng.randf_range(-w * 0.5, w * 0.5)
+			var sz := Vector3(rng.randf_range(0.8, 1.7), rng.randf_range(0.4, 0.9), rng.randf_range(0.8, 1.7))
+			var basis := Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3)))
+			_batch.add(B.boxm(sz), Transform3D(basis, P(pa, top + 0.05, pb)), rock.darkened(0.2).lerp(Color(0.55, 0.52, 0.48), rng.randf()))
+	mole.call(-2.0, 50.4, 76.0, 50.4, 4.0)   # rantapenger
+	mole.call(75.0, 50.4, 75.0, 62.0, 4.0)   # itäkärki (sisääntulon eteläpuoli)
+	mole.call(-2.0, 50.4, -2.0, 90.0, 3.5)   # länsimuuri
+	mole.call(-2.0, 90.0, 52.0, 90.0, 4.0)   # pohjoinen aallonmurtaja
+	# Kelluvat laiturit: kaksi päälaituria a-suunnassa sormilaitureineen kohtisuoraan, ja kulkulaituri pohjoismurtajalta.
+	var pont := WOOD.lerp(Color(0.7, 0.68, 0.62), 0.5)
+	var py := 0.35 - pad_y
+	for row: float in [76.0, 83.0]:
+		_box(Vector3(46.0, py, row), Vector3(42.0, 0.14, 1.6), pont, false)
+		var a := 26.5
+		while a < 67.0:
+			for sd: float in [-1.0, 1.0]:
+				_box(Vector3(a, py, row + sd * 3.4), Vector3(0.5, 0.12, 5.6), pont.darkened(0.1), false)
+				if rng.randf() < 0.65:
+					_marina_boat(Vector3(a + 1.7, -pad_y, row + sd * 3.6), rng)
+			a += 4.4
+	# Päälaituri pohjoismurtajalta kellukkeille (kulku pohjoisesta).
+	_box(Vector3(30.0, py, 87.5), Vector3(1.4, 0.14, 6.0), pont, false)
+	# Pysäköintialue ja nostoramppi länsipäässä (hiekkarannan puolella).
+	for k in 3:
+		var ga := 2.0 + k * 9.0
+		var gb := 40.0
+		_box(Vector3(ga + 4.0, ground(ga + 4.0, gb) + 0.04, gb), Vector3(9.0, 0.06, 8.0), Color(0.42, 0.42, 0.44), false)
+	for k in 6:
+		var ra := 2.0 + k * 3.0
+		_box(Vector3(ra, ground(ra, 45.5) + 0.05, 45.5), Vector3(0.12, 0.05, 6.0), Color(0.9, 0.9, 0.88), false)
+	_box(Vector3(10.0, ground(10.0, 47.5) + 0.06, 47.5), Vector3(5.0, 0.08, 4.0), Color(0.62, 0.62, 0.6), false)  # ramppi
+	# Lamput penkereen kulmissa ja kyltti.
+	for q: Vector2 in [Vector2(70.0, 50.4), Vector2(30.0, 50.4), Vector2(48.0, 90.0), Vector2(75.0, 61.0)]:
+		_box(Vector3(q.x, top + 1.4, q.y), Vector3(0.1, 2.8, 0.1), Color(0.3, 0.3, 0.32), false)
+		_lamp_bulb(P(q.x, top + 2.85, q.y))
+	var sg := B.sign_plate(_root, "HAPPY BEACH\nVENESATAMA", TRIM, Color.WHITE, 0.2, 38, Color(0.95, 0.9, 0.5))
+	sg.position = P(4.0, top + 1.6, 44.0)
+	sg.rotation.y = PI
+	_box(Vector3(4.0, top + 0.8, 44.0), Vector3(0.08, 1.6, 0.08), WOOD.darkened(0.3), false)
+
+
+## Pieni vene kelluvan laiturin sormen vieressä.
+func _marina_boat(c: Vector3, rng: RandomNumberGenerator) -> void:
+	var cols: Array[Color] = [Color(0.95, 0.95, 0.93), Color(0.85, 0.9, 0.95), Color(0.9, 0.85, 0.7), Color(0.2, 0.3, 0.5)]
+	var col: Color = cols[rng.randi() % 4]
+	var boat := Node3D.new()
+	boat.position = P(c.x, c.y, c.z)
+	boat.rotation.y = rng.randf_range(-0.04, 0.04)
+	_root.add_child(boat)
+	B.mesh(boat, B.boxm(Vector3(1.9, 0.5, 5.2)), Vector3(0, 0.15, 0), col)
+	B.mesh(boat, B.boxm(Vector3(1.5, 0.06, 4.6)), Vector3(0, 0.42, 0), Color(0.55, 0.45, 0.35))
+	if rng.randf() < 0.5:
+		B.mesh(boat, B.boxm(Vector3(1.2, 0.5, 1.4)), Vector3(0, 0.68, -0.4), Color(0.9, 0.92, 0.95))
+
+
+## Laiturin yksityiskohdat: leveä purkupaikka päässä, kaiteet, pollarit, renkaat suojana, tikkaat, pelastusrengas,
+## lyhdyt, kyltti, soutuvene ja uimapoijut sekä rantavarasto. Muskeliveneen paikka (jetty_mooring) on laiturin itäkyljessä
+## (a ≈ 16,4, b ≈ 57,2), joten itäpuoli pidetään vapaana ja lisäosat rakennetaan länsipuolelle.
+func _harbor(ja: float, b0: float, reach: float, dy: float) -> void:
+	var steel := Color(0.3, 0.32, 0.35)
+	var wood_d := WOOD.darkened(0.3)
+	var end := b0 + reach
+	# Laudoituksen saumat poikittain.
+	var k := b0 + 0.5
+	while k < end:
+		_batch.add(B.boxm(Vector3(JETTY_W, 0.012, 0.025)), Transform3D(Basis(), P(ja, dy + 0.006, k)), WOOD.darkened(0.3))
+		k += 0.5
+	# Reunapalkit ja tolppien päät laiturin molemmin puolin.
+	for sa: float in [ja - 1.18, ja + 1.18]:
+		_box(Vector3(sa, dy + 0.06, b0 + reach * 0.5), Vector3(0.1, 0.12, reach), wood_d, false)
+	k = b0 + 0.3
+	while k <= end:
+		for sa: float in [ja - 1.1, ja + 1.1]:
+			_box(Vector3(sa, dy + 0.07, k), Vector3(0.16, 0.14, 0.16), wood_d, false)
+		k += 3.5
+	# Kaide laiturin länsireunalla ja päätyosan reunoilla (itäreuna jätetään auki veneen nousulle).
+	for pb in range(int(b0) + 2, int(end), 3):
+		_box(Vector3(ja - 1.12, dy + 0.5, float(pb)), Vector3(0.08, 1.0, 0.08), WOOD.lightened(0.05), false)
+	_box(Vector3(ja - 1.12, dy + 0.95, (b0 + 2.0 + end - 1.0) * 0.5), Vector3(0.07, 0.06, end - b0 - 3.0), WOOD.lightened(0.05), false)
+	_box(Vector3(ja - 1.12, dy + 0.5, (b0 + 2.0 + end - 1.0) * 0.5), Vector3(0.06, 0.05, end - b0 - 3.0), WOOD.lightened(0.05), false)
+	# Pollarit veneen puolella ja päädyssä, sekä rengasfenderit itäkyljessä.
+	for bb: float in [54.8, 57.2, 59.4]:
+		B.mesh(_root, B.cyl(0.1, 0.1, 0.34, 8), P(ja + 1.0, dy + 0.17, bb), steel)
+		B.mesh(_root, B.cyl(0.14, 0.14, 0.06, 8), P(ja + 1.0, dy + 0.36, bb), steel)
+	for fb: float in [54.0, 56.0, 58.0]:
+		B.mesh(_root, B.cyl(0.26, 0.26, 0.2, 10), P(ja + 1.22, dy - 0.28, fb), Color(0.08, 0.08, 0.09), Vector3(0, 0, 90))
+	# Tikkaat veteen luoteiskulmassa ja pelastusrengas pylväässä.
+	for rb: float in [end - 0.2, end - 2.6]:
+		B.mesh(_root, B.cyl(0.02, 0.02, 1.2, 6), P(9.3, dy - 0.45, rb), steel)
+	for rr in 4:
+		B.mesh(_root, B.cyl(0.02, 0.02, 0.0 + 2.4, 6), P(9.3, dy - 0.7 - rr * 0.0, end - 1.4 - 1.2 + rr * 0.8), steel, Vector3(90, 0, 0))
+	_box(Vector3(ja - 1.12, dy + 1.4, b0 + 3.0), Vector3(0.08, 1.8, 0.08), Color(0.85, 0.85, 0.85), false)
+	B.mesh(_root, B.cyl(0.32, 0.32, 0.08, 14), P(ja - 1.06, dy + 1.5, b0 + 3.0), Color(0.95, 0.35, 0.12), Vector3(0, 0, 90))
+	# Lyhtypylväät: kaksi laiturilla ja yksi päässä (iltaisin päällä, set_lamp).
+	for lb: float in [b0 + 6.0, end - 0.3]:
+		_box(Vector3(ja - 1.12, dy + 1.4, lb), Vector3(0.07, 2.8, 0.07), Color(0.3, 0.3, 0.32), false)
+		_lamp_bulb(P(ja - 1.12, dy + 2.85, lb))
+	# Kyltti laiturin juuressa ja ankkuri koristeena.
+	var sg := B.sign_plate(_root, "HAPPY BEACH\nVENELAITURI", TRIM, Color.WHITE, 0.2, 38, Color(0.95, 0.9, 0.5))
+	sg.position = P(ja - 1.6, dy + 1.35, b0 + 0.4)
+	sg.rotation.y = PI
+	_box(Vector3(ja - 1.6, dy + 0.65, b0 + 0.4), Vector3(0.08, 1.3, 0.08), wood_d, false)
+	# Soutuvene köysin laiturin länsikyljessä ja uimapoijut.
+	var boat := Node3D.new()
+	boat.position = P(ja - 3.2, -pad_y, b0 + 8.0)
+	boat.rotation.y = 0.12
+	_root.add_child(boat)
+	B.mesh(boat, B.boxm(Vector3(1.3, 0.4, 3.2)), Vector3(0, 0.0, 0), Color(0.75, 0.45, 0.22))
+	B.mesh(boat, B.boxm(Vector3(1.1, 0.05, 3.0)), Vector3(0, 0.19, 0), Color(0.9, 0.85, 0.7))
+	B.mesh(boat, B.boxm(Vector3(1.1, 0.06, 0.3)), Vector3(0, 0.26, 0.2), WOOD)
+	B.mesh(boat, B.boxm(Vector3(0.05, 0.05, 1.8)), Vector3(0.55, 0.3, 0.2), WOOD, Vector3(0, 0, 0))
+	B.mesh(_root, B.cyl(0.015, 0.015, 3.0, 4), P(ja - 1.7, dy - 0.15, b0 + 8.0), Color(0.8, 0.75, 0.6), Vector3(0, 0, 90))
+	for i in 4:
+		var pb := b0 + 3.0 + i * 4.0
+		B.mesh(_root, B.sphere(0.2, 8), P(ja - 9.0, -pad_y, pb), Color(0.95, 0.3, 0.1) if i % 2 == 0 else Color.WHITE)
+	# Rantavarasto laiturin juurella: pieni punainen vaja, polttopuuvaja ja pelastusveneen kannatin.
+	var sa := 8.0
+	var sb := 41.8
+	var sy := ground(sa, sb)
+	_box(Vector3(sa, sy + 0.9, sb), Vector3(2.4, 1.8, 2.0), RED)
+	_roof(Vector3(sa, sy + 2.05, sb), 2.8, 2.6, 0.7, ROOF.darkened(0.2), true)
+	_box(Vector3(sa + 1.22, sy + 0.8, sb), Vector3(0.05, 1.5, 0.9), Color.WHITE, false)
+	_box(Vector3(sa + 1.23, sy + 1.35, sb + 0.6), Vector3(0.05, 0.4, 0.4), GLASS, false)
+	for ta: float in [10.2, 10.8]:
+		B.mesh(_root, B.cyl(0.25, 0.25, 0.8, 10), P(ta, ground(ta, 42.4) + 0.4, 42.4), Color(0.15, 0.3, 0.55))
+

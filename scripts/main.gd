@@ -90,6 +90,7 @@ var kortit: Node
 var chat: Node
 var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
+var _sytytys_for := "sauna"  # mitä sytytysminipeli sytyttää: "sauna" | "nuotio"
 var sytytys: CanvasLayer = null  # saunan sytytys käynnissä (sytytys_game.gd)
 var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
@@ -221,6 +222,7 @@ func _ready() -> void:
 	add_child(muskelivene)
 	muskelivene.place(0)
 	muskelivene.docked.connect(_motorboat_docked)
+	muskelivene.arrived.connect(func(idx: int) -> void: muskelivene.dock(idx))
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
@@ -415,15 +417,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if muskelivene.driver != null:
-		# Muskeliveneessä: E telakoi satamaan, muut näppäimet (kaasu, ohjaus, V) ohjaavat venettä.
+		# Muskeliveneessä: E telakoi satamaan, G kytkee automaattiajon, muut näppäimet (kaasu, ohjaus, V) ohjaavat venettä.
 		if event.is_action_pressed("interact"):
 			_leave_motorboat()
 			get_viewport().set_input_as_handled()
+		elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_G \
+				and not Chat.typing:
+			_toggle_boat_autopilot()
+			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("map"):
 			_map.open()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("restart"):
-			respawn()
 			get_viewport().set_input_as_handled()
 		return
 	if car.driver != null:
@@ -438,17 +441,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("map"):
 			_map.open()
 			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("restart"):
-			respawn()
-			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("map"):
 		_map.open()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("restart"):
-		# R vie takaisin aloituspaikalle vain vapaana: ei minipelin, ohjeen tai kirjoittamisen aikana.
-		if activity == "" and not ohje.is_open() and not Chat.typing and _ballgame() == null:
-			respawn()
 	elif event.is_action_pressed("interact"):
 		if activity == "baari" and baari.in_game:
 			pass  # pajatso tai hedelmäpeli lukee E:n itse
@@ -473,7 +469,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F:
 		end_activity()
 	elif activity != "" and not (activity == "baari" and baari.in_game) \
-			and (event.is_action_pressed("forward") or event.is_action_pressed("back")):
+			and event.is_action_pressed("mount"):
 		end_activity()
 	elif activity != "" and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_RIGHT \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -488,7 +484,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			kokkaus.eat()
 	elif event.is_action_pressed("drink") and activity == "" and _can_act() and nuotio.near(player.global_position):
-		start_activity("muistelu")
+		if not nuotio.lit:
+			toast("Nuotio on sammunut. Sytytä tuli ensin (E).", 3.0)
+		elif not sunset_now():
+			toast("Tarinoita kerrotaan vasta auringonlaskun aikaan (tänään klo %s)." % sun.today()["set"], 4.0)
+		else:
+			start_activity("muistelu")
 	elif event.is_action_pressed("drink") and activity == "" and _can_act() and _at_kitchen_table():
 		start_activity("lautapeli")
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
@@ -804,7 +805,7 @@ func _interaction() -> Dictionary:
 	if _near_boat():
 		return {"text": "E: nouse kumiveneeseen", "cb": func() -> void: player.enter_boat(boat)}
 	if muskelivene.can_board(player.global_position) and player.boat == null and not player.hidden_inside:
-		return {"text": "E: nouse muskeliveneeseen (ajo Happy Beachin laituriin ja takaisin Äpätin venesatamaan)",
+		return {"text": "E: nouse muskeliveneeseen (ajo Happy Beachin laituriin ja takaisin Äpätin venesatamaan · G: automaattiajo)",
 			"cb": _enter_motorboat}
 	if _near_car():
 		return {"text": "E: nouse autoon (ajo Happy Beachille ja takaisin · G: automaattiajo)", "cb": _enter_car}
@@ -859,7 +860,13 @@ func _interaction() -> Dictionary:
 			return {"text": "Vain Marko saa grillata (pihvit tulevat grillistä klo 20)"}
 		return {"text": "E: grillaa pihvit grillikatoksessa (Markon erikoisuus)", "cb": func() -> void: start_activity("grilli")}
 	if nuotio.near(player.global_position) and player.boat == null:
-		return {"text": "E: paista makkaraa nuotiolla · Q: \"Muistatko kun\" -tarinat", "cb": func() -> void: start_activity("makkara")}
+		if not nuotio.lit:
+			var held_n: int = sauna.carried.get(player_index, 0)
+			if held_n > 0:
+				return {"text": "E: sytytä nuotio (sylissä %d halkoa)" % held_n, "cb": func() -> void: _start_sytytys("nuotio")}
+			return {"text": "Nuotio on sammunut – hae halot halkovajasta (E) ja sytytä tuli ennen makkaranpaistoa"}
+		return {"text": "E: paista makkaraa nuotiolla · Q: \"Muistatko kun\" -tarinat (vain auringonlaskun aikaan)",
+			"cb": func() -> void: start_activity("makkara")}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	if heittely.can_start(player.global_position) and player.boat == null:
@@ -878,10 +885,12 @@ func _interaction() -> Dictionary:
 					return {"text": "E: sytytä tuli kiukaaseen (sylissä %d halkoa · muista pelti)" % held, "cb": _start_sytytys}
 				return {"text": "E: halko kiukaaseen (sylissä %d · %s)" % [held, sauna.fire_text()],
 					"cb": _add_log}
+			if sauna.temp < 55.0:
+				return {"text": "Sauna on kylmä (%d °C): hae halot halkovajasta ja sytytä tuli kiukaaseen (E kiukaan vieressä)" % roundi(sauna.temp)}
 			return {"text": "E: istu lauteille (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
 				"cb": func() -> void: start_activity("sauna")}
 		"keittio":
-			if player.global_position.distance_to(m.coffee_pos) < 1.0 and kahvi.kupit > 0:
+			if _near_coffee() and kahvi.kupit > 0:
 				return {"text": "E: juo kuppi kahvia sivutasolta (%d kuppia, Barista Salosen pannukahvi)" % kahvi.kupit,
 					"cb": kahvi.drink}
 			if player.global_position.distance_to(m.cook_spot) < 0.75:
@@ -903,11 +912,18 @@ func _interaction() -> Dictionary:
 	return {}
 
 
+## Sivutason kahvipannun luona: vaakaetäisyys (pannu on tasolla metrin korkeudessa, työtaso on edessä).
+func _near_coffee() -> bool:
+	var m: Node3D = world.mokki
+	var d: Vector3 = player.global_position - m.coffee_pos
+	return Vector2(d.x, d.z).length() < 1.25 and player.global_position.distance_to(m.cook_spot) >= 0.75
+
+
 ## Keittiön pöydän luona (ei hellalla eikä kahvipannulla).
 func _at_kitchen_table() -> bool:
 	var m: Node3D = world.mokki
 	return Mokki.room_at(player.global_position) == "keittio" and player.global_position.distance_to(m.cook_spot) >= 0.75 \
-		and player.global_position.distance_to(m.coffee_pos) >= 1.0
+		and not _near_coffee()
 
 
 func _near_boat() -> bool:
@@ -929,10 +945,22 @@ func _enter_motorboat() -> void:
 	muskelivene.board(player)
 	_board_crew_boat(player_index)
 	mp.send({"t": "vene", "on": true, "i": player_index})
-	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 8.0)
+	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · G automaattiajo · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 8.0)
 	var other: Dictionary = muskelivene.moorings[1 - maxi(muskelivene.from_mooring, 0)]
 	_map.has_target = true
 	_map.target = Vector2(other.pos.x, other.pos.z)  # kompassi osoittaa toiseen satamaan
+
+
+func _toggle_boat_autopilot() -> void:
+	if muskelivene.autopilot:
+		muskelivene.stop_autopilot()
+		toast("Automaattiajo pois – ohjaat itse.", 2.5)
+		return
+	var idx: int = muskelivene.auto_target()
+	if not muskelivene.start_autopilot(idx):
+		toast("Reittiä ei löydy tästä. Aja ensin syvemmälle vedelle.", 3.0)
+		return
+	toast("Automaattiajo: ajetaan satamaan %s (G: pois, E: telakoi)." % muskelivene.moorings[idx].name, 4.0)
 
 
 ## E ajaessa: telakointi onnistuu vain satamapaikan lähellä hiljaa kulkiessa.
@@ -1205,6 +1233,11 @@ func _remote_ride(on: bool) -> void:
 	_release_crew(home)
 
 
+## Auringonlaskun aika: aurinko matalalla lännessä (tarinoita kerrotaan vain silloin).
+func sunset_now() -> bool:
+	return sun.altitude < 8.0 and sun.azimuth > 180.0 and sun.altitude > -12.0
+
+
 ## Halko kiukaaseen (E kiukaan vieressä): tehtävä, jos tuli todella sai lisää.
 func _add_log() -> void:
 	var f0: float = sauna.fire
@@ -1214,13 +1247,15 @@ func _add_log() -> void:
 
 
 ## Sammunut kiuas sytytetään minipelillä: klapit ja syttö pesään, pelti auki ja tulitikku.
-func _start_sytytys() -> void:
+func _start_sytytys(target := "sauna") -> void:
 	end_activity()
+	_sytytys_for = target
 	player.controls_enabled = false
 	_hud.visible = false
 	sytytys = SytytysGame.new()
 	sytytys.logs = sauna.carried.get(player_index, 0)
 	sytytys.damper = sauna.damper
+	sytytys.outdoor = target == "nuotio"
 	sytytys.finished.connect(_sytytys_result)
 	add_child(sytytys)
 
@@ -1229,11 +1264,17 @@ func _sytytys_result(res: Dictionary) -> void:
 	sytytys = null
 	_hud.visible = true
 	player.controls_enabled = true
-	sauna.damper = res.damper
+	if _sytytys_for == "sauna":
+		sauna.damper = res.damper
 	if res.quit:
 		return
 	if not res.ok:
 		toast(res.why, 4.5)
+		return
+	if _sytytys_for == "nuotio":
+		sauna.carried[player_index] = maxi(0, sauna.carried.get(player_index, 0) - res.logs)
+		nuotio.ignite(res.logs, res.quality, res.smoky)
+		toast("Nuotio syttyi! %s." % nuotio.fire_text(), 4.0)
 		return
 	sauna.ignite(player_index, res.logs, res.quality, res.smoky)
 	tarina.complete("halot")
@@ -1248,7 +1289,6 @@ func _setup_input() -> void:
 	_add_action("right", [KEY_D, KEY_RIGHT])
 	_add_action("jump", [KEY_SPACE])
 	_add_action("interact", [KEY_E])
-	_add_action("restart", [KEY_R])
 	_add_action("map", [KEY_M])
 	_add_action("drink", [KEY_Q])
 	_add_action("mount", [KEY_F])
@@ -1497,7 +1537,8 @@ func _update_hud() -> void:
 		_prompt.text = "Veneen kyydissä – kuski ajaa · %d km/h" % roundi(absf(muskelivene.speed) * 3.6)
 	elif muskelivene.driver != null:
 		var mi: int = muskelivene.near_mooring()
-		_prompt.text = "%d km/h · W/S kaasu · A/D ohjaa · V näkymä · %s" % [roundi(absf(muskelivene.speed) * 3.6),
+		_prompt.text = "%d km/h · W/S kaasu · A/D ohjaa · G automaattiajo%s · V näkymä · %s" % [roundi(absf(muskelivene.speed) * 3.6),
+			" (päällä)" if muskelivene.autopilot else "",
 			"E: telakoi (%s)" % muskelivene.moorings[mi].name if mi >= 0 else "E: aja satamaan (Äpätin venesatama tai Happy Beach)"]
 	elif car.driver != null:
 		_prompt.text = "%d km/h · W/S kaasu ja jarru · A/D ohjaa · välilyönti käsijarru · G automaattiajo%s · H torvi · E pois" \

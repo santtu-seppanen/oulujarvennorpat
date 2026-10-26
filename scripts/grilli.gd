@@ -97,7 +97,7 @@ func stop(_why := "") -> void:
 
 
 func prompt() -> String:
-	return {"": "E: pihvit grillille", "gril": "E: pihvit pois grillistä, kun ne ovat kypsiä (vihreä)"}[_state] + " · W: lopeta"
+	return {"": "E: pihvit grillille", "gril": "E: pihvit pois grillistä, kun ne ovat kypsiä (vihreä)"}[_state] + " · F: lopeta"
 
 
 func act() -> void:

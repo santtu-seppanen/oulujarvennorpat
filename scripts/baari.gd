@@ -5,11 +5,11 @@ extends Node
 ## - jukeboksi: soittaa pelin musiikkikappaleita huoneessa, diskovalot pyörivät musiikin ajan
 ## - pajatso: kolme rullaa, pelimerkit (ei oikeaa rahaa)
 ## - hedelmäpeli: kolme rullaa, voi lukita rullia ennen uutta pyöräytystä ja tuplata voiton
-## - videopokeri: Jacks or Better (pokeri_game.gd), viisi korttia, pidä ja vaihda, tuplaus
+## - pokeri: Coinline-jokeripokeri (pokeri_game.gd), viisi korttia ja jokeri, pidä ja vaihda, tuplaus
 ## Jokaisella pelillä on ohje (ohje.gd): se aukeaa ensimmäisellä kerralla itsestään, ja H avaa sen uudelleen.
 ## - Sinikka: juttelu, drinkin tarjoaminen ja yhteistanssi; pöytäseurue ja korttipelaajat: jutustelu
 ## - tanssi: tanssilattialla eurodance-rytmipeli diskopallon alla (tanssi_game.gd), yksin tai Sinikan kanssa
-## Käyttöliittymä on valikon tyylinen (ui.gd); W/S tai E (valikoissa) lopettaa.
+## Käyttöliittymä on valikon tyylinen (ui.gd); F tai E (valikoissa) lopettaa.
 
 const Ui := preload("res://scripts/ui.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
@@ -18,7 +18,10 @@ const PokeriGame := preload("res://scripts/pokeri_game.gd")
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 
+## Pelin oma kappale (Suno, ks. docs/traileri/biisi.md): tiedosto lisätään jukeboksiin, valikkoon ja traileriin, kun se on olemassa.
+const SONG_PATH := "res://assets/music/oulujarven_norpat.mp3"
 const TRACKS := [
+	["Oulujärven norpat", SONG_PATH],
 	["Chariots of Fire", "res://assets/music/chariots_of_fire_alku.ogg"],
 	["Oodi (säestys)", "res://assets/music/oodi_saestys.ogg"],
 	["Retkimusiikki", "res://assets/music/retkimusiikki_silmukka.ogg"],
@@ -129,7 +132,7 @@ func start() -> bool:
 
 
 ## Pelin käynnistys: ensimmäisellä kerralla ohje (ohje.gd) aukeaa ensin, ja itse peli luodaan vasta ohjeen jälkeen.
-## in_game on tosi heti, joten main.gd ei lopeta aktiviteettia W/S:llä ohjeen aikana.
+## in_game on tosi heti, joten main.gd ei lopeta aktiviteettia F:llä ohjeen aikana.
 func _begin(help_id: String, build: Callable) -> void:
 	in_game = true
 	_ui.visible = false
@@ -304,7 +307,7 @@ func prompt() -> String:
 			return "H: ohje · F / Esc: lopeta"
 		"tanssi":
 			return "A S W D tai nuolet: askeleet tahtiin · Esc / F: lopeta"
-	return "Valitse klikkaamalla · E tai W/S: lopeta"
+	return "Valitse klikkaamalla · E tai F: lopeta"
 
 
 func act() -> void:
@@ -338,6 +341,8 @@ func _build() -> void:
 		"jukeboksi":
 			_status.text = "Toivo biisi:"
 			for t: Array in TRACKS:
+				if not ResourceLoader.exists(t[1]):
+					continue
 				Ui.button(_box, t[0], func() -> void: _play(t)).custom_minimum_size = Vector2(300, 38)
 			Ui.button(_box, "Sammuta musiikki", func() -> void:
 				game.world.happy.play_music(null)
@@ -407,7 +412,7 @@ func _build() -> void:
 			_status.text = "Valmistaudu..."
 			game.world.happy.disco_on = 60.0
 		"tanssi":
-			_status.text = "Tanssit Sinikan kanssa diskopallon alla. W/S lopettaa." if _with_sinikka else "Diskopallo pyörii. W/S lopettaa."
+			_status.text = "Tanssit Sinikan kanssa diskopallon alla. F lopettaa." if _with_sinikka else "Diskopallo pyörii. F lopettaa."
 			_dance_t = 0.0
 			game.world.happy.disco_on = maxf(game.world.happy.disco_on, 40.0)
 	Ui.button(_box, "Valmis (E)" if mode in ["tiski", "jukeboksi", "sinikka", "seurue"] else "Lopeta",

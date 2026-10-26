@@ -14,6 +14,7 @@ signal arrived  # automaattiajo pääsi perille
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Reitti := preload("res://scripts/reitti.gd")
+const Satama := preload("res://scripts/satama.gd")
 const Chat := preload("res://scripts/chat.gd")
 
 const LENGTH := 4.6
@@ -427,7 +428,7 @@ func _follow_ground(delta: float) -> void:
 	for fz: float in [1.0, -1.0]:
 		for rx: float in [-1.0, 1.0]:
 			var q := p + fwd * fz * WHEELBASE * 0.5 + right * rx * TRACK * 0.5
-			hs[Vector2(fz, rx)] = Terrain.h(q.x, q.z)
+			hs[Vector2(fz, rx)] = Terrain.h(q.x, q.z) + Satama.ramp_h(q.x, q.z)
 	var front: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(1.0, 1.0)]) * 0.5
 	var rear: float = (hs[Vector2(-1.0, -1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
 	var left: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(-1.0, -1.0)]) * 0.5

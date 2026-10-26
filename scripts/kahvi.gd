@@ -184,7 +184,7 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	var t: String = {"": "E: pannu liedelle", "vesi": "E: kahvinpurut veteen, kun vesi kiehuu",
 		"kiehuu": "E: pannu pois liedeltä, kun kahvi kiehahtaa"}[_state]
-	return t + " · W: lopeta"
+	return t + " · F: lopeta"
 
 
 ## Kuppeja pöytään (keitetty tai tietokoneen Jukan keittämä).

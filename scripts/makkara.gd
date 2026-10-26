@@ -126,8 +126,8 @@ func stop(_why := "") -> void:
 
 func prompt() -> String:
 	if _state == "":
-		return "E: pistä makkara tikun päähän · W: poistu nuotiolta"
-	return "A/D: siirrä makkaraa hiilloksella (ei liekkiin!) · E: nosta pois ja syö · W: poistu nuotiolta"
+		return "E: pistä makkara tikun päähän · F: poistu nuotiolta"
+	return "A/D: siirrä makkaraa hiilloksella (ei liekkiin!) · E: nosta pois ja syö · F: poistu nuotiolta"
 
 
 func act() -> void:

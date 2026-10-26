@@ -202,12 +202,12 @@ func prompt() -> String:
 			return "↑/↓ tai 1/2: valitse peli · E: aloita · F: nouse pöydästä"
 		"ask":
 			if turn == human():
-				return "Enter: kirjoita vastaus chattiin · E: ohita · W: nouse pöydästä"
-			return "Vastaamassa: %s · W: nouse pöydästä" % _name(turn)
+				return "Enter: kirjoita vastaus chattiin · E: ohita · F: nouse pöydästä"
+			return "Vastaamassa: %s · F: nouse pöydästä" % _name(turn)
 		"over":
-			return "E: uusi peli · H: ohje · W: nouse pöydästä"
+			return "E: uusi peli · H: ohje · F: nouse pöydästä"
 		_:
-			return "E: jatka · W: nouse pöydästä"
+			return "E: jatka · F: nouse pöydästä"
 
 
 func act() -> void:

@@ -1,16 +1,25 @@
 extends Node
-## Nuotiopaikka rannalla pääterassin ja laiturin välissä: kivikehä, hiillos, liekit, savu ja lepattava valo sekä
+## Nuotiopaikka grillikatoksen takana rinteen päällä: kivikehä, hiillos, liekit, savu ja lepattava valo sekä
 ## neljä istuinhirttä nuotion ympärillä (paikat mokki.gd fire_seats). Nuotiolla paistetaan makkaraa (makkara.gd)
 ## ja kerrotaan tarinoita (muistelu.gd): molemmissa pelaaja istuu hirrelle ja tietokoneen ohjaamat mökkiläiset
 ## tulevat istumaan ympärille.
 
 const Terrain := preload("res://scripts/terrain.gd")
 
+const LOG_BURN := 240.0  # sekuntia per halko
+const MAX_FIRE := 960.0
+
 var game: Node3D
 var pos := Vector3.ZERO
+## Nuotion tuli: jäljellä oleva palamisaika sekunteina. Sammunutta nuotiota ei voi käyttää: tuli sytytetään
+## sytytysminipelillä (sytytys_game.gd), eikä makkaraa paisteta eikä tarinoita kerrota ennen sitä.
+var fire := 0.0
+var lit := false
 var _t := 0.0
 var _light: OmniLight3D
 var _glow: StandardMaterial3D
+var _fl: CPUParticles3D
+var _sm: CPUParticles3D
 
 
 func _ready() -> void:
@@ -92,14 +101,49 @@ func _ready() -> void:
 		lg.position = Vector3(d.x, d.y + 0.18, d.z)
 		lg.rotation = Vector3(0, atan2(d.x, d.z), PI * 0.5)
 		root.add_child(lg)
-	root.add_child(_flames())
-	root.add_child(_smoke())
+	_fl = _flames()
+	_sm = _smoke()
+	root.add_child(_fl)
+	root.add_child(_sm)
 	_light = OmniLight3D.new()
 	_light.position = Vector3(0, 0.8, 0)
 	_light.light_color = Color(1.0, 0.55, 0.22)
 	_light.omni_range = 9.0
 	_light.light_energy = 1.6
 	root.add_child(_light)
+	_apply()
+	game.mp.on("nuotio", func(d: Dictionary, _from: int) -> void:
+		fire = float(d.f)
+		_apply())
+
+
+## Sytytysminipelin onnistuminen: halot pesään, tuli palaa asettelun laadun mukaan.
+func ignite(logs: int, quality: float, smoky: bool) -> void:
+	fire = minf(MAX_FIRE, logs * LOG_BURN * (0.5 + 0.5 * quality) * (0.85 if smoky else 1.0))
+	_apply()
+	Sfx.play_on(_light, "fire", -6.0, 1.2)
+	send_state()
+
+
+## Tulen tila muille koneille (sytytyksessä ja uuden pelaajan liittyessä).
+func send_state() -> void:
+	game.mp.send({"t": "nuotio", "f": fire})
+
+
+func douse() -> void:
+	fire = 0.0
+	_apply()
+
+
+func fire_text() -> String:
+	return "tuli palaa vielä %d min" % ceili(fire / 60.0) if lit else "nuotio on sammunut"
+
+
+func _apply() -> void:
+	lit = fire > 0.0
+	_fl.emitting = lit
+	_sm.emitting = lit
+	_light.visible = lit
 
 
 func _flames() -> CPUParticles3D:
@@ -161,9 +205,14 @@ func _smoke() -> CPUParticles3D:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if lit:
+		fire = maxf(0.0, fire - delta)
+		if fire <= 0.0:
+			_apply()
+			game.toast("Nuotio sammui. Hae halot halkovajasta ja sytytä uusi tuli.", 4.0)
 	if _light != null:
 		_light.light_energy = 1.6 + 0.35 * sin(_t * 13.0) + 0.25 * sin(_t * 29.0 + 1.0)
-		_glow.emission_energy_multiplier = 1.5 + 0.4 * sin(_t * 7.0)
+		_glow.emission_energy_multiplier = (1.5 + 0.4 * sin(_t * 7.0)) if lit else 0.15
 
 
 ## Pelaaja on nuotiolla (jaloilla rannalla, ei terassilla).

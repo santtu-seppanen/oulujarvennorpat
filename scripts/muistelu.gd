@@ -130,6 +130,18 @@ func reset() -> void:
 	_used = []
 
 
+const REPLY_TIME := 4.5  # vastauksen jälkeen seuraava tarina alkaa itsestään (E ohittaa odotuksen)
+var _reply_t := 0.0
+
+
+func _process(delta: float) -> void:
+	if _phase == "reply" and not get_tree().paused and not game.ohje.visible:
+		_reply_t -= delta
+		if _reply_t <= 0.0:
+			_next()
+			_refresh()
+
+
 func _day() -> int:
 	return game.tarina.day
 
@@ -140,7 +152,7 @@ func start() -> bool:
 	_ui.visible = true
 	_count = 0
 	_sum = 0
-	_phase = "intro"
+	_next()  # ensimmäinen tarina alkaa heti
 	_refresh()
 	game.ohje.open_first("muistelu")
 	return true
@@ -160,7 +172,7 @@ func prompt() -> String:
 		"done":
 			return "E: poistu nuotiolta"
 		_:
-			return "E: jatka · H: ohje · W: poistu nuotiolta"
+			return "Seuraava tarina alkaa itsestään (E: heti) · H: ohje · F: poistu nuotiolta"
 
 
 func act() -> void:
@@ -246,6 +258,7 @@ func choose(k: int) -> void:
 	if int(told[day]) >= 3:
 		game.tarina.complete("muistelu")
 	_phase = "reply"
+	_reply_t = REPLY_TIME
 	_info.text = "%s (%s)" % [opt[2], _mood_word(d)]
 
 

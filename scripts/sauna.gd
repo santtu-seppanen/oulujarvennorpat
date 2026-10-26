@@ -87,7 +87,7 @@ func _ready() -> void:
 	m.log_added.connect(func() -> void: add_log(-1))
 	game.mp.on("halko", func(d: Dictionary, _from: int) -> void:
 		fire = float(d.f)
-		temp = maxf(temp, float(d.T)))
+		temp = float(d.T))
 	# Tulen hehku kiukaan luukusta ja savu piipusta, kun tuli palaa.
 	_glow = OmniLight3D.new()
 	_glow.light_color = Color(1.0, 0.55, 0.2)
@@ -152,6 +152,9 @@ func _build_ui() -> void:
 # --- Toiminta (main.gd kutsuu) --------------------------------------------------------------------------------
 
 func start() -> bool:
+	if temp < 55.0:
+		game.toast("Sauna on kylmä (%d °C). Hae halot halkovajasta ja sytytä tuli kiukaaseen!" % roundi(temp), 4.0)
+		return false
 	var m: Node3D = game.world.mokki
 	# Lähimmälle vapaalle paikalle: jos joku jo saunoo, istutaan hänen viereensä.
 	var i: int = m.free_seat(m.sauna_seats, game.player, game.player.global_position)
@@ -183,7 +186,7 @@ func stop(why := "") -> void:
 
 
 func prompt() -> String:
-	return "E: heitä löylyä · W: pois lauteilta"
+	return "E: heitä löylyä · F: pois lauteilta"
 
 
 ## Halot syliin halkovajasta.
@@ -220,6 +223,11 @@ func ignite(i: int, logs: int, quality: float, smoky: bool) -> void:
 	var how := "Hyvä veto, tuli lähti heti!" if quality >= 0.9 and not smoky else \
 		("Savutti vähän, mutta tuli syttyi." if smoky else "Tuli syttyi, mutta veto on heikko – parempi asettelu kestäisi pidempään.")
 	game.toast("%s Tuli palaa noin %d min (sylissä %d)." % [how, ceili(fire / 60.0), carried[i]], 5.0)
+
+
+## Kiukaan tulen tila muille koneille (uuden pelaajan liittyessä).
+func send_state() -> void:
+	game.mp.send({"t": "halko", "f": fire, "T": temp})
 
 
 func fire_text() -> String:

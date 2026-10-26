@@ -6,13 +6,13 @@ extends Node
 ##   (assets/music/oodi_saestys.ogg, lasketaan valmiiksi työkalulla tools/oodimusiikki.gd tämän tiedoston
 ##   sävelestä ja soinnuista). Säkeistöt laulavat hahmot vuorotellen, kertosäkeen kaikki: rivi näkyy
 ##   puhekuplana, ja puhesynteesi laulaa sen sana kerrallaan sävelen korkeudella (chat.gd sing).
-## - Sävel on tätä peliä varten tehty. F-duuri, 76 bpm, 4/4: alkusoitto 2 tahtia, säkeistö ja kertosäe
-##   (kumpikin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 1 min 3 s.
+## - Sävel on tätä peliä varten tehty. F-duuri, 104 bpm, 4/4: alkusoitto 2 tahtia, säkeistö ja kertosäe
+##   (kumpikin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 49 s.
 ## Moninpeli: host päättää alun ja laulun alun (viesti "oodi"), ja laulu etenee jokaisella koneella omalla
 ## kellollaan; hostin tietokone ohjaa vapaita hahmoja.
 
 const MUSIC := "res://assets/music/oodi_saestys.ogg"
-const BPM := 76.0
+const BPM := 104.0
 const INTRO := 8  # iskuja ennen ensimmäistä riviä
 const OUTRO := 8
 const LINE := 8  # iskuja riviä kohden (2 tahtia)

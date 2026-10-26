@@ -18,6 +18,10 @@ func _initialize() -> void:
 	root.add_child(main)
 
 
+func n_lit() -> bool:
+	return main.nuotio.lit
+
+
 func check(ok: bool, what: String) -> void:
 	print(("OK   " if ok else "VIKA ") + what)
 	if not ok:
@@ -47,6 +51,13 @@ func _process(delta: float) -> bool:
 				next()
 		1:
 			if t > 0.5:
+				var unlit: Dictionary = main._interaction()
+				check(not n_lit() and str(unlit.get("text", "")).contains("sammunut") and not unlit.has("cb"), "sammunutta nuotiota ei voi käyttää: %s" % unlit.get("text", ""))
+				main.sauna.carried[main.player_index] = 4
+				unlit = main._interaction()
+				check(str(unlit.get("text", "")).contains("sytytä nuotio"), "halot sylissä: nuotion voi sytyttää")
+				main.nuotio.ignite(4, 1.0, false)
+				check(n_lit(), "sytytysminipelin jälkeen nuotio palaa")
 				var it: Dictionary = main._interaction()
 				check(str(it.get("text", "")).contains("makkaraa"), "kehote nuotiolla: %s" % it.get("text", ""))
 				it.cb.call()
@@ -101,17 +112,26 @@ func _process(delta: float) -> bool:
 		4:
 			if t > 0.4:
 				main._unhandled_input(_key_q())
+				check(main.activity == "", "tarinoita ei kerrota ennen auringonlaskua")
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 9, 22, 30)
+				main.sun._update(true)
+				check(main.sunset_now(), "klo 22.30 on auringonlaskun aika (korkeus %.1f)" % main.sun.altitude)
+				main._unhandled_input(_key_q())
 				check(main.activity == "muistelu", "Q aloittaa muistelun")
 				var ms: Node = main.muistelu
 				var maine0: int = main.maine
-				ms.act()  # intro -> ensimmäinen tarina
+				check(ms._phase == "choose", "ensimmäinen tarina alkaa heti ilman E:tä")
 				var told_first := 0
 				for k in 4:
 					check(ms._phase == "choose", "tarina %d valittavana" % (k + 1))
 					ms.choose(0)
 					told_first += 1
 					check(ms._phase == "reply", "vastaus tarinaan %d" % (k + 1))
-					ms.act()
+					if k == 0:
+						ms._reply_t = 0.0
+						ms._process(0.1)  # vastauksen jälkeen seuraava tarina alkaa itsestään ilman E:tä
+					else:
+						ms.act()
 				check(ms._phase == "done", "illan päätös 4 tarinan jälkeen")
 				var d: int = main.tarina.day
 				check(int(ms.told[d]) == 4, "kerrottuja tarinoita %d" % ms.told[d])
@@ -165,6 +185,14 @@ func _process(delta: float) -> bool:
 				_afrikka_started = true
 				_afrikka()
 		8:
+			# Moninpeli: toisen koneen nuotion ja kiukaan tila tulee viestillä.
+			main.nuotio.douse()
+			main.mp._on_message({"t": "nuotio", "f": 300.0, "from": 2})
+			check(main.nuotio.lit and absf(main.nuotio.fire - 300.0) < 1.0, "nuotion tila synkkautuu toiselta koneelta")
+			main.mp._on_message({"t": "nuotio", "f": 0.0, "from": 2})
+			check(not main.nuotio.lit, "nuotion sammuminen synkkautuu")
+			main.mp._on_message({"t": "halko", "f": 200.0, "T": 30.0, "from": 2})
+			check(absf(main.sauna.fire - 200.0) < 1.0 and absf(main.sauna.temp - 30.0) < 1.0, "kiukaan tila synkkautuu toiselta koneelta")
 			print("Valmis, vikoja: %d" % fails)
 			quit(1 if fails > 0 else 0)
 	return false

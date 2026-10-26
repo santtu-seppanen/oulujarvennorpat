@@ -185,7 +185,7 @@ func stop(_why := "") -> void:
 
 func prompt() -> String:
 	var t: String = {"": "E: perunakuutiot pannulle", "1": "E: lisää sipuli ja makkara", "2": "E: annos lautaselle"}[_state]
-	return t + " · W: lopeta"
+	return t + " · F: lopeta"
 
 
 ## Annoksia lautaselle (paistettu tai tietokoneen Markon tekemiä).

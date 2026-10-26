@@ -56,7 +56,7 @@ func _process(_d: float) -> bool:
 			var Sat: GDScript = load("res://scripts/satama.gd")
 			check(Sat.DECK > 0.42 + 0.25, "sataman kansi (%.2f m) on korkeampi kuin mökkilaiturin (0,42 m)" % Sat.DECK)
 			check(Vector2(h.pos.x - 150.0, h.pos.z + 104.0).length() < 40.0 and h.pos.z < -110.0, "satama on niemen kärjessä")
-			check(vn.moorings.size() == 2 and vn.moorings[1].name == "Happy Beachin laituri", "satamapaikkoja kaksi: Äpätti ja Happy Beach")
+			check(vn.moorings.size() == 2 and vn.moorings[1].name == "Happy Beachin satama", "satamapaikkoja kaksi: Äpätti ja Happy Beach")
 			check(vn.free_at(vn.moorings[1].pos, vn.moorings[1].yaw), "Happy Beachin laiturin paikka on riittävän syvää vettä")
 			_put_player_on_deck(h.deck)
 			next()
@@ -76,6 +76,8 @@ func _process(_d: float) -> bool:
 						riders += 1
 						seats[cb.vehicle_seat] = true
 				check(riders == 3 and seats.size() == 3 and not seats.has(0), "tietokoneen hahmot istuvat näkyvinä eri penkeille (%s)" % [seats.keys()])
+				vn._yaw = -PI * 0.5  # keula itään: satamasta ajetaan pois sivuun, ei suoraan T-päähän
+				vn.rotation.y = vn._yaw
 				Input.action_press("forward")
 				next()
 		2:
@@ -174,6 +176,40 @@ func _process(_d: float) -> bool:
 				check(not vn.remote and vn.passenger == null and vn.at == 1, "ajon päättyessä vene on Happy Beachin laiturissa")
 				check(main.player.vehicle == null and main.player.controls_enabled and main.player.global_position.distance_to(vn.moorings[1].deck) < 3.0,
 					"kyytiläinen nousi laiturille")
+				_put_player_on_deck(vn.moorings[0].deck)
+				vn.place(0)
+				next()
+		8:
+			# Automaattiajo Äpätistä Happy Beachille ja takaisin: vene telakoituu itse.
+			if t > 30:
+				main.player.vehicle = null
+				main.player.controls_enabled = true
+				_put_player_on_deck(vn.moorings[0].deck)
+				main._interaction().cb.call()
+				main._toggle_boat_autopilot()
+				check(vn.autopilot or vn._docking, "G käynnistää veneen automaattiajon")
+				next()
+		9:
+			if vn.at == 1 and vn.driver == null:
+				check(true, "automaattiajo telakoi veneen Happy Beachin laituriin (%.0f s)" % (float(frames - ts) / 60.0))
+				_put_player_on_deck(vn.moorings[1].deck)
+				next()
+			elif t > 6000:
+				check(false, "automaattiajo ei päässyt Happy Beachille (%s)" % vn.global_position)
+				next()
+		10:
+			if t > 30:
+				main._interaction().cb.call()
+				main._toggle_boat_autopilot()
+				next()
+		11:
+			if vn.at == 0 and vn.driver == null:
+				check(true, "automaattiajo toi veneen takaisin Äpätin satamaan")
 				print("Valmis, vikoja: %d" % fails)
+				quit(1 if fails > 0 else 0)
+			elif t > 6000:
+				check(false, "automaattiajo ei päässyt takaisin Äpättiin (%s)" % vn.global_position)
+				print("Valmis, vikoja: %d" % fails)
+				quit(1)
 				quit(1 if fails > 0 else 0)
 	return false

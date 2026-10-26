@@ -284,7 +284,7 @@ func _physics_process(delta: float) -> void:
 			_brains.erase(j)
 	_t += delta
 	if state == "matka" and not _music_on and _t >= START_TALK_T \
-			and (_t >= START_TALK_MAX or not DisplayServer.tts_is_speaking()):
+			and (_t >= START_TALK_MAX or not game.chat.is_speaking()):
 		_music_on = true
 		music.start()
 	if state == "matka" and bp.distance_to(LANDING) < ARRIVE_DIST:

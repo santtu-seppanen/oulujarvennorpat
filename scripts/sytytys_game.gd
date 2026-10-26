@@ -21,6 +21,7 @@ const SMOKY_AT := 0.5  # tästä ylöspäin savuttanut sauna haisee ja tuli jä�
 const INPUT_DELAY := 0.25
 
 var damper := false  # pelti auki
+var outdoor := false  # nuotio: ei peltiä, veto on aina auki
 var logs := 4  # syliin otetut halot
 var drunk := 0.0
 
@@ -55,7 +56,11 @@ func _ready() -> void:
 	add_child(_root)
 	_info = _label(24, 40)
 	_say = _label(28, 84)
-	say("Tuohta, pilkkeitä ja klapeja. Pelti auki ennen tikkua!")
+	if outdoor:
+		damper = true
+		say("Tuohta, pilkkeitä ja klapeja. Syttö keskelle, klapit sen ympärille!")
+	else:
+		say("Tuohta, pilkkeitä ja klapeja. Pelti auki ennen tikkua!")
 
 
 func _label(size: int, top: float) -> Label:
@@ -136,7 +141,7 @@ func clear_all() -> void:
 
 
 func toggle_damper() -> void:
-	if phase == "done":
+	if phase == "done" or outdoor:
 		return
 	damper = not damper
 	Sfx.play("door", -10.0, 0.6 if damper else 0.9)
@@ -226,7 +231,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var p: Vector2 = event.position
-		if _damper_rect().has_point(p):
+		if not outdoor and _damper_rect().has_point(p):
 			toggle_damper()
 			return
 		for s in SLOTS:
@@ -282,6 +287,8 @@ func _info_text() -> String:
 	var next: String = "Kaikki paikallaan"
 	if not queue.is_empty():
 		next = "Seuraavaksi: " + {"klapi": "klapi", "sytto": "syttö (tuohi ja pilkkeet)"}[queue[0]]
+	if outdoor:
+		return "%s · A/D paikka, E aseta, Enter tikku, F pois" % next
 	return "%s · pelti %s (P) · A/D paikka, E aseta, Enter tikku, F pois" % [next, "AUKI" if damper else "KIINNI"]
 
 
@@ -377,20 +384,21 @@ func _draw_root() -> void:
 			var ph := fposmod(t * 0.5 + k * 0.17, 1.0)
 			var sp := Vector2(o.x - 150.0 + k * 23.0, o.y - 100.0 - ph * 150.0 * (0.5 + smoke))
 			_root.draw_circle(sp, 22.0 + 30.0 * ph, Color(0.45, 0.45, 0.47, clampf(smoke, 0.0, 1.0) * (1.0 - ph) * 0.55))
-	# Pelti: piippu, jossa kääntyvä läppä
-	var dr := _damper_rect()
-	MG.solid(_root, dr, Color(0.2, 0.2, 0.22))
-	var mid := dr.get_center()
-	var ang := PI / 2.0 if damper else 0.0
-	var dir := Vector2(cos(ang), sin(ang))
-	_root.draw_line(mid - dir * 46.0, mid + dir * 46.0, Color(0.85, 0.86, 0.9), 8.0)
-	_root.draw_circle(mid, 8.0, Color(0.6, 0.6, 0.65))
-	_root.draw_circle(mid + dir * 46.0, 6.0, Color(0.9, 0.7, 0.2))  # kahva
-	var font := ThemeDB.fallback_font
-	var col := Color(0.4, 1.0, 0.4) if damper else Color(1.0, 0.45, 0.35)
-	_root.draw_string(font, dr.position + Vector2(-40, dr.size.y + 28), "PELTI: " + ("AUKI" if damper else "KIINNI"),
-		HORIZONTAL_ALIGNMENT_CENTER, dr.size.x + 80, 22, col)
-	_root.draw_string(font, dr.position + Vector2(-40, dr.size.y + 52), "(P tai klikkaa)", HORIZONTAL_ALIGNMENT_CENTER, dr.size.x + 80, 16, Color(1, 1, 1, 0.7))
+	# Pelti: piippu, jossa kääntyvä läppä (ei nuotiolla)
+	if not outdoor:
+		var dr := _damper_rect()
+		MG.solid(_root, dr, Color(0.2, 0.2, 0.22))
+		var mid := dr.get_center()
+		var ang := PI / 2.0 if damper else 0.0
+		var dir := Vector2(cos(ang), sin(ang))
+		_root.draw_line(mid - dir * 46.0, mid + dir * 46.0, Color(0.85, 0.86, 0.9), 8.0)
+		_root.draw_circle(mid, 8.0, Color(0.6, 0.6, 0.65))
+		_root.draw_circle(mid + dir * 46.0, 6.0, Color(0.9, 0.7, 0.2))  # kahva
+		var font := ThemeDB.fallback_font
+		var col := Color(0.4, 1.0, 0.4) if damper else Color(1.0, 0.45, 0.35)
+		_root.draw_string(font, dr.position + Vector2(-40, dr.size.y + 28), "PELTI: " + ("AUKI" if damper else "KIINNI"),
+			HORIZONTAL_ALIGNMENT_CENTER, dr.size.x + 80, 22, col)
+		_root.draw_string(font, dr.position + Vector2(-40, dr.size.y + 52), "(P tai klikkaa)", HORIZONTAL_ALIGNMENT_CENTER, dr.size.x + 80, 16, Color(1, 1, 1, 0.7))
 	# Jäljellä olevat esineet
 	for k in queue.size():
 		var qc := o + Vector2(-230.0 + k * 62.0, 250)

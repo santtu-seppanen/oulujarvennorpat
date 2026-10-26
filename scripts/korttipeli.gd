@@ -133,8 +133,8 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	var look := "E: pöytä ylhäältä" if not top_view else "E: takaisin paikalle"
 	if not playing():
-		return "Välilyönti: jaa kortit (%s) · %s · H: ohje · W: nouse pöydästä" % [_kind_name(), look]
-	return "Klikkaa korttia · %s · A/D: katso ympärille · H: ohje · W: nouse pöydästä" % look
+		return "Välilyönti: jaa kortit (%s) · %s · H: ohje · F: nouse pöydästä" % [_kind_name(), look]
+	return "Klikkaa korttia · %s · A/D: katso ympärille · H: ohje · F: nouse pöydästä" % look
 
 
 func playing() -> bool:

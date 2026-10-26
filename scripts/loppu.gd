@@ -380,7 +380,7 @@ func _loss(delta: float) -> void:
 	if _flash_t <= 0.0 and _t > 2.0:
 		_flash_t = randf_range(4.0, 8.0)
 		_flash = 0.55
-		Sfx.play("rattle_hard_0", -8.0, 0.5)
+		Sfx.play("rattle_hard", -8.0, 0.5)
 	if _t < 1.6:
 		_fade.color.a = 1.0 - _t / 1.6
 	_tint.color = Color(0.03, 0.04, 0.14, minf(0.55, _t * 0.3)).lerp(Color(0.9, 0.93, 1.0, 0.6), _flash)

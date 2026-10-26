@@ -16,7 +16,7 @@ ALAMÖKKI
 E	istu lauteille, heitä löylyä
 E	paista pyttipannua (vain Marko), istu pöytään (ristiseiska tai tuppi)
 Välilyönti / E	korttipöydässä: jaa kortit / pöytä ylhäältä
-W / S	nouse / lopeta
+F	nouse pöydästä / lopeta toiminto
 E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
 E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sytytetään minipelillä
 A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
@@ -28,8 +28,7 @@ T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)
 V	FPS / kolmas persoona
 Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
-Esc	taukovalikko
-R	takaisin aloituspaikalle (ei kesken minipelin)"""
+Esc	taukovalikko"""
 
 var game: Node3D
 var _root: Control
@@ -38,6 +37,7 @@ var _box: VBoxContainer
 var _mode := ""  # main | pause
 var _menu_cam: Camera3D
 var _cam_t := 0.0
+var _music: AudioStreamPlayer  # valikon musiikki: pelin oma kappale (baari.gd SONG_PATH), jos tiedosto on olemassa
 
 
 func _ready() -> void:
@@ -86,6 +86,7 @@ func open_main() -> void:
 		game.add_child(_menu_cam)
 	_menu_cam.current = true
 	game._hud.visible = false
+	_menu_music(true)
 	_title("OULUJÄRVEN NORPAT", "Ä P Ä T I N N I E M I  ·  V A A L A")
 	_button("Aloita peli", _choose)
 	_button("Moninpeli", _multi)
@@ -111,7 +112,26 @@ func open_pause() -> void:
 	_button("Lopeta peli", func() -> void: get_tree().quit())
 
 
+## Valikon taustamusiikki (silmukka, Music-väylä); ei tee mitään, jos kappaletiedostoa ei ole.
+func _menu_music(on: bool) -> void:
+	var path: String = game.baari.SONG_PATH
+	if on and ResourceLoader.exists(path):
+		if _music == null:
+			_music = AudioStreamPlayer.new()
+			_music.bus = "Music"
+			_music.process_mode = Node.PROCESS_MODE_ALWAYS
+			var st: AudioStreamMP3 = load(path)
+			st.loop = true
+			_music.stream = st
+			add_child(_music)
+		if not _music.playing:
+			_music.play()
+	elif _music != null:
+		_music.stop()
+
+
 func close() -> void:
+	_menu_music(false)
 	visible = false
 	get_tree().paused = false
 	game.player.controls_enabled = game.activity == ""

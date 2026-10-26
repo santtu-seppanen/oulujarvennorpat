@@ -17,6 +17,25 @@ const HEAD_V := Vector2(27.0, 28.4)  # T-pään v-väli
 const HEAD_U := Vector2(-7.0, 7.0)
 const SIDE_U := -10.0  # sivulaiturin keskilinja
 const SIDE_V := Vector2(10.0, 24.0)
+const ROAD_CLEAR := 3.0  # puita ei tien reunassa tätä lähempänä (m)
+## Sataman tien keskiviiva (Äpätintie jatkeineen): puut raivataan ja auto pääsee ajamaan täyttä vauhtia perille.
+const ROAD_LINE := [Vector2(-26.1, 141.4), Vector2(-8.1, 137.1), Vector2(17.4, 133.4), Vector2(37.0, 130.0),
+	Vector2(53.1, 122.5), Vector2(68.4, 112.0), Vector2(83.9, 100.4), Vector2(90.2, 95.3), Vector2(97.0, 81.3),
+	Vector2(102.1, 70.5), Vector2(112.5, 61.6), Vector2(121.2, 49.9), Vector2(123.7, 37.2), Vector2(125.4, 26.8),
+	Vector2(129.6, 20.7), Vector2(136.8, 9.9), Vector2(145.4, -3.8), Vector2(153.8, -19.4), Vector2(159.7, -31.0),
+	Vector2(166.3, -40.4), Vector2(169.9, -48.4), Vector2(168.8, -55.0), Vector2(164.9, -67.7), Vector2(156.2, -83.0),
+	Vector2(151.5, -89.6), Vector2(147.1, -97.2)]
+const ROAD_TREE_R := 5.0  # puita ei tämän lähempänä tien keskiviivaa (m)
+## Hyppyri tiellä (n. 130 m ennen satamaa): pitkä nousu satamaan päin ja jyrkkä lasku, jolla auto lentää.
+const RAMP_START := Vector2(138.6, 6.6)
+const RAMP_DIR := Vector2(0.53, -0.848)
+const RAMP_RISE := 8.0
+const RAMP_FALL := 2.5
+const RAMP_H := 1.5
+const RAMP_HW := 2.3
+const GAP_A := Vector2(-12.0, 137.0)
+const GAP_B := Vector2(6.0, 133.0)
+const GAP_R := 4.5
 const WOOD := Color(0.5, 0.4, 0.3)
 const WOOD_D := Color(0.33, 0.25, 0.18)
 const STEEL := Color(0.3, 0.32, 0.35)
@@ -25,6 +44,64 @@ var harbor := {}  # {name, pos, yaw, deck} (muskelivene.gd moorings)
 var lamps: Array[StandardMaterial3D] = []
 var _light: OmniLight3D
 var _rng := RandomNumberGenerator.new()
+
+
+static func _near_seg(p: Vector2, a: Vector2, b: Vector2, r: float) -> bool:
+	return p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)) < r
+
+
+## Hyppyrin lisäkorkeus maaston päällä kohdassa (x, z) (auto.gd lisää sen renkaiden alla olevaan maastoon).
+static func ramp_h(x: float, z: float) -> float:
+	var r := Vector2(x, z) - RAMP_START
+	var a := r.dot(RAMP_DIR)
+	if a < 0.0 or a > RAMP_RISE + RAMP_FALL or absf(r.dot(RAMP_DIR.orthogonal())) > RAMP_HW:
+		return 0.0
+	return RAMP_H * (a / RAMP_RISE if a < RAMP_RISE else 1.0 - (a - RAMP_RISE) / RAMP_FALL)
+
+
+## Hyppyri näkyviin: puinen kiila ja keltaiset reunamerkit (korkeus tulee ramp_h:sta, ei törmäyskappaletta).
+func _ramp() -> void:
+	var side := RAMP_DIR.orthogonal()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var stops := [0.0, RAMP_RISE, RAMP_RISE + RAMP_FALL]
+	var rows: Array = []
+	for a: float in stops:
+		var row := []
+		for sd: float in [-RAMP_HW, RAMP_HW]:
+			var w := RAMP_START + RAMP_DIR * a + side * sd
+			row.append([Vector3(w.x, Terrain.h(w.x, w.y) + ramp_h(w.x, w.y) + 0.01, w.y), Vector3(w.x, Terrain.h(w.x, w.y) - 0.4, w.y)])
+		rows.append(row)
+	for k in 2:
+		var l0: Array = rows[k][0]
+		var r0: Array = rows[k][1]
+		var l1: Array = rows[k + 1][0]
+		var r1: Array = rows[k + 1][1]
+		for v: Vector3 in [l0[0], r0[0], r1[0], l0[0], r1[0], l1[0]]:
+			st.add_vertex(v)
+		for v: Vector3 in [l0[0], l1[0], l1[1], l0[0], l1[1], l0[1]]:
+			st.add_vertex(v)
+		for v: Vector3 in [r0[0], r1[1], r1[0], r0[0], r0[1], r1[1]]:
+			st.add_vertex(v)
+	var last: Array = rows[2]
+	for v: Vector3 in [last[0][0], last[1][0], last[1][1], last[0][0], last[1][1], last[0][1]]:
+		st.add_vertex(v)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.mat(Color(0.55, 0.42, 0.28))
+	add_child(mi)
+	for sd: float in [-RAMP_HW, RAMP_HW]:
+		for a: float in [1.0, 3.5, 6.0]:
+			var w := RAMP_START + RAMP_DIR * a + side * sd
+			B.mesh(self, B.boxm(Vector3(0.2, 0.2, 0.2)), Vector3(w.x, Terrain.h(w.x, w.y) + ramp_h(w.x, w.y) + 0.12, w.y), Color(0.95, 0.8, 0.1))
+
+
+## Paikallisen (u, v) -suorakulmion vastine maailmassa.
+static func _rect(u0: float, u1: float, v0: float, v1: float) -> Rect2:
+	var a := w2(u0, v0)
+	var b := w2(u1, v1)
+	return Rect2(a.min(b), (b - a).abs())
 
 
 ## Paikallinen (u, v) maailmaan (x, z).
@@ -37,9 +114,24 @@ static func P(u: float, y: float, v: float) -> Vector3:
 	return Vector3(w.x, y, w.y)
 
 
-## Puut pois sataman alueelta.
+## Puut pois sataman alueelta ja satamaan johtavan tien päältä (rungot törmäävät, joten autolla pääsee perille).
 static func clears_tree(x: float, z: float) -> bool:
-	return x > ORIGIN.x - 22.0 and x < ORIGIN.x + 20.0 and z > ORIGIN.y - 8.0 and z < ORIGIN.y + 26.0
+	if x > ORIGIN.x - 22.0 and x < ORIGIN.x + 20.0 and z > ORIGIN.y - 8.0 and z < ORIGIN.y + 26.0:
+		return true
+	if x > -35.0 and x < 180.0 and z > -105.0 and z < 150.0:
+		var q := Vector2(x, z)
+		for k in ROAD_LINE.size() - 1:
+			if _near_seg(q, ROAD_LINE[k], ROAD_LINE[k + 1], ROAD_TREE_R):
+				return true
+	# Tien katkos Äpätintien ja sataman tien välillä (ei tieluokkaa): auton ajolinja raivataan.
+	if _near_seg(Vector2(x, z), GAP_A, GAP_B, GAP_R):
+		return true
+	if x < ORIGIN.x - 70.0 or x > ORIGIN.x + 20.0 or z < ORIGIN.y - 10.0 or z > 70.0:
+		return false
+	for d: Vector2 in [Vector2.ZERO, Vector2(ROAD_CLEAR, 0), Vector2(-ROAD_CLEAR, 0), Vector2(0, ROAD_CLEAR), Vector2(0, -ROAD_CLEAR)]:
+		if Terrain.surface(x + d.x, z + d.y) == Terrain.ROAD:
+			return true
+	return false
 
 
 func _ready() -> void:
@@ -47,8 +139,11 @@ func _ready() -> void:
 	_pier()
 	_side_pier()
 	_land()
+	_ramp()
 	_boats()
-	harbor = {"name": "Äpätin venesatama", "pos": P(3.0, 0.0, 19.0), "yaw": 0.0, "deck": P(0.7, DECK, 19.0)}
+	# avoid: pääsilta sivulaitureineen ja T-pää varoalueineen (muskeliveneen automaattiajo kiertää ne).
+	harbor = {"name": "Äpätin venesatama", "pos": P(3.0, 0.0, 19.0), "yaw": 0.0, "deck": P(0.7, DECK, 19.0),
+		"avoid": [_rect(-14.0, 2.5, -3.5, 31.0), _rect(2.5, 9.5, 24.5, 31.0)]}
 	_light = OmniLight3D.new()
 	_light.position = P(0.0, 4.0, HEAD_V.y - 0.4)
 	_light.light_color = Color(1.0, 0.75, 0.45)

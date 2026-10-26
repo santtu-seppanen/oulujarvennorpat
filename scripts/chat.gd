@@ -17,12 +17,16 @@ const LOG_LINES := 7
 const LOG_SECS := 20.0  # historian rivi häipyy näin kauan viestin jälkeen (kirjoittaessa näkyy aina)
 ## Puhesynteesi hahmoittain: toivottu ääni (osa äänen tunnusta, macOS:n suomenkieliset äänet), äänenkorkeus ja
 ## nopeus. Jos ääntä ei ole, käytetään ensimmäistä suomenkielistä (tai englanninkielistä) ääntä.
+const PiperPuhe := preload("res://scripts/piper_puhe.gd")
+## Piper (ilmainen Harri-ääni): hahmon [äänenkorkeus, nopeus] -> neljä erilaista miesääntä samasta äänestä.
+const PIPER_VOICE := {"Santtu": [1.0, 1.0], "Marko": [0.84, 0.95], "Jaakko": [1.13, 1.08], "Jukka": [0.92, 0.95]}
 const VOICE := {"Santtu": ["Eddy", 1.1, 1.05], "Marko": ["Rocko", 0.8, 0.95], "Jaakko": ["Reed", 1.0, 1.1],
-	"Jukka": ["Grandpa", 0.9, 1.0]}
+	"Jukka": ["Grandpa", 1.0, 1.0]}
 
 static var typing := false
 
 var game: Node3D
+var piper: Node
 var _ui: CanvasLayer
 var _log: VBoxContainer
 var _edit: LineEdit
@@ -43,6 +47,9 @@ func _ready() -> void:
 		if i >= 0 and i < game.crew.size() and from == game.mp.net.host_id and game.crew_modes[i] != "player":
 			show_message(i, str(d.get("m", ""))))
 	_build_ui()
+	if Settings.get_v("tts") and DisplayServer.get_name() != "headless":
+		piper = PiperPuhe.new()
+		add_child(piper)
 	if Settings.get_v("tts") and DisplayServer.get_name() != "headless":
 		_read_voices()  # selaimessa käynnistää äänilistan latauksen
 
@@ -151,29 +158,37 @@ func ai_say(i: int, text: String) -> void:
 
 
 ## Laulu: sana hahmon i äänellä, sävel semi puolisävelaskelta hahmon oman äänenkorkeuden yläpuolella,
-## hieman tavallista hitaammin.
+## reippaasti, jotta sanat ehtivät tahtiin.
 func sing(i: int, word: String, semi: float) -> void:
-	_speak(i, word, pow(2.0, semi / 12.0), 0.85)
+	_speak(i, word, pow(2.0, semi / 12.0), 1.1)
 
 
 ## Puhesynteesi: viesti ääneen hahmon omalla äänellä, hiljempaa kauempana kamerasta.
 func _speak(i: int, text: String, pitch := 1.0, rate := 1.0) -> void:
 	if not Settings.get_v("tts") or DisplayServer.get_name() == "headless" or not game.retki.allows_speech():
 		return
-	if _voices.is_empty():
-		_read_voices()
-		if _voices.is_empty():
-			return
 	var b: CharacterBody3D = game.crew[i]
 	var cam := get_viewport().get_camera_3d()
 	var dist: float = b.global_position.distance_to(cam.global_position) if cam != null else 0.0
 	var vol: float = minf(1.0, Settings.get_v("vol_speech") * 1.25) * clampf(1.0 - dist / 200.0, 0.9, 1.0)
+	var pv: Array = PIPER_VOICE.get(game.Porukka.CREW[i].name, [1.0, 1.0])
+	if piper != null and piper.speak(text, clampf(pv[0] * pitch, 0.5, 2.0), pv[1] * rate, vol):
+		return
+	if _voices.is_empty():
+		_read_voices()
+		if _voices.is_empty():
+			return
 	var vp: Array = VOICE.get(game.Porukka.CREW[i].name, ["", 1.0, 1.0])
 	var voice: String = _voices[0]
 	for v: String in _voices:
 		if vp[0] != "" and v.contains(vp[0]):
 			voice = v
 	DisplayServer.tts_speak(text, voice, roundi(vol * 100.0), clampf(vp[1] * pitch, 0.5, 2.0), vp[2] * rate)
+
+
+## Puhutaanko parhaillaan (Piper tai käyttöjärjestelmän synteesi).
+func is_speaking() -> bool:
+	return (piper != null and piper.speaking()) or DisplayServer.tts_is_speaking()
 
 
 ## Suomenkieliset äänet, muuten englanninkieliset (selaimessa lista voi olla aluksi tyhjä).

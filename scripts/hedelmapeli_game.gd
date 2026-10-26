@@ -1,29 +1,33 @@
 extends CanvasLayer
-## Siitarin hedelmäpeli (siitari_interior.gd "hedelmapeli"): vanha kolmirullainen peli. Valaistu yläpaneeli,
-## voittotaulukko, kolme rullaa ja keskellä voittolinja. Panos 1 €. Kolme samaa linjalla voittaa taulukon mukaan,
-## kirsikka ensimmäisellä rullalla antaa panoksen takaisin ja kaksi kirsikkaa 3 €. Häviön jälkeen rullia voi lukita
-## (1, 2, 3), mutta ei kahdesti peräkkäin. Voiton voi tuplata: kortti 1–6 PIENI, 8–13 SUURI, seiska vie aina.
-## E pelaa, voiton jälkeen E vie voiton talteen, vasen = pieni, oikea = suuri. F / Esc lopettaa (voitto talteen).
-## finished(money): rahat pelin jälkeen.
+## Hedelmäpeli (RAYn vuosina 1995–2001 pelattu kolmirullainen peli, ks. rahapeliopas.fi/nostalgia/hedelmapeli): Siitarin ja Happy Beachin
+## baarin vanha kone. Jokaisessa rullassa on 24 symbolia (RAY, apila, meloni, päärynä, rypäle, luumu, appelsiini, tähti, marjat,
+## mansikka; määrät rullittain kuten alkuperäisessä), yksi voittolinja keskellä ja panos 1, 2 tai 3 € (W/S). Kolme samaa maksaa
+## taulukon mukaan, ja mikä tahansa kolmen hedelmän yhdistelmä (myös marjat ja mansikka) maksaa 2. Hävityn kierroksen jälkeen
+## rullia voi lukita (1, 2, 3), mutta ei kahdesti peräkkäin: "lukitse aina kaksi samaa". Tuplausta ei ole.
+## E pelaa, voiton jälkeen E vie voiton talteen. F / Esc lopettaa (voitto talteen). finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
 signal comment(text: String)
 
 const MG := preload("res://scripts/mg_draw.gd")
 
-const BET := 1.0
-const SYMBOLS := ["kirsikka", "sitruuna", "appelsiini", "luumu", "rypale", "meloni", "kello", "bar", "seiska"]
-const WEIGHTS := [5, 4, 4, 3, 3, 2, 2, 1, 1]
-const PAY := {"kirsikka": 10, "sitruuna": 8, "appelsiini": 10, "luumu": 12, "rypale": 15, "meloni": 20, "kello": 30, "bar": 50,
-	"seiska": 100}
-const NAMES := {"kirsikka": "Kirsikka", "sitruuna": "Sitruuna", "appelsiini": "Appelsiini", "luumu": "Luumu", "rypale": "Viinirypäle",
-	"meloni": "Meloni", "kello": "Kello", "bar": "BAR", "seiska": "Seiska"}
+const SYMBOLS := ["ray", "apila", "meloni", "paaryna", "rypale", "luumu", "appelsiini", "tahti", "marjat", "mansikka"]
+## Symbolien määrä rullilla 1, 2 ja 3 (jokaisella rullalla yhteensä 24).
+const COUNTS := {
+	"ray": [1, 1, 2], "apila": [2, 1, 1], "meloni": [2, 2, 3], "paaryna": [2, 2, 3], "rypale": [3, 2, 3], "luumu": [3, 3, 3],
+	"appelsiini": [4, 3, 3], "tahti": [4, 4, 3], "marjat": [3, 6, 0], "mansikka": [0, 0, 3]}
+## Kolme samaa, kerroin × panos.
+const PAY := {"ray": 30, "apila": 20, "meloni": 20, "paaryna": 12, "rypale": 12, "luumu": 10, "appelsiini": 10, "tahti": 4}
+const RAY_MAX := 100  # kolme RAYta kolmen euron panoksella (30 / 60 / 100)
+const ANY_FRUIT := 2  # mikä tahansa kolme hedelmää (ei RAY, apila eikä tähti) × panos
+const FRUITS := ["meloni", "paaryna", "rypale", "luumu", "appelsiini", "marjat", "mansikka"]
+const NAMES := {"ray": "RAY", "apila": "Apila", "meloni": "Meloni", "paaryna": "Päärynä", "rypale": "Rypäle", "luumu": "Luumu",
+	"appelsiini": "Appelsiini", "tahti": "Tähti", "marjat": "Marjat", "mansikka": "Mansikka"}
 const SYM_H := 110.0       # yhden symbolin korkeus rullassa
 const STOP_AT := [0.9, 1.35, 1.8]
-const TUPLA_MAX := 50.0
-const LINES := ["Vanha kunnon hedelmäpeli. Kolme kirsikkaa ja Päivi saa uuden kahvinkeittimen.",
+const LINES := ["Vanha kunnon hedelmäpeli. Kolme RAYta ja Päivi saa uuden kahvinkeittimen.",
 	"Seurue sano, että tänään se on ollu nuuka. Ehkä sulle se on armollinen.",
-	"Lukitse kaksi samaa ja toivo kolmatta. Niin ne vanhat konkarit pelaa."]
+	"Lukitse aina kaksi samaa ja toivo kolmatta. Niin ne vanhat konkarit pelaa."]
 
 var money := 10.0
 var drunk := 0.0
@@ -32,7 +36,8 @@ var _root: Control
 var _info: Label
 var _keys: Control
 var _tip: Label
-var _strip: Array[String] = []   # rullanauha (sama kaikilla rullilla, eri aloituskohta)
+var _strips: Array = [[], [], []]   # rullanauhat (24 symbolia kullakin rullalla)
+var _bet := 1
 var _pos: Array[float] = [0.0, 0.0, 0.0]   # rullan asento symboleina (desimaali = välissä)
 var _target: Array[int] = [0, 0, 0]
 var _spin_from: Array[float] = [0.0, 0.0, 0.0]
@@ -40,13 +45,10 @@ var _stopped: Array[bool] = [true, true, true]
 var _locked: Array[bool] = [false, false, false]
 var _lock_ok := false            # lukitus sallittu (edellinen kierros hävisi eikä ollut lukittu)
 var _was_locked := false
-## Vaihe: "idle" (odottaa panosta), "spin", "win" (voitto odottaa: talteen tai tuplaus), "tupla" (kortti kääntyy).
+## Vaihe: "idle" (odottaa panosta), "spin", "win" (voitto odottaa talteenottoa).
 var _phase := "idle"
 var _spin_t := 0.0
 var _win := 0.0
-var _card := 0
-var _card_t := 0.0
-var _guess := ""
 var _t := 0.0
 var _done := false
 var _flash := 0.0
@@ -75,19 +77,20 @@ func _ready() -> void:
 	_tip = _label(22, -90.0, true)
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
 	comment.connect(func(t: String) -> void: _tip.text = t)
-	for i in SYMBOLS.size():
-		for k in WEIGHTS[i]:
-			_strip.append(SYMBOLS[i])
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	for i in range(_strip.size() - 1, 0, -1):  # sekoitettu, mutta aina sama nauha
-		var j := rng.randi_range(0, i)
-		var tmp := _strip[i]
-		_strip[i] = _strip[j]
-		_strip[j] = tmp
 	for r in 3:
-		_pos[r] = float(randi() % _strip.size())
-	_msg = "PANOS 1 €"
+		var strip: Array = _strips[r]
+		for sym: String in SYMBOLS:
+			for k in int(COUNTS[sym][r]):
+				strip.append(sym)
+		rng.seed = 77 + r * 13
+		for i in range(strip.size() - 1, 0, -1):  # sekoitettu, mutta aina samat nauhat
+			var j := rng.randi_range(0, i)
+			var tmp: String = strip[i]
+			strip[i] = strip[j]
+			strip[j] = tmp
+		_pos[r] = float(randi() % strip.size())
+	_msg = "PANOS %d €" % _bet
 	comment.emit(LINES.pick_random())
 
 
@@ -108,8 +111,9 @@ func _label(size: int, y: float, bottom: bool) -> Label:
 
 
 func _sym(r: int, off := 0) -> String:
-	var n := _strip.size()
-	return _strip[(int(roundf(_pos[r])) + off + n * 4) % n]
+	var strip: Array = _strips[r]
+	var n := strip.size()
+	return strip[(int(roundf(_pos[r])) + off + n * 4) % n]
 
 
 func _process(delta: float) -> void:
@@ -122,7 +126,7 @@ func _process(delta: float) -> void:
 	MG.sparks_step(_sparks, delta)
 	_coin_step(delta)
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
-		if _phase == "spin" or _phase == "tupla":
+		if _phase == "spin":
 			return
 		_finish()
 		return
@@ -135,6 +139,14 @@ func _process(delta: float) -> void:
 						_btn_flash = "lukko%d" % r
 						Sfx.play("pickup", -12.0, 1.4)
 				_held = [Input.is_key_pressed(KEY_1), Input.is_key_pressed(KEY_2), Input.is_key_pressed(KEY_3)]
+			if Input.is_action_just_pressed("forward") and _bet < 3:
+				_bet += 1
+				_msg = "PANOS %d €" % _bet
+				Sfx.play("pickup", -12.0, 1.2)
+			elif Input.is_action_just_pressed("back") and _bet > 1:
+				_bet -= 1
+				_msg = "PANOS %d €" % _bet
+				Sfx.play("pickup", -12.0, 1.0)
 			if Input.is_action_just_pressed("interact"):
 				_play()
 		"spin":
@@ -142,22 +154,13 @@ func _process(delta: float) -> void:
 		"win":
 			if Input.is_action_just_pressed("interact"):
 				_collect()
-			elif Input.is_action_just_pressed("left"):
-				_double("pieni")
-			elif Input.is_action_just_pressed("right"):
-				_double("suuri")
-		"tupla":
-			_card_t += delta
-			if _card_t > 1.1:
-				_double_result()
 	_info.text = "HEDELMÄPELI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
 	match _phase:
 		"idle":
-			_keys.set_text("%s pelaa (1 €)%s   %s lopeta" % [Settings.cap("interact"),
-				"   [1] [2] [3] lukitse rulla" if _lock_ok else "", Settings.cap("mount")])
+			_keys.set_text("%s pelaa (%d €)   %s/%s panos%s   %s lopeta" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
+				Settings.cap("back"), "   [1] [2] [3] lukitse rulla" if _lock_ok else "", Settings.cap("mount")])
 		"win":
-			_keys.set_text("%s voitot talteen   %s tuplaa PIENI (1–6)   %s tuplaa SUURI (8–13)" % [Settings.cap("interact"),
-				Settings.cap("left"), Settings.cap("right")])
+			_keys.set_text("%s voitot talteen" % Settings.cap("interact"))
 		_:
 			_keys.set_text("")
 
@@ -174,18 +177,22 @@ func _eur(v: float) -> String:
 
 
 func _play() -> void:
-	if money < BET:
+	if money < float(_bet):
+		if money >= 1.0:
+			_bet = int(money)
+			_msg = "PANOS %d €" % _bet
+			comment.emit("Rahat eivät riitä: panos laski %d euroon." % _bet)
+			return
 		comment.emit("Rahat loppu. Kone vilkuttaa valojaan, mutta velaksi se ei pelaa.")
 		return
-	money -= BET
+	money -= float(_bet)
 	_was_locked = _locked.has(true)
 	Sfx.play("coin", -10.0, 1.3)
 	Sfx.play("rattle", -14.0, 1.2)
 	_phase = "spin"
-	_card = 0
 	_spin_t = 0.0
 	_msg = ""
-	var n := _strip.size()
+	var n: int = _strips[0].size()
 	for r in 3:
 		_stopped[r] = _locked[r]
 		_spin_from[r] = _pos[r]
@@ -195,7 +202,7 @@ func _play() -> void:
 
 func _spin_step(delta: float) -> void:
 	_spin_t += delta
-	var n := _strip.size()
+	var n: int = _strips[0].size()
 	for r in 3:
 		if _stopped[r]:
 			continue
@@ -212,35 +219,38 @@ func _spin_step(delta: float) -> void:
 		_resolve()
 
 
+## Linjan voitto euroina (panos mukana laskettuna).
+static func line_win(a: String, b: String, c: String, bet: int) -> int:
+	if a == b and b == c and PAY.has(a):
+		return RAY_MAX if a == "ray" and bet == 3 else int(PAY[a]) * bet
+	if a in FRUITS and b in FRUITS and c in FRUITS:
+		return ANY_FRUIT * bet
+	return 0
+
+
 func _resolve() -> void:
 	var a := _sym(0)
 	var b := _sym(1)
 	var c := _sym(2)
-	_win = 0.0
-	if a == b and b == c:
-		_win = PAY[a]
-	elif a == "kirsikka" and b == "kirsikka":
-		_win = 3.0
-	elif a == "kirsikka":
-		_win = 1.0
+	_win = float(line_win(a, b, c, _bet))
 	_locked = [false, false, false]
 	if _win > 0.0:
 		_phase = "win"
 		_lock_ok = false
 		_flash = 1.5
 		_msg = "VOITTO %s €" % _eur(_win)
-		if _win >= 10.0:
+		if _win >= 10.0 * _bet:
 			Sfx.play("win", -4.0)
 			MG.sparks_burst(_sparks, _reel_rect(1).get_center(), Color(1.0, 0.85, 0.2), 50)
-			comment.emit("Kolme %s! Koneen valot vilkkuu ja koko Siitari kuulee kellon." % NAMES[a].to_lower() if a != "bar" else
-				"Kolme BARia! Nyt kelpaa.")
+			comment.emit("Kolme %s! Koneen valot vilkkuu ja koko baari kuulee." % NAMES[a].to_lower() if a == b and b == c else
+				"Hyvä voitto!")
 		else:
 			Sfx.play("win_small", -6.0)
 			MG.sparks_burst(_sparks, _reel_rect(0).get_center(), Color(1.0, 0.4, 0.4), 16)
 	else:
 		_phase = "idle"
 		_lock_ok = not _was_locked
-		_msg = "LUKITSE?" if _lock_ok else "PANOS 1 €"
+		_msg = "LUKITSE?" if _lock_ok else "PANOS %d €" % _bet
 		if _lock_ok and (a == b or b == c or a == c):
 			comment.emit("Kaksi samaa! Lukitse ne (1 2 3) ja yritä kolmatta.")
 
@@ -248,9 +258,8 @@ func _resolve() -> void:
 func _collect() -> void:
 	_pay(_win)
 	_win = 0.0
-	_card = 0
 	_phase = "idle"
-	_msg = "PANOS 1 €"
+	_msg = "PANOS %d €" % _bet
 
 
 func _pay(amount: float) -> void:
@@ -259,36 +268,6 @@ func _pay(amount: float) -> void:
 		_coins.append([_tray_rect().get_center() + Vector2(randf_range(-40, 40), -150.0), Vector2(randf_range(-60, 60), randf_range(-120, 0)),
 			-k * 0.07])
 	money += amount - n  # sentit suoraan
-
-
-func _double(guess: String) -> void:
-	_guess = guess
-	_card = randi_range(1, 13)
-	_card_t = 0.0
-	_phase = "tupla"
-	_btn_flash = guess
-	Sfx.play("cloth", -10.0, 1.4)
-
-
-func _double_result() -> void:
-	var ok := (_guess == "pieni" and _card <= 6) or (_guess == "suuri" and _card >= 8)
-	if ok:
-		_win *= 2.0
-		_flash = 1.0
-		Sfx.play("win_small", -6.0, 1.1)
-		_msg = "TUPLAUS %s €" % _eur(_win)
-		if _win >= TUPLA_MAX:
-			comment.emit("Tuplausraja täynnä. Kone maksaa voiton ulos.")
-			_collect()
-			return
-		_phase = "win"
-	else:
-		Sfx.play("lose", -6.0)
-		comment.emit("Seiska! Seiska vie aina." if _card == 7 else ["Väärin arvattu. Voitto meni.", "Ahneella on paskanen loppu."].pick_random())
-		_win = 0.0
-		_msg = "PANOS 1 €"
-		_phase = "idle"
-		_lock_ok = false
 
 
 func _coin_step(delta: float) -> void:
@@ -376,8 +355,6 @@ func _draw_root() -> void:
 		if c[2] >= 0.0:
 			MG.ball(_root, c[0], 10.0, Color(0.92, 0.78, 0.35), 0.6)
 	MG.sparks_draw(_root, _sparks)
-	if _phase == "tupla" or (_phase == "win" and _card > 0 and _card_t > 0.0):
-		_draw_card(Vector2(cab.end.x + 30, cab.position.y + 380), font)
 	_root.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
@@ -405,36 +382,39 @@ func _draw_marquee(r: Rect2, font: Font) -> void:
 		var on := int(_t * 6.0 + k) % 4 < 2 or _flash > 0.0
 		_root.draw_circle(Vector2(x, r.position.y + 8), 5.0, Color(1.0, 0.95, 0.5) if on else Color(0.45, 0.3, 0.1))
 		_root.draw_circle(Vector2(x, r.end.y - 8), 5.0, Color(1.0, 0.95, 0.5) if not on else Color(0.45, 0.3, 0.1))
-	_draw_symbol("kirsikka", Vector2(r.position.x + 52, r.get_center().y), 0.6)
-	_draw_symbol("seiska", Vector2(r.end.x - 52, r.get_center().y), 0.6)
+	_draw_symbol("mansikka", Vector2(r.position.x + 52, r.get_center().y), 0.6)
+	_draw_symbol("ray", Vector2(r.end.x - 52, r.get_center().y), 0.6)
 	var tp := Vector2(r.position.x, r.get_center().y + 22)
 	_root.draw_string_outline(font, tp, "HEDELMÄPELI", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 54, 12, Color(0.3, 0.02, 0.05))
 	_root.draw_string(font, tp, "HEDELMÄPELI", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 54, Color(1.0, 0.92, 0.3))
 
 
-## Voittotaulukko: kolme samaa = voitto euroina, kirsikat erikseen.
+## Voittotaulukko: kolme samaa = voitto panoksella 1 / 2 / 3 €, lisäksi mikä tahansa kolme hedelmää.
 func _draw_paytable(r: Rect2, font: Font) -> void:
 	MG.box(_root, r, Color(0.06, 0.08, 0.2), 8, 0, Color(0.7, 0.7, 0.75), 2)
-	var order := ["seiska", "bar", "kello", "meloni", "rypale", "luumu", "appelsiini", "sitruuna", "kirsikka"]
+	var order := ["ray", "apila", "meloni", "paaryna", "rypale", "luumu", "appelsiini", "tahti"]
 	for i in order.size():
-		var col := i % 3
-		var row := i / 3
-		var p := r.position + Vector2(18 + col * 168, 18 + row * 46)
+		var col := i % 2
+		var row := i / 2
+		var p := r.position + Vector2(12 + col * 250, 10 + row * 34)
 		var lit: bool = _phase == "win" and _sym(0) == order[i] and _sym(1) == order[i] and _sym(2) == order[i] and int(_flash * 8.0) % 2 == 0
 		if lit:
-			MG.box(_root, Rect2(p - Vector2(6, 4), Vector2(160, 40)), Color(1.0, 0.85, 0.2, 0.5), 6)
+			MG.box(_root, Rect2(p - Vector2(4, 2), Vector2(240, 32)), Color(1.0, 0.85, 0.2, 0.5), 6)
 		for k in 3:
-			_draw_symbol(order[i], p + Vector2(14 + k * 26, 16), 0.2)
-		_root.draw_string(font, p + Vector2(88, 24), "%d €" % PAY[order[i]], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1.0, 0.9, 0.4))
-	_root.draw_string(font, r.position + Vector2(0, r.size.y - 8), "Kirsikka 1. rullalla 1 €  ·  kaksi kirsikkaa 3 €",
-		HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 16, Color(0.9, 0.9, 0.95))
+			_draw_symbol(order[i], p + Vector2(14 + k * 26, 14), 0.2)
+		var v: int = int(PAY[order[i]])
+		_root.draw_string(font, p + Vector2(92, 22), "%d / %d / %d €" % [v, v * 2, RAY_MAX if i == 0 else v * 3], HORIZONTAL_ALIGNMENT_LEFT, -1, 17,
+			Color(1.0, 0.9, 0.4) if _bet > 0 else Color.WHITE)
+	_root.draw_string(font, r.position + Vector2(0, r.size.y - 6), "Mikä tahansa kolme hedelmää %d / %d / %d €" % [ANY_FRUIT, ANY_FRUIT * 2, ANY_FRUIT * 3],
+		HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 15, Color(0.9, 0.9, 0.95))
 
 
 ## Rulla: valkoinen kaareva nauha (tumma ylä- ja alareuna = lieriö), kolme symbolia näkyvissä.
 func _draw_reel(r: int, _font: Font) -> void:
 	var rr := _reel_rect(r)
 	_root.draw_rect(rr, Color(0.97, 0.96, 0.92))
-	var n := _strip.size()
+	var strip: Array = _strips[r]
+	var n := strip.size()
 	var base := floorf(_pos[r])
 	var frac := _pos[r] - base
 	var blur: bool = not _stopped[r] and _spin_t > 0.1 and _spin_t < STOP_AT[r] - 0.25
@@ -442,7 +422,7 @@ func _draw_reel(r: int, _font: Font) -> void:
 		var y := rr.get_center().y - (k - frac) * SYM_H
 		if absf(y - rr.get_center().y) > rr.size.y * 0.5 - 20.0:  # ei rullan reunan yli
 			continue
-		var sym: String = _strip[(int(base) + k + n * 8) % n]
+		var sym: String = strip[(int(base) + k + n * 8) % n]
 		var squash := 1.0 - absf(y - rr.get_center().y) / (rr.size.y * 0.9)
 		if blur:
 			_draw_symbol(sym, Vector2(rr.get_center().x, y), 0.5 * squash, 0.35)
@@ -474,15 +454,18 @@ func _draw_panel(r: Rect2, font: Font) -> void:
 	MG.box(_root, msg, Color(0.02, 0.06, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
 	var mtxt := _msg
 	if _phase == "win" and int(_t * 3.0) % 2 == 0:
-		mtxt = "TUPLAA?"
+		mtxt = "TALTEEN?"
 	_root.draw_string(font, msg.position + Vector2(0, 32), mtxt, HORIZONTAL_ALIGNMENT_CENTER, msg.size.x, 26, Color(0.4, 1.0, 0.35))
-	# Napit: lukot, PIENI, SUURI, PELAA / TALTEEN.
+	# Napit: lukot, panos, PELAA / TALTEEN.
 	var y := r.position.y + 92
 	for k in 3:
 		_button(Vector2(r.position.x + 44 + k * 58, y), 22.0, "%d" % (k + 1), Color(0.95, 0.95, 0.9),
 			_locked[k] or (_lock_ok and _phase == "idle" and int(_t * 2.0) % 2 == 0), font)
-	_button(Vector2(r.position.x + 256, y), 26.0, "PIENI", Color(0.95, 0.8, 0.2), _phase == "win", font)
-	_button(Vector2(r.position.x + 330, y), 26.0, "SUURI", Color(0.95, 0.8, 0.2), _phase == "win", font)
+	var bp := Rect2(Vector2(r.position.x + 220, y - 26), Vector2(150, 52))
+	MG.box(_root, bp, Color(0.08, 0.02, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
+	_root.draw_string(font, bp.position + Vector2(0, 14), "PANOS", HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 12, Color(0.8, 0.8, 0.8))
+	_root.draw_string(font, bp.position + Vector2(0, 44), "%d €" % _bet, HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 30,
+		Color(1.0, 0.85, 0.2))
 	_button(Vector2(r.end.x - 60, y), 32.0, "TALTEEN" if _phase == "win" else "PELAA",
 		Color(0.9, 0.2, 0.15) if _phase == "win" else Color(0.25, 0.8, 0.3), _phase in ["idle", "win"], font)
 
@@ -512,44 +495,57 @@ func _draw_tray(font: Font) -> void:
 			Color(1, 0.92, 0.6))
 
 
-## Tuplauskortti: selkä kääntyy (kaventuu ja levenee), sitten kortin arvo.
-func _draw_card(c: Vector2, font: Font) -> void:
-	var t := clampf(_card_t / 0.6, 0.0, 1.0)
-	var w := 120.0 * absf(cos(t * PI))
-	var r := Rect2(c - Vector2(w / 2.0, 85), Vector2(maxf(w, 2.0), 170))
-	MG.box(_root, r, Color.WHITE if t > 0.5 else Color(0.7, 0.1, 0.12), 10, 6, MG.OUTLINE, 2)
-	if t <= 0.5:
-		for k in 6:
-			_root.draw_line(r.position + Vector2(6, 14 + k * 26), r.end - Vector2(6, 156 - k * 26), Color(1, 0.8, 0.8, 0.5), 2.0)
-	elif w > 60.0:
-		var names := {1: "A", 11: "J", 12: "Q", 13: "K"}
-		var v: String = names.get(_card, str(_card))
-		var col := Color(0.8, 0.1, 0.1) if _card % 2 == 0 else Color(0.08, 0.08, 0.1)
-		_root.draw_string(font, r.position + Vector2(8, 28), v, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, col)
-		_root.draw_string(font, r.position + Vector2(0, 108), v, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 64, col)
-	_root.draw_string(font, c + Vector2(-80, 120), "Arvaus: %s" % _guess.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color.WHITE)
-
-
 ## Symbolit piirretään käsin: sävytys, ääriviivat ja kiilto. s = mittakaava (1 = 100 px), a = läpinäkyvyys.
 func _draw_symbol(sym: String, c: Vector2, s: float, a := 1.0) -> void:
 	var o := Color(MG.OUTLINE.r, MG.OUTLINE.g, MG.OUTLINE.b, a)
 	var ac := func(col: Color) -> Color: return Color(col.r, col.g, col.b, col.a * a)
 	match sym:
-		"kirsikka":
-			_root.draw_line(c + Vector2(-20, 10) * s, c + Vector2(4, -36) * s, ac.call(Color(0.25, 0.5, 0.15)), 5.0 * s)
-			_root.draw_line(c + Vector2(20, 14) * s, c + Vector2(4, -36) * s, ac.call(Color(0.25, 0.5, 0.15)), 5.0 * s)
-			_leaf(c + Vector2(14, -38) * s, s, ac.call(Color(0.3, 0.65, 0.2)), o)
-			for p in [Vector2(-20, 24), Vector2(20, 28)]:
-				_root.draw_circle(c + p * s, 21.0 * s, ac.call(Color(0.55, 0.02, 0.06)))
-				_root.draw_circle(c + (p - Vector2(2, 2)) * s, 18.0 * s, ac.call(Color(0.88, 0.08, 0.12)))
-				_root.draw_circle(c + (p - Vector2(8, 8)) * s, 6.0 * s, ac.call(Color(1, 0.7, 0.7)))
-				_root.draw_arc(c + p * s, 21.0 * s, 0, TAU, 24, o, 2.0, true)
-		"sitruuna":
-			_ellipse(c, Vector2(44, 32) * s, ac.call(Color(0.85, 0.7, 0.05)), o)
-			_ellipse(c - Vector2(2, 3) * s, Vector2(40, 27) * s, ac.call(Color(1.0, 0.9, 0.2)), Color.TRANSPARENT)
-			for side in [-1.0, 1.0]:
-				_root.draw_circle(c + Vector2(side * 44, 0) * s, 6.0 * s, ac.call(Color(0.9, 0.78, 0.1)))
-			_root.draw_circle(c + Vector2(-14, -12) * s, 7.0 * s, ac.call(Color(1, 1, 0.75)))
+		"ray":
+			var rr := Rect2(c - Vector2(46, 24) * s, Vector2(92, 48) * s)
+			MG.box(_root, rr.grow(3.0 * s), ac.call(Color(0.95, 0.85, 0.3)), int(8 * s))
+			MG.box(_root, rr, ac.call(Color(0.75, 0.05, 0.08)), int(6 * s))
+			_root.draw_string(ThemeDB.fallback_font, rr.position + Vector2(0, rr.size.y * 0.76), "RAY", HORIZONTAL_ALIGNMENT_CENTER, rr.size.x,
+				int(38 * s), ac.call(Color(1, 1, 1)))
+		"apila":
+			for off: Vector2 in [Vector2(0, -20), Vector2(-20, 0), Vector2(20, 0), Vector2(0, 20)]:
+				_root.draw_circle(c + off * s, 19.0 * s, ac.call(Color(0.1, 0.45, 0.12)))
+				_root.draw_circle(c + (off - Vector2(2, 2)) * s, 16.0 * s, ac.call(Color(0.25, 0.75, 0.25)))
+			_root.draw_line(c + Vector2(0, 6) * s, c + Vector2(10, 44) * s, ac.call(Color(0.1, 0.4, 0.1)), 5.0 * s)
+		"paaryna":
+			_root.draw_circle(c + Vector2(0, 16) * s, 28.0 * s, ac.call(Color(0.6, 0.65, 0.1)))
+			_root.draw_circle(c + Vector2(-2, 14) * s, 25.0 * s, ac.call(Color(0.85, 0.9, 0.25)))
+			_root.draw_circle(c + Vector2(0, -14) * s, 17.0 * s, ac.call(Color(0.6, 0.65, 0.1)))
+			_root.draw_circle(c + Vector2(-1, -15) * s, 14.5 * s, ac.call(Color(0.85, 0.9, 0.25)))
+			_root.draw_circle(c + Vector2(-10, 8) * s, 7.0 * s, ac.call(Color(1, 1, 0.8)))
+			_root.draw_line(c + Vector2(0, -30) * s, c + Vector2(5, -46) * s, ac.call(Color(0.35, 0.25, 0.1)), 4.0 * s)
+			_leaf(c + Vector2(14, -42) * s, s, ac.call(Color(0.3, 0.65, 0.2)), o)
+		"tahti":
+			var sp := PackedVector2Array()
+			for k in 10:
+				var rad := 42.0 if k % 2 == 0 else 18.0
+				var ang := -PI / 2.0 + k * PI / 5.0
+				sp.append(c + Vector2(cos(ang), sin(ang)) * rad * s)
+			_root.draw_colored_polygon(sp, ac.call(Color(1.0, 0.85, 0.15)))
+			sp.append(sp[0])
+			_root.draw_polyline(sp, o, 2.5, true)
+			_root.draw_circle(c + Vector2(-8, -10) * s, 6.0 * s, ac.call(Color(1, 1, 0.8)))
+		"marjat":
+			for p: Vector2 in [Vector2(-20, 14), Vector2(18, 16), Vector2(0, -8), Vector2(-4, 34), Vector2(24, -10)]:
+				_root.draw_circle(c + p * s, 16.0 * s, ac.call(Color(0.12, 0.12, 0.4)))
+				_root.draw_circle(c + (p - Vector2(2, 2)) * s, 13.5 * s, ac.call(Color(0.25, 0.3, 0.75)))
+				_root.draw_circle(c + (p - Vector2(6, 6)) * s, 4.0 * s, ac.call(Color(0.8, 0.85, 1.0)))
+			_leaf(c + Vector2(-2, -30) * s, s * 1.3, ac.call(Color(0.3, 0.65, 0.2)), o)
+		"mansikka":
+			var bp := PackedVector2Array([c + Vector2(-34, -22) * s, c + Vector2(34, -22) * s, c + Vector2(24, 18) * s, c + Vector2(0, 44) * s,
+				c + Vector2(-24, 18) * s])
+			_root.draw_colored_polygon(bp, ac.call(Color(0.85, 0.08, 0.14)))
+			_root.draw_circle(c + Vector2(-20, -16) * s, 14.0 * s, ac.call(Color(0.85, 0.08, 0.14)))
+			_root.draw_circle(c + Vector2(20, -16) * s, 14.0 * s, ac.call(Color(0.85, 0.08, 0.14)))
+			for k in 7:
+				var q := c + Vector2(-18 + (k % 3) * 18, -8 + (k / 3) * 16) * s
+				_root.draw_circle(q, 2.0 * s, ac.call(Color(1.0, 0.9, 0.5)))
+			_leaf(c + Vector2(-12, -32) * s, s * 1.2, ac.call(Color(0.25, 0.6, 0.2)), o)
+			_leaf(c + Vector2(12, -32) * s, s * 1.2, ac.call(Color(0.3, 0.65, 0.2)), o)
 		"appelsiini":
 			_root.draw_circle(c, 38.0 * s, ac.call(Color(0.8, 0.35, 0.02)))
 			_root.draw_circle(c - Vector2(3, 3) * s, 34.0 * s, ac.call(Color(1.0, 0.55, 0.08)))
@@ -584,35 +580,6 @@ func _draw_symbol(sym: String, c: Vector2, s: float, a := 1.0) -> void:
 				_ellipse(c + Vector2(0, -16) * s + Vector2(cos(a2), sin(a2)) * 20.0 * s, Vector2(2.5, 4.0) * s, ac.call(Color(0.1, 0.05, 0.05)),
 					Color.TRANSPARENT)
 			_root.draw_line(c + Vector2(-46, -16) * s, c + Vector2(46, -16) * s, o, 2.0)
-		"kello":
-			var pts := PackedVector2Array()
-			for k in 13:
-				var t := k / 12.0
-				var y := lerpf(-34.0, 26.0, t)
-				var w := 10.0 + 26.0 * pow(t, 1.4)
-				pts.append(c + Vector2(-w, y) * s)
-			for k in range(12, -1, -1):
-				var t := k / 12.0
-				pts.append(c + Vector2(10.0 + 26.0 * pow(t, 1.4), lerpf(-34.0, 26.0, t)) * s)
-			_root.draw_colored_polygon(pts, ac.call(Color(0.95, 0.75, 0.15)))
-			_root.draw_rect(Rect2(c + Vector2(-40, 22) * s, Vector2(80, 9) * s), ac.call(Color(0.8, 0.55, 0.1)))
-			_root.draw_circle(c + Vector2(0, 36) * s, 7.0 * s, ac.call(Color(0.7, 0.5, 0.1)))
-			_root.draw_circle(c + Vector2(0, -38) * s, 6.0 * s, ac.call(Color(0.8, 0.55, 0.1)))
-			_root.draw_line(c + Vector2(-8, -24) * s, c + Vector2(-20, 16) * s, ac.call(Color(1, 0.95, 0.7)), 5.0 * s)
-			pts.append(pts[0])
-			_root.draw_polyline(pts, o, 2.0, true)
-		"bar":
-			var r := Rect2(c - Vector2(44, 20) * s, Vector2(88, 40) * s)
-			MG.box(_root, r.grow(3.0 * s), ac.call(Color(0.95, 0.85, 0.3)), int(8 * s))
-			MG.box(_root, r, ac.call(Color(0.08, 0.08, 0.1)), int(6 * s))
-			_root.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, r.size.y * 0.78), "BAR", HORIZONTAL_ALIGNMENT_CENTER, r.size.x,
-				int(34 * s), ac.call(Color(1, 1, 1)))
-		"seiska":
-			var font := ThemeDB.fallback_font
-			var p := c + Vector2(-50, 34) * s
-			_root.draw_string_outline(font, p, "7", HORIZONTAL_ALIGNMENT_CENTER, 100.0 * s, int(96 * s), int(10 * s), ac.call(Color(0.3, 0.02, 0.02)))
-			_root.draw_string(font, p, "7", HORIZONTAL_ALIGNMENT_CENTER, 100.0 * s, int(96 * s), ac.call(Color(0.95, 0.1, 0.1)))
-			_root.draw_string(font, p + Vector2(-3, -3) * s, "7", HORIZONTAL_ALIGNMENT_CENTER, 100.0 * s, int(96 * s), ac.call(Color(1, 0.4, 0.35, 0.5)))
 
 
 func _leaf(c: Vector2, s: float, col: Color, o: Color) -> void:

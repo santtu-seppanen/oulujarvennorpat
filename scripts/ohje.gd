@@ -27,43 +27,39 @@ Pelaa euron kolikoilla ja yritä saada kolikko putoamaan suoraan voittoraon port
 [color=#ffd23a][b]Lopetus[/b][/color]
 [b]F[/b] tai [b]Esc[/b] lopettaa ja rahat jäävät taskuun."""],
 	"hedelma": ["HEDELMÄPELI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saa kolmelle rullalle keskilinjaan kolme samaa symbolia. Panos on 1 € pyöräytykseltä.
+Saa kolmelle rullalle keskilinjaan voittava yhdistelmä. Peli on RAYn vanha kolmirullainen hedelmäpeli (1995–2001), jossa on yksi voittolinja. Jokaisella rullalla on 24 symbolia: RAY, apila, meloni, päärynä, rypäle, luumu, appelsiini, tähti, marjat ja mansikka.
 
-[color=#ffd23a][b]Voittotaulukko (kolme samaa)[/b][/color]
-Seiska 100 € · BAR 50 € · Kello 30 € · Meloni 20 € · Viinirypäle 15 € · Luumu 12 € · Appelsiini 10 € · Sitruuna 8 € · Kirsikka 10 €.
-Lisäksi: kirsikka ensimmäisellä rullalla antaa panoksen takaisin (1 €) ja kaksi kirsikkaa vasemmalla 3 €.
+[color=#ffd23a][b]Voittotaulukko (panos 1 / 2 / 3 €)[/b][/color]
+Kolme RAYta 30 / 60 / 100 · kolme apilaa tai melonia 20 / 40 / 60 · kolme päärynää tai rypälettä 12 / 24 / 36 · kolme luumua tai appelsiinia 10 / 20 / 30 · kolme tähteä 4 / 8 / 12 · mikä tahansa kolme hedelmää (myös marjat ja mansikka sekaisin) 2 / 4 / 6.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Pyöräytä:[/b] [b]E[/b] ottaa panoksen ja pyöräyttää rullat. Rullat pysähtyvät yksi kerrallaan vasemmalta oikealle.
-[b]2. Lukitse:[/b] jos pyöräytys hävisi, saat valita rullia lukittavaksi näppäimillä [b]1[/b], [b]2[/b] ja [b]3[/b] (rulla kerrallaan, uudestaan painaminen avaa lukon). Lukitut rullat eivät pyöri seuraavalla pyöräytyksellä. Lukitusta saa kuitenkin vain joka toisella kierroksella: lukitun pyöräytyksen jälkeen ei voi lukita heti uudestaan.
-[b]3. Voitto ja tuplaus:[/b] kun voitat, kone odottaa päätöstäsi:
-  • [b]E[/b] vie voiton talteen (kolikot putoavat tarjottimelle).
-  • [b]Vasen (A tai ←)[/b] tuplaa PIENI: koneen kortti on 1–6.
-  • [b]Oikea (D tai →)[/b] tuplaa SUURI: koneen kortti on 8–13.
-  • Seiska vie aina, eli kortti 7 hävittää tuplauksen. Oikea arvaus kaksinkertaistaa voiton, ja voit tuplata uudestaan tai viedä talteen. Raja on 50 €, jolloin kone maksaa voiton automaattisesti.
+[b]1. Panos:[/b] [b]W / ↑[/b] nostaa panosta ja [b]S / ↓[/b] laskee sitä (1–3 €).
+[b]2. Pyöräytä:[/b] [b]E[/b] ottaa panoksen ja pyöräyttää rullat. Rullat pysähtyvät yksi kerrallaan vasemmalta oikealle.
+[b]3. Lukitse:[/b] jos pyöräytys hävisi, saat valita rullia lukittavaksi näppäimillä [b]1[/b], [b]2[/b] ja [b]3[/b] (rulla kerrallaan, uudestaan painaminen avaa lukon). Lukitut rullat eivät pyöri seuraavalla pyöräytyksellä. Lukitusta saa kuitenkin vain joka toisella kierroksella: lukitun pyöräytyksen jälkeen ei voi lukita heti uudestaan.
+[b]4. Voitto:[/b] kun voitat, [b]E[/b] vie voiton talteen (kolikot putoavat tarjottimelle). Tuplausta ei ole.
 
 [color=#ffd23a][b]Vinkit[/b][/color]
-• Kaksi samaa rullilla: lukitse ne ja yritä kolmatta.
-• Tuplaus on 50/50 (seiska vie): ahne jää usein ilman.
+• Lukitse aina kaksi samaa ja yritä kolmatta.
+• Kolme hedelmää sekaisin maksaa vähän, mutta tulee usein.
 
 [color=#ffd23a][b]Lopetus[/b][/color]
 [b]F[/b] tai [b]Esc[/b] lopettaa, ja voitto menee talteen."""],
-	"pokeri": ["VIDEOPOKERI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saat viisi korttia ja yrität muodostaa pokerikäden. Pelataan Jacks or Better: pari kymppejä pienempiä ei voita, vähintään jätkäpari (J–J) tarvitaan. Panos on 1–5 kolikkoa.
+	"pokeri": ["POKERI", """[color=#ffd23a][b]Tavoite[/b][/color]
+Saat viisi korttia ja yrität muodostaa pokerikäden. Pelataan jokeripokeria (Coinline Casino): pakassa on 52 korttia ja jokeri, joka on villi kortti. Kerran saa vaihtaa kortteja, ja pienin voittava käsi on kaksi paria. Päävoitto tulee viitosilla (neloset ja jokeri) tai värisuoralla. Panos on 1–5 €.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Panos:[/b] [b]W / ↑[/b] nostaa panosta ja [b]S / ↓[/b] laskee sitä (1–5 €). Viiden kolikon panos antaa kuninkaalliselle väristölle jättipotin.
+[b]1. Panos:[/b] [b]W / ↑[/b] nostaa panosta ja [b]S / ↓[/b] laskee sitä (1–5 €).
 [b]2. Jako:[/b] [b]E[/b] ottaa panoksen ja jakaa viisi korttia.
 [b]3. Pidä kortit:[/b] valitse kortit, jotka pidät: näppäimet [b]1–5[/b] tai klikkaus kortin päällä pitää tai vapauttaa kortin. Vaihtoehtoisesti [b]A / D[/b] siirtää vihreää valintaa ja [b]välilyönti[/b] pitää kortin. Pidetyt kortit saavat merkinnän PIDÄ.
 [b]4. Vaihto:[/b] [b]E[/b] vaihtaa pitämättömät kortit uusiin. Kierros päättyy, ja kone maksaa voiton voittotaulukon mukaan.
-[b]5. Tuplaus:[/b] voiton jälkeen [b]E[/b] vie voiton talteen. Tai voit yrittää tuplata: [b]vasen (A / ←)[/b] arvaa PIENI (kone nostaa kortin A–6) ja [b]oikea (D / →)[/b] arvaa SUURI (8–K). Seiska vie aina. Oikea arvaus kaksinkertaistaa voiton, ja voit tuplata uudestaan, kunnes voitto on 100 €.
+[b]5. Tuplaus:[/b] voiton jälkeen [b]E[/b] vie voiton talteen. Tai voit yrittää tuplata: [b]vasen (A / ←)[/b] arvaa PIENI (kone nostaa kortin A–6) ja [b]oikea (D / →)[/b] arvaa SUURI (8–K). Musta seiska vie aina, mutta punainen seiska päättää tuplauksen ja voitot saa pitää. Oikea arvaus kaksinkertaistaa voiton. Tuplata saa, jos voitto on korkeintaan puolet päävoitosta (25 × panos).
 
 [color=#ffd23a][b]Käsien arvot (kerroin × panos)[/b][/color]
-Kuninkaallinen värisuora 250 · Värisuora 50 · Neloset 25 · Täyskäsi 9 · Väri 6 · Suora 4 · Kolmoset 3 · Kaksi paria 2 · Jätkäpari tai parempi 1.
+Viitoset 50 · Värisuora 50 · Neloset 25 · Täyskäsi 10 · Väri 6 · Suora 4 · Kolmoset 2 · Kaksi paria 1.
 
 [color=#ffd23a][b]Vinkit[/b][/color]
-• Pidä aina pari ja kolme samaa. Neljä samaa väriä kannattaa pitää.
-• Älä pidä yhtä isoa korttia, jos kädessä on jo pari.
+• Pidä jokeri aina: jokeri ja pari on jo kolmoset.
+• Pidä pari ja kolme samaa. Neljä samaa väriä kannattaa pitää.
 
 [color=#ffd23a][b]Lopetus[/b][/color]
 [b]F[/b] tai [b]Esc[/b] lopettaa, ja voitto jää taskuun."""],
