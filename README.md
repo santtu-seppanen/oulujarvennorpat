@@ -58,6 +58,7 @@ tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
   - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
   - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
   - Moninpelissä löyly tuntuu kaikilla lauteilla istujilla.
+  - **Työpuhelu saunassa (`scripts/tyopuhelu.gd`), vain Jaakolle:** kun Jaakko istuu lauteilla, puhelin soi 20–50 sekunnin kuluttua, enintään kerran päivässä. E vastaa: työasiat hoituvat (mainepisteet +2), mutta löylyt pilaantuvat (löylypisteet -6, kuumuus ja löyly laskevat). Q jättää vastaamatta: löylypisteet +3, mutta esimies voi jättää ärtyneen viestin (mainepisteet -2, joka toisella kerralla). Soitto päättyy itsestään vastaamattomana 10 sekunnissa. Jos Jaakkoa ohjaa tietokone, hän vain mutisee työpuhelusta. Lopputuloksessa näkyy vastattujen ja vastaamatta jätettyjen puhelujen määrä. Testi: `tools/testit/tyopuhelutesti.gd`.
 - **Kätkö saunan takana:** piilossa havujen alla rinteessä alamökin oikealla puolella (saunan ovea katsottaessa), saunan takakulun muurin takana, on ehtymätön olut- ja viinakätkö (E olut, Q viina). Kompassin kätköosoitin näyttää lähimmän kätkön.
   - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
   - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
@@ -219,6 +220,8 @@ hampurilainen palauttavat kuntoa ja selvittävät), karaokelava (laulu menee osu
 diskopalloineen, **Sinikka** baaritiskillä (juttelu, drinkin tarjoaminen, yhteistanssi), pöytäseurue ja kaksi korttipelaajaa
 (juttelu, korttipelin katselu), jukeboksi (pelin musiikkikappaleet, disko pyörii musiikin ajan), pajatso ja hedelmäpeli (rullien
 lukitus). Ovelta E poistuu ulos. Testi: `tools/testit/baaritesti.gd`.
+
+**Tanssilattia (E tanssilattialla, `scripts/tanssi_game.gd`):** eurodance-rytmipeli diskopallon alla, yksin tai Sinikan kanssa (Sinikan kanssa tulos paranee 5 prosenttiyksikköä). Neljä askelkaistaa (← ↓ ↑ → eli A S W D tai nuolet): nuolet laskeutuvat osumalinjalle ja painetaan tahtiin. Biisi (138 bpm, Am–F–C–G) syntetisoidaan lennossa: jalkabasari, klappi tahdeilla 2 ja 4, ylätahdin hattu, pumppaava basso ja kertosäkeessä 16-osa-arpeggio. Osumat kasvattavat putkea ja kerrointa (×1,0 → ×1,6), huti ja väärä askel katkaisevat putken, ja humala nykii ajoitusta. 88 askelta, kesto n. 40 s; Esc / F lopettaa kesken. Pelaajan hahmo tanssii (Dance-animaatio) osumien aikana. Tulos vähintään 35 % kuittaa lauantain tarinatehtävän "tanssi". Testi: `tools/testit/tanssitesti.gd` (täydellinen tanssi, hudit, putken katkeaminen).
 
 **Ruoka ja kahvi:** Jukan pannukahvi tarjoillaan sisällä alamökin keittiön sivutasolta (E juo kupin, ei tarvitse istua).
 Markon pyttipannu tarjoillaan ulos etuterassin tarjoilupöydälle (`scripts/tarjoilupoyta.gd`), josta sitä syödään (Q); tietokoneen Marko

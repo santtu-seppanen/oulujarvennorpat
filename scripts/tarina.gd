@@ -19,7 +19,7 @@ const Happybeach := preload("res://scripts/happybeach.gd")
 const DAY_NAMES := ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"]
 const DAY_COUNT := 4
 ## Happy Beachin tehtävät: kun porukka on rannalla, mökin tehtävät ovat tauolla, ja päinvastoin.
-const BEACH_TASKS := ["happy", "baari", "laulu"]
+const BEACH_TASKS := ["happy", "baari", "laulu", "tanssi"]
 const RECORD_LOSS := 10  # mainepisteet, kun päivän ennätystavoite jää rikkomatta
 const END_HOUR := 18  # viimeisenä päivänä viikonloppu päättyy tähän kellonaikaan
 
@@ -78,6 +78,7 @@ const EXTRA := [
 		{"id": "happy", "text": "Aja autolla Happy Beachille (G: automaattiajo)"},
 		{"id": "baari", "text": "Osta juoma Happy Beachin baarista (tiski sisällä tai terassilla)"},
 		{"id": "laulu", "text": "Laula karaokea Happy Beachin lavalla (E baarin sisällä)"},
+		{"id": "tanssi", "text": "Tanssi Happy Beachin tanssilattialla eurodancea vähintään 35 % (askeleet tahtiin A S W D)"},
 		{"id": "takaisin", "text": "Aja takaisin mökille"},
 	],
 	[
@@ -176,6 +177,7 @@ func begin() -> void:
 		game.muistelu.reset()  # uusi viikonloppu: nuotion tunnelmat ja trivian voitot nollille
 		game.lautapeli.reset()
 		game.afrikka.reset()
+		game.tyopuhelu.reset()
 	_start_no = _day_no()
 	_intro_day = -1
 	_t_table = 0.0
@@ -394,8 +396,9 @@ func _finish() -> void:
 	lines.append_array(game.muistelu.ending_lines())
 	lines.append_array(game.lautapeli.ending_lines())
 	lines.append_array(game.afrikka.ending_lines())
+	lines.append_array(game.tyopuhelu.ending_lines())
 	if not game.muistelu.ending_lines().is_empty() or not game.lautapeli.ending_lines().is_empty() \
-			or not game.afrikka.ending_lines().is_empty():
+			or not game.afrikka.ending_lines().is_empty() or not game.tyopuhelu.ending_lines().is_empty():
 		lines.append("")
 	lines.append("Kamat autoon, mutta peli jatkuu vapaana.")
 	_end_label.text = "\n".join(lines)

@@ -6,13 +6,14 @@ extends Node
 ## - pajatso: kolme rullaa, pelimerkit (ei oikeaa rahaa)
 ## - hedelmäpeli: kolme rullaa, voi lukita rullia ennen uutta pyöräytystä
 ## - Sinikka: juttelu, drinkin tarjoaminen ja yhteistanssi; pöytäseurue ja korttipelaajat: jutustelu
-## - tanssi: tanssilattialla pyöritään diskopallon alla
+## - tanssi: tanssilattialla eurodance-rytmipeli diskopallon alla (tanssi_game.gd), yksin tai Sinikan kanssa
 ## Käyttöliittymä on valikon tyylinen (ui.gd); W/S tai E (valikoissa) lopettaa.
 
 const Ui := preload("res://scripts/ui.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
+const TanssiGame := preload("res://scripts/tanssi_game.gd")
 
 const TRACKS := [
 	["Chariots of Fire", "res://assets/music/chariots_of_fire_alku.ogg"],
@@ -119,6 +120,8 @@ func start() -> bool:
 		_launch_game()
 	elif mode == "karaoke":
 		_launch_karaoke()
+	elif mode == "tanssi":
+		_launch_dance()
 	return true
 
 
@@ -135,6 +138,45 @@ func _launch_karaoke() -> void:
 	in_game = true
 	_ui.visible = false
 	game.add_child(g)
+
+
+## Tanssilattia on eurodance-rytmipeli (tanssi_game.gd); Sinikan kanssa tanssiessa tulos paranee hieman.
+func _launch_dance() -> void:
+	var g := TanssiGame.new()
+	g.drunk = game.player.drunk()
+	var h: Node3D = game.world.happy
+	h.play_music(null)
+	h.disco_on = 1.0e6
+	h.set_screen("TANSSI\nA S W D")
+	g.finished.connect(_dance_end)
+	_gnode = g
+	in_game = true
+	_ui.visible = false
+	game.add_child(g)
+
+
+func _dance_end(score: float, combo: int) -> void:
+	in_game = false
+	var h: Node3D = game.world.happy
+	h.disco_on = 6.0
+	game.player.pose = ""
+	if _with_sinikka:
+		score = minf(1.0, score + 0.05)
+	var t := "Tanssi: %d %%, paras putki %d. " % [roundi(score * 100.0), combo]
+	if score >= 0.8:
+		t += "Lattia on sinun! Koko Happy Beach katsoo."
+		Sfx.play("win", -6.0)
+	elif score >= 0.45:
+		t += "Hyvää menoa, yleisö taputtaa."
+		Sfx.play("win_small", -6.0)
+	else:
+		t += "Rytmi hukassa, mutta meno oli lämmintä."
+	h.set_screen("TANSSI\n%d %%" % roundi(score * 100.0))
+	game.toast(t, 5.0)
+	if score >= 0.35:
+		game.tarina.complete("tanssi")
+	if game.activity == "baari":
+		game.end_activity()
 
 
 func _karaoke_end(score: float) -> void:
@@ -206,6 +248,7 @@ func stop(_why := "") -> void:
 		game.world.happy.set_screen("KARAOKE\nE: laula")
 	if mode == "tanssi":
 		_dance_t = 0.0
+		game.player.pose = ""
 		game.world.happy.place_sinikka(false)
 		_with_sinikka = false
 	mode = ""
@@ -218,7 +261,7 @@ func prompt() -> String:
 		"pajatso", "hedelma":
 			return "E: pyöräytä · W/S: lopeta"
 		"tanssi":
-			return "Tanssit diskopallon alla · W/S: lopeta"
+			return "A S W D tai nuolet: askeleet tahtiin · Esc / F: lopeta"
 	return "Valitse klikkaamalla · E tai W/S: lopeta"
 
 
@@ -417,8 +460,10 @@ func _process(delta: float) -> void:
 			_call_ui.visible = false
 	if mode == "tanssi":
 		_dance_t += delta
-		game.player.rotation.y += delta * 2.4
-		game.player.global_position.y += sin(_dance_t * 9.0) * 0.0  # pysyy lattialla
+		if in_game and is_instance_valid(_gnode):
+			game.player.pose = "Dance" if _gnode.dancing() else ""
+		elif not in_game:
+			game.player.rotation.y += delta * 2.4
 	if mode != "karaoke" or _meter == null or in_game:
 		return
 	if _beat >= BEATS:

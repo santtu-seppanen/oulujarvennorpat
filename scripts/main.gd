@@ -44,6 +44,7 @@ const Makkara := preload("res://scripts/makkara.gd")
 const Muistelu := preload("res://scripts/muistelu.gd")
 const Lautapeli := preload("res://scripts/lautapeli.gd")
 const Afrikantahti := preload("res://scripts/afrikantahti.gd")
+const Tyopuhelu := preload("res://scripts/tyopuhelu.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
@@ -98,6 +99,7 @@ var makkara: Node  # makkaranpaisto nuotiolla (makkara.gd)
 var muistelu: Node  # "Muistatko kun" -tarinat nuotiolla (muistelu.gd)
 var lautapeli: Node  # lautapelien valinta ja ysäritrivia keittiön pöydässä (lautapeli.gd)
 var afrikka: Node  # Afrikan tähti -lautapeli keittiön pöydässä (afrikantahti.gd)
+var tyopuhelu: Node  # Jaakon työpuhelu saunassa (tyopuhelu.gd)
 var loppu: Node  # pelin lopun cutscenet: voitto sunnuntaina, häviö maineen loppuessa (loppu.gd)
 var tarjoilu: Node3D  # ulkotarjoilupöytä: kahvi ja pyttipannu (tarjoilupoyta.gd)
 var baari: Node  # Happy Beachin baarirakennuksen toiminnot sisällä (baari.gd)
@@ -202,6 +204,9 @@ func _ready() -> void:
 	afrikka = Afrikantahti.new()
 	afrikka.game = self
 	add_child(afrikka)
+	tyopuhelu = Tyopuhelu.new()
+	tyopuhelu.game = self
+	add_child(tyopuhelu)
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
@@ -348,7 +353,7 @@ func _process(delta: float) -> void:
 	if state == "menu" and not _menu.visible:
 		_start_play()
 	# Minipelissä A/D kääntää katsetta (hahmo istuu paikallaan), esim. pöydässä muita pelaajia kohti.
-	if activity != "" and not activity in ["makkara", "muistelu"] and not Chat.typing and not get_tree().paused:
+	if activity != "" and not activity in ["makkara", "muistelu"] and not (activity == "baari" and baari.in_game) and not Chat.typing and not get_tree().paused:
 		var turn := Input.get_axis("right", "left")
 		if turn != 0.0:
 			CamCtl.yaw = clampf(CamCtl.yaw + turn * 1.6 * delta, -LOOK_YAW, LOOK_YAW)
