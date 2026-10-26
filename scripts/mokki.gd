@@ -95,6 +95,9 @@ const STASH := Vector2(2.4, -7.65)
 const PEE_SPOT := Vector2(5.9, -5.2)
 const PEE_R := 1.6
 const STAIR_W := 1.2
+## Nuotiopaikka rannalla pääterassin ja laiturin välissä (u, v) ja nuotion ympärillä olevien istuinhirsien etäisyys.
+const FIRE := Vector2(-5.6, 4.0)
+const FIRE_SEAT_R := 1.5
 ## Alamökki: takaseinän ulkopinta ja väliseinä (keittiön takaseinä) v-suunnassa sekä ovet terassin puoleisessa
 ## seinässä (v-välit): vasen keittiöön, oikea saunaan.
 const BACK := -5.85
@@ -139,6 +142,8 @@ var plate_pos := Vector3.ZERO
 var kiuas_pos := Vector3.ZERO
 var card_frame := Transform3D()  # keittiön pöydän keskikohta: x pitkin pöytää (itään), -z järvelle
 var stash_pos := Vector3.ZERO  # olut- ja viinakätkö saunan takana rinteessä
+var fire_pos := Vector3.ZERO  # nuotiopaikan keskipiste (nuotio.gd)
+var fire_seats := []  # nuotion ympärillä neljä istuinhirttä: [paikka, nuotio], hahmon indeksin mukaan
 var bodies: Array = []  # mökkiläiset (main.gd): istumapaikan varaus katsotaan heidän paikoistaan
 var fire_left := 600.0  # kiukaan palamisaika (sauna.gd päivittää): tietokone hakee haloja, kun hiipuu
 
@@ -1651,6 +1656,14 @@ func _waypoints() -> void:
 		var w := cw(x, v)
 		return Vector3(w.x, floor_y(), w.y)
 	var beach := yw(-8.0, 4.4)
+	var fw := yw(FIRE.x, FIRE.y)
+	fire_pos = Vector3(fw.x, maxf(Terrain.h(fw.x, fw.y), 0.0), fw.y)
+	fire_seats = []
+	for k in 4:
+		var a := TAU * (k + 0.5) / 4.0
+		var sw := yw(FIRE.x + cos(a) * FIRE_SEAT_R, FIRE.y + sin(a) * FIRE_SEAT_R)
+		fire_seats.append([Vector3(sw.x, maxf(Terrain.h(sw.x, sw.y), 0.0), sw.y), fire_pos])
+	var fa := yw(FIRE.x - 2.2, FIRE.y)
 	points = {
 		"piha": y.call(-6.9, 1.5, DY), "portaat_ala": y.call(-6.0, -2.0, DY), "poyta": y.call(-4.9, -1.05, DY),
 		"poyta_etu": y.call(-4.9, 1.5, DY), "katos": y.call(-2.45, -2.6, DY),
@@ -1669,6 +1682,7 @@ func _waypoints() -> void:
 		"huussi": outhouse_door(), "laituri_alku": y.call(-2.2, 6.4, 0.42),
 		"laituri_paa": y.call(-2.2, 13.2, 0.42), "rantaportaat": y.call(-8.0, 1.5, DY),
 		"ranta": Vector3(beach.x, Terrain.h(beach.x, beach.y), beach.y),
+		"nuotio": Vector3(fa.x, maxf(Terrain.h(fa.x, fa.y), 0.0), fa.y),
 		"ranta_vesi": y.call(-8.0, 9.0, 0.0), "uinti1": y.call(-5.0, 40.0, 0.0), "uinti2": y.call(7.0, 44.0, 0.0),
 		"uinti3": y.call(-14.0, 36.0, 0.0),
 		"portaat_yla": cab.call(4.1, 1.9), "ylamokki_kulma": cab.call(4.2, -CABIN_HV - 0.6),
@@ -1683,7 +1697,7 @@ func _waypoints() -> void:
 		["etuterassi", "kaide"], ["kaide", "itaterassi"], ["itaterassi", "halkovaja"],
 		["sauna_ovi", "takana_l"], ["takana_l", "takana_i"], ["takana_i", "pitkos_ala"], ["pitkos_ala", "pitkos"], ["pitkos", "pitkos2"], ["pitkos2", "huussi"], ["etuterassi", "laituri_alku"],
 		["laituri_alku", "laituri_paa"], ["laituri_paa", "uinti1"], ["uinti1", "uinti2"], ["uinti1", "uinti3"],
-		["uinti3", "ranta_vesi"], ["uinti1", "ranta_vesi"], ["ranta_vesi", "ranta"], ["ranta", "rantaportaat"],
+		["uinti3", "ranta_vesi"], ["uinti1", "ranta_vesi"], ["ranta_vesi", "ranta"], ["ranta", "rantaportaat"], ["ranta", "nuotio"],
 		["rantaportaat", "piha"], ["portaat_ala", "portaat_yla"], ["portaat_yla", "ylamokki_kulma"], ["ylamokki_kulma", "ylamokki_ovi"]]
 	views.append(points.kaide)
 	views.append(y.call(-1.0, 3.9, DY))

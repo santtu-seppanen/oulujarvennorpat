@@ -62,6 +62,10 @@ const POOL := [
 	{"id": "rinne", "text": "Virtsaa rinteeseen pitkospuiden alusta"},
 	{"id": "kaari", "text": "Komea virtsan kaari: yli 4 m rinteeseen (Marko yltää, muille mustikoista voimaa)"},
 	{"id": "aurinko", "text": "Katso auringonlasku laiturilta tai etuterassilta"},
+	{"id": "makkara", "text": "Paista täydellinen makkara nuotiolla (hiilloksella, ei liekissä)"},
+	{"id": "muistelu", "text": "Nuotiolle kuuntelemaan ja kertomaan vähintään kolme \"Muistatko kun\" -tarinaa"},
+	{"id": "trivia", "text": "Ysäritrivia keittiön pöydässä: vastaa oikein vähintään kolmeen kysymykseen"},
+	{"id": "afrikka", "text": "Pelaa Afrikan tähteä keittiön pöydässä loppuun asti (vähintään kolme omaa vuoroa)"},
 ]
 ## Päiväkohtaiset kiinteät tehtävät (tarinan kulku): lauantain retki ja Happy Beach, sunnuntain kätkö.
 const EXTRA := [
@@ -168,6 +172,10 @@ func begin() -> void:
 	done = []
 	for i in DAY_COUNT:
 		done.append({})
+	if game.muistelu != null:
+		game.muistelu.reset()  # uusi viikonloppu: nuotion tunnelmat ja trivian voitot nollille
+		game.lautapeli.reset()
+		game.afrikka.reset()
 	_start_no = _day_no()
 	_intro_day = -1
 	_t_table = 0.0
@@ -333,6 +341,7 @@ func _advance_day() -> void:
 		return
 	if idx > day:
 		_day_summary(day)
+		game.muistelu.day_ended(day)
 		day = idx
 		_dirty = true
 	if _intro_day != day:
@@ -381,6 +390,12 @@ func _finish() -> void:
 			return "%s %d" % [Porukka.CREW[p].name, game.kortit.logic.totals[p]]))
 		lines.append("Ristiseiskan voittaja: %s (vähiten pisteitä)" % names)
 		lines.append("Pisteet: " + pts)
+		lines.append("")
+	lines.append_array(game.muistelu.ending_lines())
+	lines.append_array(game.lautapeli.ending_lines())
+	lines.append_array(game.afrikka.ending_lines())
+	if not game.muistelu.ending_lines().is_empty() or not game.lautapeli.ending_lines().is_empty() \
+			or not game.afrikka.ending_lines().is_empty():
 		lines.append("")
 	lines.append("Kamat autoon, mutta peli jatkuu vapaana.")
 	_end_label.text = "\n".join(lines)
@@ -461,5 +476,7 @@ func _refresh() -> void:
 		var mark := "[x] " if done[day].has(t.id) else ("[~] " if _paused(t.id) else "[ ] ")
 		lines.append(mark + t.text + (" (tauolla)" if mark == "[~] " else ""))
 	lines.append("Maine: %d/100" % game.maine)
+	if game.muistelu.mood_line() != "":
+		lines.append(game.muistelu.mood_line())
 	lines.append("J: piilota")
 	_label.text = "\n".join(lines)

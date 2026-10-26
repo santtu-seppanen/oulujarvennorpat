@@ -314,7 +314,10 @@ func _win(delta: float) -> void:
 				body.rotation.x = deg_to_rad(-9.0)
 				body.rotation.z = sin(_t * 2.2 + i) * 0.07
 				if _bubbles.is_empty() and _t > 0.8 + i * 2.0 and _t < HUG_T - 1.0 and int((_t - 0.8) / 2.0) == i:
-					_bubble(b, WIN_LINES[i % WIN_LINES.size()], 1.9)
+					var wl: String = WIN_LINES[i % WIN_LINES.size()]
+					if i == 1 and game.muistelu.win_line() != "":
+						wl = game.muistelu.win_line()  # nuotiotarinat jäivät mieleen
+					_bubble(b, wl, 1.9)
 			else:
 				body.rotation = Vector3.ZERO
 				var to := c.global_position + right * 1.0 - b.global_position

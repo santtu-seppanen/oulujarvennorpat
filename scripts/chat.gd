@@ -139,6 +139,8 @@ func say(text: String) -> void:
 	var i: int = game.player_index
 	show_message(i, text)
 	game.mp.send({"t": "chat", "i": i, "m": text})
+	if game.lautapeli != null and game.lautapeli.wants_answer():
+		game.lautapeli.submit(text)  # trivian vastaus kirjoitetaan chattiin
 
 
 ## Tietokoneen hahmon i puhe: kupla tällä koneella, ja hostilta kaikille muillekin.

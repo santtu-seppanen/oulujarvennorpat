@@ -77,7 +77,7 @@ func think(delta: float) -> void:
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
-	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus", "kahvi", "oodi"] and _state != "hidden":
+	if _sunset() and not activity in ["aurinko", "kortit", "nuotio", "sauna", "kokkaus", "kahvi", "oodi"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -116,6 +116,37 @@ func cards_end() -> void:
 		_timer = 0.0
 		if _state != "stay":
 			_done()
+
+
+## Pelaaja istuu nuotiolle (nuotio.gd): oma istuinhirsi i (mokki.fire_seats) nuotion ajaksi.
+func fire(i: int) -> void:
+	if activity == "nuotio":
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_leave_seat()
+	if _stove == name:
+		_stove = ""
+	body.pose = ""
+	body.set_hidden_inside(false)
+	_next = ""
+	activity = "nuotio"
+	_state = "walk"
+	_card_seat = mokki.fire_seats[i]
+	_set_path(mokki.route(body.global_position, "nuotio"))
+	var away: Vector3 = (_card_seat[0] - _card_seat[1]).normalized()
+	_path.append(_card_seat[0] + away * 0.45)
+
+
+func fire_end() -> void:
+	if activity == "nuotio":
+		_timer = 0.0
+		if _state != "stay":
+			_done()
+
+
+func fire_ready() -> bool:
+	return activity == "nuotio" and _state == "stay"
 
 
 ## Keskiyön oodi (oodi.gd): etuterassin kaiteelle paikalle spot laulamaan, kasvot järvelle.
@@ -160,7 +191,7 @@ func _nap_time() -> void:
 	var lt: Dictionary = sun.local() if sun != null else {}
 	if lt.is_empty() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
 		return
-	if activity in ["kortit", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
+	if activity in ["kortit", "nuotio", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
 			or _state == "hidden" or body.boat != null:
 		return
 	_nap_day = lt.day
@@ -390,7 +421,7 @@ func _arrive() -> void:
 			_face = mokki.stash_pos
 			body.drink(0.0)
 			_stay_for(rng.randf_range(8.0, 16.0), "Idle_Talking")
-		"kortit":
+		"kortit", "nuotio":
 			body.sit_at(_card_seat[0], _card_seat[1])
 			_stay_for(1e9, "Sitting_Idle")
 		"oodi":

@@ -39,6 +39,11 @@ const Baari := preload("res://scripts/baari.gd")
 const Tarjoilupoyta := preload("res://scripts/tarjoilupoyta.gd")
 const Loppu := preload("res://scripts/loppu.gd")
 const Grilli := preload("res://scripts/grilli.gd")
+const Nuotio := preload("res://scripts/nuotio.gd")
+const Makkara := preload("res://scripts/makkara.gd")
+const Muistelu := preload("res://scripts/muistelu.gd")
+const Lautapeli := preload("res://scripts/lautapeli.gd")
+const Afrikantahti := preload("res://scripts/afrikantahti.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
@@ -88,6 +93,11 @@ var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpa
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta Sinikan kanssa (baari.gd)
 var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
+var nuotio: Node  # nuotiopaikka rannalla (nuotio.gd)
+var makkara: Node  # makkaranpaisto nuotiolla (makkara.gd)
+var muistelu: Node  # "Muistatko kun" -tarinat nuotiolla (muistelu.gd)
+var lautapeli: Node  # lautapelien valinta ja ysäritrivia keittiön pöydässä (lautapeli.gd)
+var afrikka: Node  # Afrikan tähti -lautapeli keittiön pöydässä (afrikantahti.gd)
 var loppu: Node  # pelin lopun cutscenet: voitto sunnuntaina, häviö maineen loppuessa (loppu.gd)
 var tarjoilu: Node3D  # ulkotarjoilupöytä: kahvi ja pyttipannu (tarjoilupoyta.gd)
 var baari: Node  # Happy Beachin baarirakennuksen toiminnot sisällä (baari.gd)
@@ -111,7 +121,8 @@ var _drunk_label: Label
 var _drunk_fx: ColorRect
 var _was_out := false
 ## Minipeleissä katsotaan silmistä: lauteilta kiukaalle, hellalla pannuun, pöydässä kortteihin (kallistus).
-const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kahvi": -0.9, "kortit": -0.42, "baari": -0.1, "grilli": -0.5}
+const ACTIVITY_PITCH := {"sauna": -0.3, "kokkaus": -0.9, "kahvi": -0.9, "kortit": -0.42, "baari": -0.1, "grilli": -0.5,
+	"makkara": -0.5, "muistelu": -0.45, "lautapeli": -0.42, "afrikka": -0.42}
 const LOOK_YAW := 1.9  # pöydässä ja lauteilla katse kääntyy näin paljon sivulle (A/D, hiiren oikea nappi)
 var boat: CharacterBody3D
 var _amb: Node
@@ -176,6 +187,21 @@ func _ready() -> void:
 	grilli = Grilli.new()
 	grilli.game = self
 	add_child(grilli)
+	nuotio = Nuotio.new()
+	nuotio.game = self
+	add_child(nuotio)
+	makkara = Makkara.new()
+	makkara.game = self
+	add_child(makkara)
+	muistelu = Muistelu.new()
+	muistelu.game = self
+	add_child(muistelu)
+	lautapeli = Lautapeli.new()
+	lautapeli.game = self
+	add_child(lautapeli)
+	afrikka = Afrikantahti.new()
+	afrikka.game = self
+	add_child(afrikka)
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
@@ -322,7 +348,7 @@ func _process(delta: float) -> void:
 	if state == "menu" and not _menu.visible:
 		_start_play()
 	# Minipelissä A/D kääntää katsetta (hahmo istuu paikallaan), esim. pöydässä muita pelaajia kohti.
-	if activity != "" and not Chat.typing and not get_tree().paused:
+	if activity != "" and not activity in ["makkara", "muistelu"] and not Chat.typing and not get_tree().paused:
 		var turn := Input.get_axis("right", "left")
 		if turn != 0.0:
 			CamCtl.yaw = clampf(CamCtl.yaw + turn * 1.6 * delta, -LOOK_YAW, LOOK_YAW)
@@ -415,6 +441,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			tarjoilu.eat_steak()
 		else:
 			kokkaus.eat()
+	elif event.is_action_pressed("drink") and activity == "" and _can_act() and nuotio.near(player.global_position):
+		start_activity("muistelu")
+	elif event.is_action_pressed("drink") and activity == "" and _can_act() and _at_kitchen_table():
+		start_activity("lautapeli")
 	elif event.is_action_pressed("drink") and activity == "" and _near_stash():
 		_booze()
 	elif event.is_action_pressed("drink") and activity == "" and _can_act() and Mokki.at_outhouse(player.global_position):
@@ -680,7 +710,8 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 # --- Alamökin minipelit ---------------------------------------------------------------------------------------
 
 func _activity_node() -> Node:
-	return {"sauna": sauna, "kokkaus": kokkaus, "kahvi": kahvi, "kortit": kortit, "baari": baari, "grilli": grilli}.get(activity, null)
+	return {"sauna": sauna, "kokkaus": kokkaus, "kahvi": kahvi, "kortit": kortit, "baari": baari, "grilli": grilli,
+		"makkara": makkara, "muistelu": muistelu, "lautapeli": lautapeli, "afrikka": afrikka}.get(activity, null)
 
 
 func start_activity(a: String) -> void:
@@ -778,6 +809,8 @@ func _interaction() -> Dictionary:
 		if Porukka.CREW[player_index].name != "Marko":
 			return {"text": "Vain Marko saa grillata (pihvit tulevat grillistä klo 20)"}
 		return {"text": "E: grillaa pihvit grillikatoksessa (Markon erikoisuus)", "cb": func() -> void: start_activity("grilli")}
+	if nuotio.near(player.global_position) and player.boat == null:
+		return {"text": "E: paista makkaraa nuotiolla · Q: \"Muistatko kun\" -tarinat", "cb": func() -> void: start_activity("makkara")}
 	if tennis.can_start(player.global_position) and player.boat == null:
 		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	if heittely.can_start(player.global_position) and player.boat == null:
@@ -809,7 +842,7 @@ func _interaction() -> Dictionary:
 					"Jukka":
 						return {"text": "E: keitä aamukahvit liedellä", "cb": func() -> void: start_activity("kahvi")}
 				return {"text": "Vain Marko osaa tehdä pyttipannua ja Jukka keittää aamukahvit"}
-			var t := "E: istu pöytään (ristiseiska tai tuppi)"
+			var t := "E: istu pöytään (ristiseiska tai tuppi) · Q: lautapelit (ysäritrivia, Afrikan tähti)"
 			if kokkaus.annokset > 0:
 				t += " · pöydässä %d annosta pyttipannua" % kokkaus.annokset
 			if kahvi.kupit > 0:
@@ -819,6 +852,13 @@ func _interaction() -> Dictionary:
 		return {"text": "E: tee uusi viinakätkö tähän (%d/%d)" % [omat_katkot.spots.size() + 1, omat_katkot.MAX_COUNT],
 			"cb": _make_stash}
 	return {}
+
+
+## Keittiön pöydän luona (ei hellalla eikä kahvipannulla).
+func _at_kitchen_table() -> bool:
+	var m: Node3D = world.mokki
+	return Mokki.room_at(player.global_position) == "keittio" and player.global_position.distance_to(m.cook_spot) >= 0.75 \
+		and player.global_position.distance_to(m.coffee_pos) >= 1.0
 
 
 func _near_boat() -> bool:

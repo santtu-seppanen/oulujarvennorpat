@@ -42,6 +42,7 @@ static func list(game: Node3D) -> Array:
 	# Mökin paikat.
 	out.append({"name": "Huussi", "p": Mokki.yw(11.5, -1.7), "kind": "paikka", "major": false})
 	out.append({"name": "Grillikatos", "p": Mokki.yw(-9.0, -1.4), "kind": "paikka", "major": false})
+	out.append({"name": "Nuotiopaikka", "p": Vector2(game.nuotio.pos.x, game.nuotio.pos.z), "kind": "paikka", "major": false})
 	out.append({"name": "Tarjoilupöytä", "p": game.tarjoilu.pos_xz(), "kind": "paikka", "major": false})
 	out.append({"name": "Rantatennis", "p": Rantatennis.fw(0.0, 0.0), "kind": "peli", "major": false})
 	out.append({"name": "Jalkapallon heitto", "p": Mokki.yw(Amerikanpallo.AREA_C.x, Amerikanpallo.AREA_C.y), "kind": "peli",
