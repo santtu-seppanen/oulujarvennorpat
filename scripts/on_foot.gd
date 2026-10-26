@@ -43,6 +43,8 @@ var pose := ""  # tekoälyn asento paikallaan (Sitting_Idle, Idle_Talking, ...)
 var airborne := false
 var boat: CharacterBody3D = null
 var hidden_inside := false
+var vehicle: Node3D = null  # istuu ajoneuvossa (muskelivene.gd): paikka ja suunta tulevat ajoneuvolta (seat_global)
+var vehicle_seat := 0  # istumapaikka ajoneuvossa (0 = kuljettaja)
 var view_override_on := false  # minipelin kuvakulma (view_override) kameran tilalle
 var view_override := Transform3D()
 ## Tekoäly on menossa istumaan tähän paikkaan (mokki.gd free_seat: muut eivät valitse sitä).
@@ -285,6 +287,20 @@ func leave_boat() -> void:
 	_sound("water", -6.0, 1.2)
 
 
+## Istuu ajoneuvon penkillä (kuljettaja): ajoneuvo ohjaa paikkaa ja kameraa, hahmo vain istuu.
+func _sit_in(delta: float) -> void:
+	global_position = vehicle.seat_global(vehicle_seat)
+	rotation.y = vehicle.rotation.y
+	velocity = Vector3.ZERO
+	pose = "Sitting_Idle"
+	surface = Terrain.WATER
+	water_depth = 0.0
+	swimming = false
+	_body.rotation.y = 0.0
+	_body.play("Sitting_Idle", 0.3)
+	tire(false, true, delta, 1.5)
+
+
 func _ride(delta: float) -> void:
 	var seat: Vector3 = boat.global_transform * boat.SEAT
 	global_position = seat
@@ -327,6 +343,9 @@ func _physics_process(delta: float) -> void:
 			pose = ""
 	if brain != null and controls_enabled:
 		brain.think(delta)
+	if vehicle != null:
+		_sit_in(delta)
+		return
 	if boat != null:
 		_ride(delta)
 		return

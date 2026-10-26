@@ -45,6 +45,7 @@ const Muistelu := preload("res://scripts/muistelu.gd")
 const Lautapeli := preload("res://scripts/lautapeli.gd")
 const Afrikantahti := preload("res://scripts/afrikantahti.gd")
 const Tyopuhelu := preload("res://scripts/tyopuhelu.gd")
+const Muskelivene := preload("res://scripts/muskelivene.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
 ## Aloituspaikat pihan kehyksessä (u, v): Santtu teltalla, Marko pöydän ääressä, Jaakko etuterassilla,
@@ -100,6 +101,7 @@ var muistelu: Node  # "Muistatko kun" -tarinat nuotiolla (muistelu.gd)
 var lautapeli: Node  # lautapelien valinta ja ysäritrivia keittiön pöydässä (lautapeli.gd)
 var afrikka: Node  # Afrikan tähti -lautapeli keittiön pöydässä (afrikantahti.gd)
 var tyopuhelu: Node  # Jaakon työpuhelu saunassa (tyopuhelu.gd)
+var muskelivene: CharacterBody3D  # muskelivene: Äpätin satama ja Happy Beachin laituri (muskelivene.gd)
 var loppu: Node  # pelin lopun cutscenet: voitto sunnuntaina, häviö maineen loppuessa (loppu.gd)
 var tarjoilu: Node3D  # ulkotarjoilupöytä: kahvi ja pyttipannu (tarjoilupoyta.gd)
 var baari: Node  # Happy Beachin baarirakennuksen toiminnot sisällä (baari.gd)
@@ -108,6 +110,7 @@ var retki: Node3D  # tutkimusmatka kumiveneellä viinakätkölle (tutkimusmatka.
 var car: CharacterBody3D  # farmariauto: ajo Happy Beachille ja takaisin (auto.gd)
 var tarina: Node  # mökkiviikonlopun tehtävät torstaista sunnuntaihin (tarina.gd)
 var _ride_crew: Array = []  # porukka autossa tai Happy Beachillä paikallaan (hahmojen indeksit)
+var _ride_by := ""  # "auto" | "vene": millä porukka lähti (ratkaisee, milloin he palaavat pihalle)
 var oodi: Node  # keskiyön oodi Oulujärvelle etuterassilla (oodi.gd)
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
 const NAP_T := 10.0
@@ -207,6 +210,12 @@ func _ready() -> void:
 	tyopuhelu = Tyopuhelu.new()
 	tyopuhelu.game = self
 	add_child(tyopuhelu)
+	muskelivene = Muskelivene.new()
+	muskelivene.game = self
+	muskelivene.moorings = [world.mokki.harbor, Happybeach.jetty_mooring()]
+	add_child(muskelivene)
+	muskelivene.place(0)
+	muskelivene.docked.connect(_motorboat_docked)
 	mustikat = Mustikat.new()
 	mustikat.game = self
 	add_child(mustikat)
@@ -220,6 +229,11 @@ func _ready() -> void:
 	world.mokki.napped.connect(_coffee_call)
 	mp.on("kahvikutsu", func(_d: Dictionary, _from: int) -> void: _coffee_shout())
 	mp.on("auto", func(d: Dictionary, _from: int) -> void: _remote_ride(bool(d.on)))
+	mp.on("vene", func(d: Dictionary, _from: int) -> void:
+		_remote_motorboat(bool(d.on), int(d.get("i", 0)), int(d.get("at", -1))))
+	mp.on("vene_s", func(d: Dictionary, _from: int) -> void:
+		if muskelivene.remote:
+			muskelivene.net_apply(d.s))
 	mp.on("auto_s", func(d: Dictionary, _from: int) -> void:
 		if car.remote:
 			car.net_apply(d.s))
@@ -388,9 +402,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if state != "play" or get_tree().paused or wc != null or sytytys != null or pissa.active or _nap_t > 0.0:
 		return
-	if car.passenger != null:
+	if car.passenger != null or muskelivene.passenger != null:
 		if event.is_action_pressed("map"):
 			_map.open()
+			get_viewport().set_input_as_handled()
+		return
+	if muskelivene.driver != null:
+		# Muskeliveneessä: E telakoi satamaan, muut näppäimet (kaasu, ohjaus, V) ohjaavat venettä.
+		if event.is_action_pressed("interact"):
+			_leave_motorboat()
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("map"):
+			_map.open()
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("restart"):
+			respawn()
 			get_viewport().set_input_as_handled()
 		return
 	if car.driver != null:
@@ -762,6 +788,9 @@ func toast(text: String, secs := 3.0) -> void:
 func _interaction() -> Dictionary:
 	if _near_boat():
 		return {"text": "E: nouse kumiveneeseen", "cb": func() -> void: player.enter_boat(boat)}
+	if muskelivene.can_board(player.global_position) and player.boat == null and not player.hidden_inside:
+		return {"text": "E: nouse muskeliveneeseen (ajo Happy Beachin laituriin ja takaisin Äpätin satamaan)",
+			"cb": _enter_motorboat}
 	if _near_car():
 		return {"text": "E: nouse autoon (ajo Happy Beachille ja takaisin · G: automaattiajo)", "cb": _enter_car}
 	if player.hidden_inside or player.swimming or player.pose == "Sammunut":
@@ -873,6 +902,137 @@ func _near_boat() -> bool:
 
 # --- Auto: ajo Happy Beachille ja takaisin --------------------------------------------------------------------
 
+# --- Muskelivene: Äpätin satama ja Happy Beachin laituri ----------------------------------------------------------
+
+func _enter_motorboat() -> void:
+	if retki.active:
+		toast("Tutkimusmatka on kesken – lopeta se ensin (veneessä Q).", 3.0)
+		return
+	end_activity()
+	for g in ballgames:
+		g.stop()
+	muskelivene.board(player)
+	_board_crew_boat(player_index)
+	mp.send({"t": "vene", "on": true, "i": player_index})
+	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin satamaan tai Happy Beachin laituriin.", 8.0)
+	var other: Dictionary = muskelivene.moorings[1 - maxi(muskelivene.from_mooring, 0)]
+	_map.has_target = true
+	_map.target = Vector2(other.pos.x, other.pos.z)  # kompassi osoittaa toiseen satamaan
+
+
+## E ajaessa: telakointi onnistuu vain satamapaikan lähellä hiljaa kulkiessa.
+func _leave_motorboat() -> void:
+	var idx: int = muskelivene.near_mooring()
+	if idx < 0:
+		var dock: Vector2 = Mokki.yw(-2.2, 14.0)
+		if Vector2(muskelivene.global_position.x - dock.x, muskelivene.global_position.z - dock.y).length() < 16.0:
+			toast("Mökkilaituri on liian matala muskeliveneelle. Aja Äpätin satamaan (itään, pitkä laituri).", 4.0)
+		else:
+			toast("Muskelivenettä ei voi jättää tähän. Aja Äpätin satamaan tai Happy Beachin laituriin.", 4.0)
+		return
+	if absf(muskelivene.speed) > Muskelivene.DOCK_SPEED:
+		toast("Hidasta ensin (S), sitten E telakoi.", 2.5)
+		return
+	muskelivene.dock(idx)
+
+
+func _motorboat_docked(idx: int) -> void:
+	_release_crew_boat(idx)
+	mp.send({"t": "vene", "on": false, "at": idx})
+	_map.has_target = false
+	toast("%s: vene kiinni laiturissa." % muskelivene.moorings[idx].name, 3.5)
+
+
+## Istumapaikka muskeliveneessä (1…3): hahmon j järjestys muiden kuin kuljettajan (driver_idx) joukossa; sama kaikilla
+## koneilla, joten kyydissä istuvat ihmiset ja tietokoneen hahmot eivät mene päällekkäin.
+func _boat_slot(j: int, driver_idx: int) -> int:
+	var r := 1
+	for k in crew.size():
+		if k == driver_idx:
+			continue
+		if k == j:
+			return mini(r, 3)
+		r += 1
+	return 1
+
+
+## Tietokoneen mökkiläiset kyytiin (istuvat näkyvinä penkeille, toisin kuin autossa).
+func _board_crew_boat(driver_idx: int) -> void:
+	_ride_crew.clear()
+	_ride_by = "vene"
+	for j in crew.size():
+		if j == driver_idx or crew_modes[j] != "ai":
+			continue
+		var b: CharacterBody3D = crew[j]
+		if b.boat != null:
+			continue
+		if b.brain != null:
+			b.brain.reset()  # vapauttaa istumapaikan
+			b.brain = null
+		b.pose = ""
+		b.controls_enabled = false
+		b.set_hidden_inside(false)
+		b._seated(true)
+		b.vehicle = muskelivene
+		b.vehicle_seat = _boat_slot(j, driver_idx)
+		_ride_crew.append(j)
+
+
+## Porukka ulos veneestä satamaan idx: Äpätissä takaisin omiin puuhiinsa pihalle, Happy Beachin laiturilla paikallaan
+## laiturille (palaavat pihalle, kun vene on taas Äpätin satamassa).
+func _release_crew_boat(idx: int) -> void:
+	var m: Dictionary = muskelivene.moorings[idx]
+	var k := 0
+	for j: int in _ride_crew:
+		var b: CharacterBody3D = crew[j]
+		b.vehicle = null
+		b._seated(false)
+		b.set_hidden_inside(false)
+		if idx == 0:
+			var w: Vector2 = Mokki.yw(SPAWNS[j].x, SPAWNS[j].y)
+			b.global_position = Vector3(w.x, Mokki.DY + 0.1, w.y)
+			b.pose = ""
+			b.controls_enabled = true
+			crew_modes[j] = ""
+			set_crew_mode(j, "ai")
+		else:
+			var fwd := Vector3(-sin(m.yaw), 0, -cos(m.yaw))
+			b.global_position = m.deck - fwd * (0.9 * (k + 1)) + Vector3(0, 0.2, 0)  # pelaaja nousee itse laiturin kohtaan deck
+			b.rotation.y = m.yaw
+			b.pose = "Idle_Talking"
+			b.controls_enabled = false
+			k += 1
+	if idx == 0:
+		_ride_crew.clear()
+	elif not _ride_crew.is_empty():
+		chat.ai_say(_ride_crew[0], ["Happy Beach! Mennään baarille.", "Hieno reissu. Kuka tarjoaa ekat?", "Tänne pääsee nopeammin veneellä."][randi() % 3])
+
+
+## Moninpeli: toinen pelaaja (driver_idx) ajaa muskelivenettä (on) tai telakoi sen satamaan at (ei): oma pelaaja ja
+## tietokoneen hahmot istuvat kyytiin, ja ajon päätyttyä he nousevat laiturille.
+func _remote_motorboat(on: bool, driver_idx: int, at: int) -> void:
+	if on:
+		if muskelivene.driver != null or muskelivene.remote:
+			return
+		muskelivene.set_remote(true)
+		end_activity()
+		for g in ballgames:
+			g.stop()
+		_board_crew_boat(driver_idx)
+		if crew_modes[player_index] == "player" and player_index != driver_idx:
+			muskelivene.board_passenger(player, _boat_slot(player_index, driver_idx))
+		return
+	if not muskelivene.remote:
+		return
+	muskelivene.set_remote(false)
+	var idx := clampi(at, 0, muskelivene.moorings.size() - 1)
+	muskelivene.place(idx)
+	var m: Dictionary = muskelivene.moorings[idx]
+	var fwd := Vector3(-sin(m.yaw), 0, -cos(m.yaw))
+	muskelivene.leave_passenger(m.deck - fwd * (0.9 * (muskelivene.passenger_seat - 1)))
+	_release_crew_boat(idx)
+
+
 func _near_car() -> bool:
 	return car.driver == null and car.passenger == null and not car.remote and player.global_position.distance_to(car.global_position) < 3.4 \
 		and not player.hidden_inside and not player.swimming and player.boat == null and player.pose != "Sammunut"
@@ -930,6 +1090,7 @@ func _car_arrived() -> void:
 
 func _board_crew() -> void:
 	_ride_crew.clear()
+	_ride_by = "auto"
 	for j in crew.size():
 		if j == player_index or crew_modes[j] != "ai":
 			continue
@@ -976,6 +1137,13 @@ func _release_crew(at_home: bool) -> void:
 
 ## Ajo keskeytyy (hahmon vaihto, R): kuljettaja ulos ja porukka takaisin mökin pihalle.
 func _reset_ride() -> void:
+	if muskelivene != null and muskelivene.driver != null:
+		muskelivene.send_home()
+		_release_crew_boat(0)
+		mp.send({"t": "vene", "on": false, "at": 0})
+		return
+	if muskelivene != null and muskelivene.passenger != null:
+		muskelivene.leave_passenger(muskelivene.moorings[0].deck)
 	if car == null:
 		return
 	if car.driver != null:
@@ -988,6 +1156,11 @@ func _reset_ride() -> void:
 
 ## Porukka seisoo auton vieressä: kun auto on jälleen mökillä, he palaavat pihalle.
 func _ride_check() -> void:
+	if _ride_by == "vene":
+		if not _ride_crew.is_empty() and muskelivene.at == 0 and muskelivene.driver == null and muskelivene.passenger == null \
+				and not muskelivene.remote:
+			_release_crew_boat(0)
+		return
 	if _ride_crew.is_empty() or car.driver != null or car.passenger != null or car.remote:
 		return
 	if Vector2(car.global_position.x - Reitti.HOME_SPOT.x, car.global_position.z - Reitti.HOME_SPOT.y).length() < 60.0:
@@ -1305,6 +1478,12 @@ func _update_hud() -> void:
 		_prompt.text = _activity_node().prompt()
 	elif car.passenger != null:
 		_prompt.text = "Kyydissä – kuski ajaa · %d km/h" % roundi(absf(car.speed) * 3.6)
+	elif muskelivene.passenger != null:
+		_prompt.text = "Veneen kyydissä – kuski ajaa · %d km/h" % roundi(absf(muskelivene.speed) * 3.6)
+	elif muskelivene.driver != null:
+		var mi: int = muskelivene.near_mooring()
+		_prompt.text = "%d km/h · W/S kaasu · A/D ohjaa · V näkymä · %s" % [roundi(absf(muskelivene.speed) * 3.6),
+			"E: telakoi (%s)" % muskelivene.moorings[mi].name if mi >= 0 else "E: aja satamaan (Äpätti tai Happy Beach)"]
 	elif car.driver != null:
 		_prompt.text = "%d km/h · W/S kaasu ja jarru · A/D ohjaa · välilyönti käsijarru · G automaattiajo%s · H torvi · E pois" \
 			% [roundi(absf(car.speed) * 3.6), " (päällä)" if car.autopilot else ""]

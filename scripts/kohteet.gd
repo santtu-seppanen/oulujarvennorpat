@@ -41,6 +41,8 @@ static func list(game: Node3D) -> Array:
 	out.append({"name": "Auton paikka", "p": Reitti.HOME_SPOT, "kind": "paikka", "major": false})
 	# Mökin paikat.
 	out.append({"name": "Huussi", "p": Mokki.yw(11.5, -1.7), "kind": "paikka", "major": false})
+	out.append({"name": "Äpätin satama", "p": Vector2(game.world.mokki.harbor.pos.x, game.world.mokki.harbor.pos.z), "kind": "paikka",
+		"major": true})
 	out.append({"name": "Grillikatos", "p": Mokki.yw(-9.0, -1.4), "kind": "paikka", "major": false})
 	out.append({"name": "Nuotiopaikka", "p": Vector2(game.nuotio.pos.x, game.nuotio.pos.z), "kind": "paikka", "major": false})
 	out.append({"name": "Tarjoilupöytä", "p": game.tarjoilu.pos_xz(), "kind": "paikka", "major": false})
@@ -61,6 +63,9 @@ static func list(game: Node3D) -> Array:
 	if game.car != null:
 		out.append({"name": "Auto", "p": Vector2(game.car.global_position.x, game.car.global_position.z), "kind": "kulku",
 			"major": true})
+	if game.muskelivene != null:
+		out.append({"name": "Muskelivene", "p": Vector2(game.muskelivene.global_position.x, game.muskelivene.global_position.z),
+			"kind": "kulku", "major": true})
 	if game.boat != null:
 		out.append({"name": "Kumivene", "p": Vector2(game.boat.global_position.x, game.boat.global_position.z), "kind": "kulku",
 			"major": false})

@@ -98,6 +98,16 @@ const STAIR_W := 1.2
 ## Nuotiopaikka rannalla pääterassin ja laiturin välissä (u, v) ja nuotion ympärillä olevien istuinhirsien etäisyys.
 const FIRE := Vector2(-5.6, 4.0)
 const FIRE_SEAT_R := 1.5
+## Äpätin satama mökin itäpuolella (muskeliveneen paikka): pääsiltalaiturin keskilinja (u), rannan portaat, kansi
+## (v-väli) ja T-pää. Kansi 0,75 m vedenpinnan yläpuolella: mökkilaituri (0,42 m) on muskeliveneelle liian matala.
+const HARBOR_U := 16.0
+const HARBOR_V := Vector2(5.7, 22.0)
+const HARBOR_HEAD := Vector2(21.0, 23.2)  # T-pään v-väli
+const HARBOR_DECK := 0.75
+const HARBOR_PIER_W := 2.2
+const HARBOR_HEAD_W := 5.0  # T-pään (L-muoto) ulottuma länteen laiturin keskilinjasta
+## Veneen paikka laiturin itäkyljessä (u, v).
+const HARBOR_BERTH := Vector2(18.6, 17.2)
 ## Alamökki: takaseinän ulkopinta ja väliseinä (keittiön takaseinä) v-suunnassa sekä ovet terassin puoleisessa
 ## seinässä (v-välit): vasen keittiöön, oikea saunaan.
 const BACK := -5.85
@@ -143,6 +153,7 @@ var kiuas_pos := Vector3.ZERO
 var card_frame := Transform3D()  # keittiön pöydän keskikohta: x pitkin pöytää (itään), -z järvelle
 var stash_pos := Vector3.ZERO  # olut- ja viinakätkö saunan takana rinteessä
 var fire_pos := Vector3.ZERO  # nuotiopaikan keskipiste (nuotio.gd)
+var harbor := {}  # Äpätin sataman muskelivenepaikka: {name, pos, yaw, deck} (muskelivene.gd moorings)
 var fire_seats := []  # nuotion ympärillä neljä istuinhirttä: [paikka, nuotio], hahmon indeksin mukaan
 var bodies: Array = []  # mökkiläiset (main.gd): istumapaikan varaus katsotaan heidän paikoistaan
 var fire_left := 600.0  # kiukaan palamisaika (sauna.gd päivittää): tietokone hakee haloja, kun hiipuu
@@ -397,6 +408,8 @@ static func clears_tree(x: float, z: float) -> bool:
 		return true
 	if duck_dist(q) < DUCK_W * 0.5 + 0.8 or in_rect(q, OUTHOUSE, 1.2):  # pitkospuut ja huussi
 		return true
+	if in_rect(q, [HARBOR_U - 3.5, HARBOR_U + 3.5, 2.0, 9.0]):  # sataman rannan portaat
+		return true
 	var c := wc(p)
 	return in_rect(c, [-CABIN_HX - 0.8, 5.3, -CABIN_HV - CABIN_LANDING - 3.0, CABIN_HV + 0.8])
 
@@ -534,9 +547,11 @@ func _ready() -> void:
 	_duckboards(yard)
 	_outhouse(yard)
 	_dock(yard)
+	_harbor(yard)
 	_bank_cover(yard)
 	yard.finish(_mat)
 	roofs.append_array(yard.roof_meshes)
+	_harbor_sign()
 	var e := stair_ends()
 	var st := Part.new(self, e[0], (e[1] - e[0]).normalized())
 	_stairs(st, (e[1] - e[0]).length())
@@ -1489,6 +1504,86 @@ func _dock(pt: Part) -> void:
 		pt.bx(-2.55, -1.85, v1 + 0.04, v1 + 0.14, y - 0.02, y, steel)
 	views.append(_world3(pt, -2.2, v1 - 0.6, top))
 	views.append(_world3(pt, -1.6, v1 - 1.4, top))
+
+
+## Äpätin satama: pääsiltalaituri rannasta järveen portaineen, T-pää, pukit pohjaan, pollarit, fenderit, lamppu ja
+## rantakivetys. Veneen paikka laiturin itäkyljessä (harbor); muskelivene.gd kulkee satamaan ja pois.
+func _harbor(pt: Part) -> void:
+	var u0 := HARBOR_U - HARBOR_PIER_W * 0.5
+	var u1 := HARBOR_U + HARBOR_PIER_W * 0.5
+	var top := HARBOR_DECK
+	var deck := Color(0.58, 0.52, 0.44, BOARD_U)
+	var edge := Color(0.42, 0.37, 0.31, BOARD_V)
+	var hv := HARBOR_V
+	# Rannan portaat kanteen asti.
+	for k in 3:
+		var va := 4.2 + 0.5 * k
+		var st := 0.31 + 0.15 * k
+		pt.bx(u0, u1, va, va + 0.5, -0.15, st, deck, true)
+	pt.bx(u0, u1, hv.x, hv.y, top - 0.08, top, deck)
+	pt.bx(u0, u1, hv.x, hv.y, top - 0.4, top - 0.08, Color(0, 0, 0, 0), true)
+	for x: float in [u0, u1 - 0.1]:
+		pt.bx(x, x + 0.1, hv.x, hv.y, top - 0.3, top + 0.05, edge)
+	# T-pää.
+	var h0 := HARBOR_U - HARBOR_HEAD_W  # T-pää kääntyy länteen (L-muoto): itäkylki on avoin, vene ajaa suoraan ulos
+	var h1 := u1
+	pt.bx(h0, h1, HARBOR_HEAD.x, HARBOR_HEAD.y, top - 0.08, top, deck)
+	pt.bx(h0, h1, HARBOR_HEAD.x, HARBOR_HEAD.y, top - 0.4, top - 0.08, Color(0, 0, 0, 0), true)
+	pt.bx(h0, h1, HARBOR_HEAD.y - 0.1, HARBOR_HEAD.y, top - 0.3, top + 0.05, edge)
+	pt.bx(h0, h0 + 0.1, HARBOR_HEAD.x, HARBOR_HEAD.y, top - 0.3, top + 0.05, edge)
+	pt.bx(h1 - 0.1, h1, HARBOR_HEAD.x, HARBOR_HEAD.y, top - 0.3, top + 0.05, edge)
+	# Pukit pohjaan: sivuille 3,3 m välein ja T-pään reunoille.
+	var posts: Array[Vector2] = []
+	var v := hv.x + 0.3
+	while v < hv.y:
+		posts.append(Vector2(u0 + 0.12, v))
+		posts.append(Vector2(u1 - 0.12, v))
+		v += 3.3
+	for x: float in [h0 + 0.12, HARBOR_U - HARBOR_HEAD_W * 0.5, h1 - 0.12]:
+		posts.append(Vector2(x, HARBOR_HEAD.y - 0.15))
+		posts.append(Vector2(x, HARBOR_HEAD.x + 0.15))
+	var log_col := Color(0.34, 0.26, 0.19, LOG)
+	for q: Vector2 in posts:
+		var w := yw(q.x, q.y)
+		var gy := minf(Terrain.h(w.x, w.y), 0.0) - 0.4
+		pt.cyl(Part.p(q.x, q.y, gy), Part.p(q.x, q.y, top + 0.12), 0.1, log_col, 8)
+	# Pollarit (teräs) itäreunalla veneen kohdalla ja T-päässä, kumifenderit laiturin kyljessä.
+	var steel := Color(0.3, 0.32, 0.35, METAL)
+	for q: Vector2 in [Vector2(u1 - 0.25, HARBOR_BERTH.y - 2.6), Vector2(u1 - 0.25, HARBOR_BERTH.y + 2.6),
+			Vector2(u0 + 0.25, HARBOR_BERTH.y), Vector2(h1 - 0.4, HARBOR_HEAD.y - 0.5)]:
+		pt.cyl(Part.p(q.x, q.y, top), Part.p(q.x, q.y, top + 0.32), 0.09, steel, 8)
+		pt.cyl(Part.p(q.x, q.y, top + 0.3), Part.p(q.x, q.y, top + 0.36), 0.13, steel, 8)
+	for k in 3:
+		var fv := HARBOR_BERTH.y - 2.4 + 2.4 * k
+		pt.bx(u1, u1 + 0.12, fv - 0.3, fv + 0.3, top - 0.5, top - 0.05, Color(0.08, 0.08, 0.09, PLAIN))
+	# Lamppu T-päässä.
+	pt.cyl(Part.p(HARBOR_U, HARBOR_HEAD.y - 0.3, top), Part.p(HARBOR_U, HARBOR_HEAD.y - 0.3, top + 2.6), 0.05, steel, 6)
+	pt.bx(HARBOR_U - 0.15, HARBOR_U + 0.15, HARBOR_HEAD.y - 0.45, HARBOR_HEAD.y - 0.15, top + 2.6, top + 2.7, Color(1, 0.9, 0.7, LAMP))
+	_lamp(pt, Part.p(HARBOR_U, HARBOR_HEAD.y - 0.3, top + 2.5), 0.9, 9.0)
+	# Rantakivetys: lohkareita portaiden kummallakin puolella rannassa.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1979
+	var stone := Color(0.5, 0.49, 0.47, STONE)
+	for side: float in [-1.0, 1.0]:
+		for k in 5:
+			var su := HARBOR_U + side * (1.7 + rng.randf_range(0.0, 1.6))
+			var sv := 3.4 + k * 0.7 + rng.randf_range(-0.2, 0.2)
+			var w := yw(su, sv)
+			var gy := Terrain.h(w.x, w.y)
+			var r := rng.randf_range(0.25, 0.42)
+			pt.bt.add(B.sphere(r, 8), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.3, 0.7, 1.0)),
+				Part.p(su, sv, gy + r * 0.3)), stone)
+	# Veneen paikka (muskelivene.gd): laiturin itäkyljessä keula järvelle, pelaaja nousee laiturille.
+	var bw := yw(HARBOR_BERTH.x, HARBOR_BERTH.y)
+	var dw := yw(HARBOR_U + 0.3, HARBOR_BERTH.y)
+	harbor = {"name": "Äpätin satama", "pos": Vector3(bw.x, 0.0, bw.y), "yaw": atan2(-LAKE.x, -LAKE.y),
+		"deck": Vector3(dw.x, top, dw.y)}
+
+
+## Sataman kyltti rantaportaiden länsipuolella.
+func _harbor_sign() -> void:
+	var w := yw(HARBOR_U - 2.4, 3.9)
+	B.street_sign(self, Vector3(w.x, Terrain.h(w.x, w.y), w.y), "ÄPÄTIN SATAMA", atan2(-EAST.y, EAST.x))
 
 
 # --- Portaat törmään ------------------------------------------------------------------------------------------

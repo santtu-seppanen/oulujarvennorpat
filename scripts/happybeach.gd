@@ -132,6 +132,15 @@ static func open_text(_lt: Dictionary) -> String:
 	return "auki joka päivä %d–%02d" % [OPEN_HOUR, CLOSE_HOUR]
 
 
+## Laiturin (kehyksessä a = 14, b = 46…60) muskelivenepaikka (muskelivene.gd): vene laiturin kaakkoispuolella keula
+## järvelle, pelaaja nousee laiturille. Vesi on tässä yli 0,5 m syvää.
+static func jetty_mooring() -> Dictionary:
+	var bw := Reitti.cw(16.4, 57.2)
+	var dw := Reitti.cw(14.0, 56.0)
+	return {"name": "Happy Beachin laituri", "pos": Vector3(bw.x, 0.0, bw.y), "yaw": atan2(-Reitti.N.x, -Reitti.N.y),
+		"deck": Vector3(dw.x, 1.4, dw.y)}
+
+
 ## Pelaaja alueella (parkkipaikka, rakennukset ja terassi).
 static func in_camp(p: Vector3) -> bool:
 	return _in(Reitti.wc(Vector2(p.x, p.z)), PAD, 6.0)
