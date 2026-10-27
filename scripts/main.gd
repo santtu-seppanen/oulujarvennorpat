@@ -121,7 +121,11 @@ var _ride_by := ""  # "auto" | "vene": millä porukka lähti (ratkaisee, milloin
 var oodi: Node  # keskiyön oodi Oulujärvelle etuterassilla (oodi.gd)
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
 const NAP_T := 10.0
+const NIGHT_T := 16.0  # yöunien välianimaation kesto
+const WAKE_HOUR := 7  # yöunilta herätään aamuseitsemältä
 var _nap_t := 0.0
+var _nap_len := NAP_T
+var _nap_night := false  # välianimaatio on oodin jälkeinen yö, ei päiväpäikkärit
 var _nap_fx: ColorRect
 var _nap_scene: Node3D  # välianimaatio: norpat nukkumassa ylämökissä (paikkarit.gd)
 var _nap_day := -1  # päivä, jolloin klo 16 päikkärikutsu on jo tullut
@@ -239,6 +243,7 @@ func _ready() -> void:
 				chat.ai_say(j, text))
 	world.mokki.napped.connect(_coffee_call)
 	mp.on("kahvikutsu", func(_d: Dictionary, _from: int) -> void: _coffee_shout())
+	mp.on("uni", func(d: Dictionary, _from: int) -> void: _remote_nap(bool(d.y)))
 	mp.on("auto", func(d: Dictionary, _from: int) -> void: _remote_ride(bool(d.on)))
 	mp.on("vene", func(d: Dictionary, _from: int) -> void:
 		_remote_motorboat(bool(d.on), int(d.get("i", 0)), int(d.get("at", -1))))
@@ -408,7 +413,10 @@ func _process(delta: float) -> void:
 	if _nap_t > 0.0:
 		_nap_t -= delta
 		# Häivytys mustaan välianimaation alussa ja lopussa.
-		_nap_fx.color.a = 1.0 - minf(1.0, minf((NAP_T - _nap_t) / 1.2, _nap_t / 1.2))
+		var edge := 1.0 - minf(1.0, minf((_nap_len - _nap_t) / 1.2, _nap_t / 1.2))
+		# Yöllä valo hiipuu kohtauksen kuluessa: ruutu tummuu hiljalleen.
+		var dusk := 0.55 * smoothstep(0.15, 1.0, 1.0 - _nap_t / _nap_len) if _nap_night else 0.0
+		_nap_fx.color.a = maxf(edge, dusk)
 		if _nap_t <= 0.0:
 			_wake()
 	_nap_call()
@@ -652,8 +660,13 @@ func _nap_call() -> void:
 
 ## Ylämökkiin nukkumaan: hahmo sisään, välianimaatio mökin sisältä (norpat nukkumassa). Herätessä kunto on
 ## täynnä ja humala laskenut.
-func _nap() -> void:
+func _nap(night := false, send := true) -> void:
 	end_activity()
+	if send:
+		mp.send({"t": "uni", "y": night})  # kaverit seuraavat mukana (kuten autossa)
+	_crew_to_bed(night)
+	_nap_night = night
+	_nap_len = NIGHT_T if night else NAP_T
 	player.controls_enabled = false
 	player.velocity = Vector3.ZERO
 	player.set_hidden_inside(true)
@@ -668,23 +681,66 @@ func _nap() -> void:
 		_nap_fx.color = Color(0.02, 0.02, 0.05, 0.0)
 		layer.add_child(_nap_fx)
 		var l := _label(layer, 30)
-		l.text = "Zzz… päikkärit ylämökissä (E: herää)"
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 40)
 		_nap_fx.set_meta("label", l)
 	_nap_fx.visible = true
-	(_nap_fx.get_meta("label") as Label).visible = true
+	var nl: Label = _nap_fx.get_meta("label")
+	nl.text = "Hyvää yötä… (E: herää)" if night else "Zzz… päikkärit ylämökissä (E: herää)"
+	nl.visible = true
 	_nap_fx.color.a = 1.0
 	_hud.visible = false
-	_nap_scene.play()
-	_nap_t = NAP_T
+	chat._ui.visible = false  # puhekupla- ja viestilista pois välianimaation ajaksi
+	chat.bubbles_hidden = true
+	_amb.indoor = "yo" if night else "paiva"
+	_nap_scene.play(night, _nap_len)
+	_nap_t = _nap_len
+
+
+## Oodin jälkeen (oodi.gd) koko porukka ylämökkiin yöunille: tietokoneen hahmot kävelevät sinne, pelaaja nukkuu
+## välianimaation ajan ja herää aamulla.
+func go_to_bed() -> void:
+	if state != "play" or _nap_t > 0.0 or not _can_act() or car.passenger != null or muskelivene.passenger != null:
+		_crew_to_bed(true)
+		return
+	_nap(true, false)  # jokainen kone aloittaa oodin lopussa itse, viestiä ei tarvita
+
+
+## Tietokoneen hahmot ylämökkiin: yöllä kaikki (myös Jukka), päivällä kaikki paitsi Jukka.
+func _crew_to_bed(night: bool) -> void:
+	for j in crew.size():
+		var b: CharacterBody3D = crew[j]
+		if crew_modes[j] == "ai" and b.brain != null:
+			if night:
+				b.brain.go_to_bed()
+			else:
+				b.brain.go_nap()
+
+
+## Toinen pelaaja meni päikkäreille tai yöunille: oma pelaaja seuraa mukana, jos pystyy.
+func _remote_nap(night: bool) -> void:
+	if state != "play" or _nap_t > 0.0:
+		return
+	if not night and Porukka.CREW[player_index].name == "Jukka":
+		_crew_to_bed(false)  # Jukka ei nuku päikkäreitä, vaan keittää kahvit
+		return
+	if not _can_act() or car.passenger != null or muskelivene.passenger != null:
+		_crew_to_bed(night)
+		return
+	toast("Kaveri meni %s: mukaan!" % ("yöunille" if night else "päikkäreille"), 3.0)
+	_nap(night, false)
 
 
 func _wake() -> void:
+	var night := _nap_night
+	_nap_night = false
 	_nap_t = 0.0
 	_nap_fx.visible = false
 	(_nap_fx.get_meta("label") as Label).visible = false
 	_nap_scene.stop()
+	_amb.indoor = ""
+	chat._ui.visible = true
+	chat.bubbles_hidden = false
 	_hud.visible = true
 	player.activate_camera()
 	var d := Mokki.cabin_door()
@@ -697,8 +753,26 @@ func _wake() -> void:
 	player.exhausted = false
 	player.promille = maxf(0.0, player.promille - 1.2)
 	Sfx.play("door_close", -6.0)
+	if night:
+		_morning()
+		return
 	tarina.complete("paikkarit")
 	toast("Heräsit päikkäreiltä virkeänä. Kunto täynnä" + (", ja humala on laskenut." if player.drinks > 0 else "."), 3.5)
+	_coffee_call()
+
+
+## Yöunien jälkeen: kello aamuseitsemään (ei verkkopelissä, jossa aika kulkee yhteisesti), muut heräävät ja
+## humala on mennyt.
+func _morning() -> void:
+	var lt: Dictionary = sun.local()
+	if not mp.online() and lt.hour < WAKE_HOUR:
+		sun.t_utc = sun._local_to_utc(lt.year, lt.month, lt.day, WAKE_HOUR, 0)
+	player.promille = 0.0
+	for j in crew.size():
+		var b: CharacterBody3D = crew[j]
+		if crew_modes[j] == "ai" and b.brain != null:
+			b.brain.wake_up()
+	toast("Aamu! Nukuit hyvin: kunto täynnä ja humala poissa.", 4.0)
 	_coffee_call()
 
 
@@ -826,6 +900,10 @@ func _interaction() -> Dictionary:
 		if hs.id.begins_with("ovi_"):
 			return {"text": hs.text, "cb": func() -> void: world.happy.leave(hs.id.trim_prefix("ovi_"))}
 		return {"text": hs.text, "cb": func() -> void: start_activity("baari")}
+	if world.happy.atm_near(player.global_position) and player.boat == null:
+		if baari.atm_ready():
+			return {"text": "E: nosta %d € pankkiautomaatilta (kerran päivässä)" % baari.ATM_SUM, "cb": baari.atm_withdraw}
+		return {"text": "Pankkiautomaatti: päivän %d € on jo nostettu, uusi nosto huomenna" % baari.ATM_SUM}
 	var door: String = world.happy.door_at(player.global_position)
 	if door != "" and player.boat == null:
 		var lt: Dictionary = sun.local()
@@ -850,11 +928,13 @@ func _interaction() -> Dictionary:
 	if bush >= 0:
 		return {"text": "E: syö mustikoita (suihku paranee)", "cb": func() -> void: _eat_berries(bush)}
 	if Mokki.at_cabin_door(player.global_position):
-		if Porukka.CREW[player_index].name == "Jukka":
+		if Porukka.CREW[player_index].name == "Jukka" and not Ai.night_hours(sun):
 			return {"text": "Jukka ei nuku päikkäreitä – aamukahvit keitetään alamökin liedellä"}
+		if Ai.night_hours(sun):
+			return {"text": "E: yöunille ylämökkiin (koko porukka seuraa, aamu klo 7)", "cb": func() -> void: _nap(true)}
 		if not Ai.nap_hours(sun):
-			return {"text": "Päikkärit nukutaan klo 15–18 (nyt klo %02d.%02d)" % [sun.local().hour, sun.local().minute]}
-		return {"text": "E: päikkärit ylämökissä", "cb": _nap}
+			return {"text": "Päikkärit nukutaan klo 15–18 ja yöunet klo 0–5 (nyt klo %02d.%02d)" % [sun.local().hour, sun.local().minute]}
+		return {"text": "E: päikkärit ylämökissä", "cb": func() -> void: _nap()}
 	if tarjoilu.near(player.global_position) and player.boat == null:
 		var t := "Tarjoilupöytä"
 		var opts: Array[String] = []
@@ -891,7 +971,7 @@ func _interaction() -> Dictionary:
 			var held: int = sauna.carried.get(player_index, 0)
 			var kp: Vector3 = m.kiuas_pos
 			if held > 0 and Vector2(player.global_position.x - kp.x, player.global_position.z - kp.z).length() < 1.3:
-				if sauna.fire <= 0.0:
+				if sauna.fire < sauna.LOG_BURN:
 					return {"text": "E: sytytä tuli kiukaaseen (sylissä %d halkoa · muista pelti)" % held, "cb": _start_sytytys}
 				return {"text": "E: halko kiukaaseen (sylissä %d · %s)" % [held, sauna.fire_text()],
 					"cb": _add_log}

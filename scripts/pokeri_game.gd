@@ -394,7 +394,7 @@ func _origin() -> Vector2:
 
 func _card_rect(i: int) -> Rect2:
 	var o := _origin()
-	return Rect2(o + Vector2(i * 180.0, 250.0), Vector2(CARD_W, CARD_H))
+	return Rect2(o + Vector2(i * 180.0, 232.0), Vector2(CARD_W, CARD_H))
 
 
 func _draw_root() -> void:
@@ -403,20 +403,20 @@ func _draw_root() -> void:
 	MG.wood(_root, Rect2(Vector2.ZERO, sz), Color(0.28, 0.17, 0.1), 90.0, 3, false)
 	MG.glow(_root, Vector2(sz.x * 0.5, sz.y * 0.45), 560.0, Color(0.2, 0.9, 0.5, 0.3 + 0.1 * sin(_t * 2.0)))
 	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.0, 0.0, 0.05, 0.25))
-	_k = minf(1.0, (sz.y - 120.0) / 640.0)
+	_k = minf(1.0, (sz.y - 120.0) / 700.0)
 	_root.draw_set_transform_matrix(Transform2D(0.0, Vector2(_k, _k), 0.0, Vector2.ZERO))
 	var o := _origin()
 	# Kaappi.
-	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 640))
+	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 700))
 	MG.box(_root, cab, Color(0.62, 0.1, 0.07), 20, 14, MG.OUTLINE, 3)
 	MG.grad_rect(_root, Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), Color(0.08, 0.08, 0.1), Color(0.18, 0.16, 0.14))
 	_root.draw_string(font, cab.position + Vector2(0, 54), "♣ POKERI · COINLINE CASINO", HORIZONTAL_ALIGNMENT_CENTER, cab.size.x, 36,
 		Color(1.0, 0.8, 0.2))
-	_draw_paytable(Rect2(o + Vector2(0, -10), Vector2(900, 240)), font)
+	_draw_paytable(Rect2(o + Vector2(0, -10), Vector2(900, 208)), font)
 	for i in 5:
 		_draw_card(i, font)
 	# Alapaneeli.
-	var pn := Rect2(o + Vector2(0, 478), Vector2(900, 58))
+	var pn := Rect2(o + Vector2(0, 548), Vector2(900, 58))
 	MG.solid(_root, pn, Color(0.2, 0.2, 0.24))
 	var msg := _msg
 	if _phase == "win" and int(_t * 3.0) % 2 == 0:
@@ -467,25 +467,24 @@ func _draw_card(i: int, font: Font) -> void:
 	if is_joker(c):
 		_root.draw_string(font, rr.position + Vector2(0, 100), "JOKER", HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 30, Color(0.7, 0.1, 0.5))
 		_root.draw_string(font, rr.position + Vector2(0, 160), "★", HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 60, Color(0.95, 0.7, 0.1))
-		if _held[i] and _phase != "idle":
-			MG.sign(_root, Rect2(rr.position + Vector2(rr.size.x / 2.0 - 45, rr.size.y + 8), Vector2(90, 28)), "PIDÄ", Color(0.75, 0.1, 0.06),
-				Color(1, 0.95, 0.8), 18, Color(0.95, 0.8, 0.3))
-		if _phase == "hold" and i == _cursor:
-			_root.draw_rect(rr.grow(6), Color(0.4, 1.0, 0.5, 0.9), false, 4.0)
-		_root.draw_string(font, rr.position + Vector2(0, rr.size.y + 56), "[%d]" % (i + 1), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 16,
-			Color(0.85, 0.85, 0.9))
+		_draw_card_marks(i, r, font)
 		return
 	var red := suit(c) in [1, 2]
 	var col := Color(0.85, 0.08, 0.1) if red else Color(0.06, 0.06, 0.1)
 	_root.draw_string(font, rr.position + Vector2(12, 40), RANKS[rank(c)], HORIZONTAL_ALIGNMENT_LEFT, -1, 38, col)
 	_draw_suit(suit(c), rr.position + Vector2(30, 66), 0.5, col)
 	_draw_suit(suit(c), rr.get_center() + Vector2(0, 20), 1.6, col)
+	_draw_card_marks(i, r, font)
+
+
+## Kortin alla: PIDÄ-kyltti (pidetyille, kortin ollessa kortti-alueen ja alapaneelin välissä), valintakehys ja numero.
+func _draw_card_marks(i: int, r: Rect2, font: Font) -> void:
 	if _held[i] and _phase != "idle":
-		MG.sign(_root, Rect2(rr.position + Vector2(rr.size.x / 2.0 - 45, rr.size.y + 8), Vector2(90, 28)), "PIDÄ", Color(0.75, 0.1, 0.06),
-			Color(1, 0.95, 0.8), 18, Color(0.95, 0.8, 0.3))
+		var sg := Rect2(r.position + Vector2(CARD_W / 2.0 - 50, CARD_H + 14), Vector2(100, 36))
+		MG.sign(_root, sg, "PIDÄ", Color(0.75, 0.1, 0.06), Color(1, 0.95, 0.8), 24, Color(0.95, 0.8, 0.3))
 	if _phase == "hold" and i == _cursor:
-		_root.draw_rect(rr.grow(6), Color(0.4, 1.0, 0.5, 0.9), false, 4.0)
-	_root.draw_string(font, rr.position + Vector2(0, rr.size.y + 56), "[%d]" % (i + 1), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 16,
+		_root.draw_rect(r.grow(6), Color(0.4, 1.0, 0.5, 0.9), false, 4.0)
+	_root.draw_string(font, r.position + Vector2(0, CARD_H + 78), "[%d]" % (i + 1), HORIZONTAL_ALIGNMENT_CENTER, CARD_W, 18,
 		Color(0.85, 0.85, 0.9))
 
 

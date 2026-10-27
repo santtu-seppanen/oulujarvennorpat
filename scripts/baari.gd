@@ -44,6 +44,8 @@ var _ui: CanvasLayer
 var _box: VBoxContainer
 var _status: Label
 var _tokens := 10  # euroja pajatsolle ja hedelmäpelille
+const ATM_SUM := 20  # pankkiautomaatista saa päivässä kerran näin monta euroa
+var _atm_key := -1  # päivä (vvvvkkpp), jona nosto on jo tehty
 var _pot := 12  # pajatson potti säilyy koneessa
 var _gnode: CanvasLayer
 var in_game := false  # pajatso, hedelmäpeli, videopokeri, karaoke tai tanssi (canvas-minipeli tai sen ohje) on auki
@@ -83,6 +85,27 @@ func _ready() -> void:
 	var cbox := Ui.panel(_call_ui, "top", 620)
 	Ui.label(cbox, "VAIMO SOITTAA", 22, Color(1.0, 0.35, 0.3))
 	_call_label = Ui.label(cbox, "", 18)
+
+
+## Päivän tunniste (vvvvkkpp) automaatin nostoa varten.
+func _today_key() -> int:
+	var lt: Dictionary = game.sun.local()
+	return int(lt.year) * 10000 + int(lt.month) * 100 + int(lt.day)
+
+
+func atm_ready() -> bool:
+	return _atm_key != _today_key()
+
+
+## Pankkiautomaatti Happy Beachin seinässä: 20 € pelirahaa kerran päivässä.
+func atm_withdraw() -> void:
+	if not atm_ready():
+		game.toast("Päivän nosto on jo tehty. Automaatti antaa %d € joka päivä." % ATM_SUM, 3.0)
+		return
+	_atm_key = _today_key()
+	_tokens += ATM_SUM
+	Sfx.play("coin", -6.0, 0.9)
+	game.toast("Nostit %d € pankkiautomaatilta. Pelirahaa nyt %d €." % [ATM_SUM, _tokens], 4.0)
 
 
 func start() -> bool:

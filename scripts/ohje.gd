@@ -9,140 +9,97 @@ const Ui := preload("res://scripts/ui.gd")
 ## id -> [otsikko, ohjeteksti (BBCode)].
 const TEXTS := {
 	"pajatso": ["PAJATSO", """[color=#ffd23a][b]Tavoite[/b][/color]
-Pelaa euron kolikoilla ja yritä saada kolikko putoamaan suoraan voittoraon porttiin. Rakoja on yhdeksän: R (panos takaisin), 2, 3, 3, [b]14[/b], 3, 3, 2 ja R euroa. Keskirako 14 € on vaikein, koska tappien välistä mahtuu vain tarkka kolikko.
+Saa euron kolikko putoamaan voittorakoon. Keskirako [b]14 €[/b] on vaikein, reunoilla maksetaan 2–3 € tai panos takaisin (R).
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Kolikko sisään:[/b] paina [b]E[/b], niin euron kolikko putoaa lasin taakse lyöntipaikalle. Jos euron kolikoita ei ole, vaihda kahden euron kolikko kahdeksi euroksi vaihtokoneella ([b]D[/b] vääntää kahvaa).
-[b]2. Voima:[/b] pidä [b]E[/b] pohjassa, niin sormeen kertyy voimaa (mitä pidempään, sitä kovempi isku). Päästä irti, niin laukaisin napsahtaa ja kolikko lentää vasemmalle ylös.
-  • Sormi tärisee, humalassa enemmän. [b]Välilyönti[/b] pohjassa on peukalotuki: ei tärinää, mutta voima kertyy hitaammin.
-  • [b]S[/b] on snaiffaus: sormenpää jarruttaa iskua hieman.
-  • Kolikko lähtee aina vasemmalle ja hieman ylös, ja voima on ainoa, mitä hallitset. Kovin isku (voimalyönti) lennättää kolikon vasemman laidan 2 €:n porttiin.
-[b]3. Tönäisy:[/b] kun kolikko lentää, [b]K[/b] tönäisee konetta ja vaimentaa porttien jousia hetkeksi. Liian kova tönäisy laukaisee TILT-hälyttimen, ja isäntä heittää sinut ulos!
-[b]4. Voitto:[/b] kun kolikko on mennyt rakoon, paina [b]W[/b] (maksuvipu): luisti pyyhkäisee voiton juuri sen raon kolikkoputkesta kouruun. Tyhjästä putkesta kone maksaa tyhjää. Ohi mennyt kolikko valuu koneen varantoon.
+• [b]E[/b]: kolikko lyöntipaikalle. Pidä pohjassa, niin voima kasvaa; päästä irti, niin kolikko lentää.
+• [b]Välilyönti[/b] pohjassa: peukalotuki (ei tärinää, voima kasvaa hitaammin). [b]S[/b]: snaiffaus.
+• [b]K[/b]: tönäise konetta lennon aikana. Liian kova tönäisy = TILT ja ulos!
+• [b]W[/b]: maksuvipu, kun kolikko on rakoon mennyt.
+• [b]D[/b]: vaihtokoneella kahden euron kolikko kahdeksi euroksi.
 
-[color=#ffd23a][b]Vinkit[/b][/color]
-• Peukalotuki ([b]välilyönti[/b]) toistaa lyönnin lähes samanlaisena, kun haet sopivaa voimaa.
-• Seiskan portti on ahtain ja sen jousi jäykin, joten sinne osuminen vaatii tarkkuutta.
-
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] tai [b]Esc[/b] lopettaa ja rahat jäävät taskuun."""],
+[b]F[/b] / [b]Esc[/b] lopettaa, rahat jäävät taskuun."""],
 	"hedelma": ["HEDELMÄPELI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saa kolmelle rullalle keskilinjaan voittava yhdistelmä. Peli on RAYn vanha kolmirullainen hedelmäpeli (1995–2001), jossa on yksi voittolinja. Jokaisella rullalla on 24 symbolia: RAY, apila, meloni, päärynä, rypäle, luumu, appelsiini, tähti, marjat ja mansikka.
-
-[color=#ffd23a][b]Voittotaulukko (panos 1 / 2 / 3 €)[/b][/color]
-Kolme RAYta 30 / 60 / 100 · kolme apilaa tai melonia 20 / 40 / 60 · kolme päärynää tai rypälettä 12 / 24 / 36 · kolme luumua tai appelsiinia 10 / 20 / 30 · kolme tähteä 4 / 8 / 12 · mikä tahansa kolme hedelmää (myös marjat ja mansikka sekaisin) 2 / 4 / 6.
+Saa keskilinjalle kolme samaa tai kolme hedelmää.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Panos:[/b] [b]W / ↑[/b] nostaa panosta ja [b]S / ↓[/b] laskee sitä (1–3 €).
-[b]2. Pyöräytä:[/b] [b]E[/b] ottaa panoksen ja pyöräyttää rullat. Rullat pysähtyvät yksi kerrallaan vasemmalta oikealle.
-[b]3. Lukitse:[/b] jos pyöräytys hävisi, saat valita rullia lukittavaksi näppäimillä [b]1[/b], [b]2[/b] ja [b]3[/b] (rulla kerrallaan, uudestaan painaminen avaa lukon). Lukitut rullat eivät pyöri seuraavalla pyöräytyksellä. Lukitusta saa kuitenkin vain joka toisella kierroksella: lukitun pyöräytyksen jälkeen ei voi lukita heti uudestaan.
-[b]4. Voitto:[/b] kun voitat, [b]E[/b] vie voiton talteen (kolikot putoavat tarjottimelle). Tuplausta ei ole.
+• [b]W / S[/b]: panos 1–3 €. [b]E[/b]: pyöräytä.
+• Häviön jälkeen [b]1[/b], [b]2[/b], [b]3[/b] lukitsee rullan seuraavaksi kierrokseksi (ei kahta kierrosta peräkkäin).
+• Voitolla [b]E[/b] vie voiton talteen. Tuplausta ei ole.
 
-[color=#ffd23a][b]Vinkit[/b][/color]
-• Lukitse aina kaksi samaa ja yritä kolmatta.
-• Kolme hedelmää sekaisin maksaa vähän, mutta tulee usein.
+[color=#ffd23a][b]Voitot (panos 1 €)[/b][/color]
+RAY 30 · apila/meloni 20 · päärynä/rypäle 12 · luumu/appelsiini 10 · tähti 4 · mitkä tahansa kolme hedelmää 2.
 
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] tai [b]Esc[/b] lopettaa, ja voitto menee talteen."""],
+[b]F[/b] / [b]Esc[/b] lopettaa."""],
 	"pokeri": ["POKERI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saat viisi korttia ja yrität muodostaa pokerikäden. Pelataan jokeripokeria (Coinline Casino): pakassa on 52 korttia ja jokeri, joka on villi kortti. Kerran saa vaihtaa kortteja, ja pienin voittava käsi on kaksi paria. Päävoitto tulee viitosilla (neloset ja jokeri) tai värisuoralla. Panos on 1–5 €.
+Jokeripokeri: viisi korttia, jokeri on villi. Pienin voitto on kaksi paria.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Panos:[/b] [b]W / ↑[/b] nostaa panosta ja [b]S / ↓[/b] laskee sitä (1–5 €).
-[b]2. Jako:[/b] [b]E[/b] ottaa panoksen ja jakaa viisi korttia.
-[b]3. Pidä kortit:[/b] valitse kortit, jotka pidät: näppäimet [b]1–5[/b] tai klikkaus kortin päällä pitää tai vapauttaa kortin. Vaihtoehtoisesti [b]A / D[/b] siirtää vihreää valintaa ja [b]välilyönti[/b] pitää kortin. Pidetyt kortit saavat merkinnän PIDÄ.
-[b]4. Vaihto:[/b] [b]E[/b] vaihtaa pitämättömät kortit uusiin. Kierros päättyy, ja kone maksaa voiton voittotaulukon mukaan.
-[b]5. Tuplaus:[/b] voiton jälkeen [b]E[/b] vie voiton talteen. Tai voit yrittää tuplata: [b]vasen (A / ←)[/b] arvaa PIENI (kone nostaa kortin A–6) ja [b]oikea (D / →)[/b] arvaa SUURI (8–K). Musta seiska vie aina, mutta punainen seiska päättää tuplauksen ja voitot saa pitää. Oikea arvaus kaksinkertaistaa voiton. Tuplata saa, jos voitto on korkeintaan puolet päävoitosta (25 × panos).
+• [b]W / S[/b]: panos 1–5 €. [b]E[/b]: jaa viisi korttia.
+• [b]1–5[/b] tai klikkaus: pidä kortti (PIDÄ). [b]E[/b]: vaihda loput kerran.
+• Voitolla [b]E[/b] vie talteen tai [b]A[/b] = PIENI (A–6), [b]D[/b] = SUURI (8–K) tuplaa. Seiska: musta vie voiton, punainen päättää tuplauksen.
 
-[color=#ffd23a][b]Käsien arvot (kerroin × panos)[/b][/color]
+[color=#ffd23a][b]Voitot (× panos)[/b][/color]
 Viitoset 50 · Värisuora 50 · Neloset 25 · Täyskäsi 10 · Väri 6 · Suora 4 · Kolmoset 2 · Kaksi paria 1.
 
-[color=#ffd23a][b]Vinkit[/b][/color]
-• Pidä jokeri aina: jokeri ja pari on jo kolmoset.
-• Pidä pari ja kolme samaa. Neljä samaa väriä kannattaa pitää.
-
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] tai [b]Esc[/b] lopettaa, ja voitto jää taskuun."""],
+Vinkki: pidä jokeri aina. [b]F[/b] / [b]Esc[/b] lopettaa."""],
 	"karaoke": ["KARAOKE", """[color=#ffd23a][b]Tavoite[/b][/color]
-Laula kappale painamalla nuotit oikealla hetkellä, Frets on Fire -tyyliin. Mitä tarkemmin osut, sitä isompi pistesaalis.
+Paina nuotit oikeaan aikaan. Tarkka osuma antaa enemmän pisteitä.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Kappale:[/b] valitse listasta kappale [b]↑ ↓[/b] ja [b]E[/b] (tai Enter / välilyönti).
-[b]2. Nuotit:[/b] ruudulla on neljä kaistaa. Värilliset nuotit laskeutuvat alas osumalinjalle, ja kun nuotti on linjalla, paina sen kaistan näppäintä: [b]A[/b], [b]S[/b], [b]K[/b] tai [b]L[/b] (tai nuolet ← ↓ ↑ →).
-[b]3. Pitkät nuotit:[/b] pidä näppäin pohjassa nuotin loppuun asti, niin saat bonuksen.
-[b]4. Putki:[/b] peräkkäiset osumat kasvattavat kerrointa. Huti tai väärä painallus katkaisee putken.
-Sanat näkyvät alhaalla, ja laulettava tavu on korostettuna. Humala nykii nuotteja ja viivästää painalluksia.
+• [b]↑ ↓[/b] ja [b]E[/b]: valitse kappale.
+• Nuotit tulevat neljää kaistaa alas: paina [b]A S K L[/b] (tai nuolet), kun nuotti on osumalinjalla.
+• Pitkässä nuotissa pidä näppäin pohjassa loppuun.
+• Peräkkäiset osumat nostavat kerrointa, huti katkaisee putken. Humala sotkee ajoitusta.
 
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] tai [b]Esc[/b] lopettaa kesken."""],
+[b]F[/b] / [b]Esc[/b] lopettaa."""],
 	"tanssi": ["TANSSILATTIA", """[color=#ffd23a][b]Tavoite[/b][/color]
-Tanssi eurodance-biisin tahtiin: paina nuolta oikealla hetkellä, kun se osuu ruudun osumalinjalle.
+Paina nuolta, kun se osuu osumalinjalle.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Kaistat:[/b] neljä kaistaa, ← ↓ ↑ → eli [b]A S W D[/b] tai nuolinäppäimet. Nuolet laskeutuvat ylhäältä alas.
-[b]2. Osumat:[/b] paina kaistan näppäin juuri kun nuoli on linjan päällä. TÄYDELLINEN, HYVÄ ja OK riippuvat ajoituksesta. Jokainen näppäily ilman nuolta tai ohi mennyt nuoli katkaisee putken.
-[b]3. Putki ja kerroin:[/b] neljä osumaa putkeen nostaa kerrointa (×1,0 → ×1,6). Oikean reunan Lattia-palkki kertoo menon.
-[b]4. Sinikka:[/b] jos tanssit Sinikan kanssa, tulos paranee vähän. Mutta liika flirttailu saa vaimon soittamaan!
-Humala nykii ajoitusta. Biisi kestää 20 tahtia, ja kertosäkeessä askeleita tulee tiheämmin.
+• Neljä kaistaa: [b]A S W D[/b] tai nuolinäppäimet.
+• Neljä osumaa putkeen nostaa kerrointa (×1,0 → ×1,6). Huti katkaisee putken.
+• Sinikan kanssa tulos paranee, mutta liika flirttailu saa vaimon soittamaan!
 
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] tai [b]Esc[/b] lopettaa kesken."""],
+[b]F[/b] / [b]Esc[/b] lopettaa."""],
 	"trivia": ["YSÄRITRIVIA", """[color=#ffd23a][b]Tavoite[/b][/color]
-Ensimmäinen, jolla on neljä kiilaa (aihepiiriä), voittaa. Aihepiirejä on kuusi: urheilu, musiikki, elokuvat ja tv, tekniikka ja pelit, Suomi ja maantieto sekä mökkielämä.
+Ensimmäinen, jolla on neljä kiilaa (aihepiiriä kuudesta), voittaa.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Vuoro:[/b] vuorossa oleva saa kysymyksen aihepiiristä, josta hänellä ei vielä ole kiilaa.
-[b]2. Vastaus:[/b] kun vuoro on sinun, paina [b]Enter[/b], kirjoita vastaus chattiin ja paina Enter uudelleen. Vastausaikaa on 45 sekuntia. [b]E[/b] ohittaa kysymyksen.
-[b]3. Oikein:[/b] saat kiilan ja pidät vuoron. [b]Väärin:[/b] vuoro siirtyy seuraavalle.
-Muiden mökkiläisten puolesta vastaa tietokone, ja heidän taitonsa vaihtelee hahmoittain. Pikkuvirheet kirjoitusasussa eivät haittaa (isot kirjaimet ja ääkköset ovat vapaaehtoisia).
+• Omalla vuorolla [b]Enter[/b], kirjoita vastaus chattiin ja Enter uudelleen. Aikaa 45 s. [b]E[/b] ohittaa.
+• Oikein: kiila ja uusi kysymys. Väärin: vuoro siirtyy.
+• Pikkuvirheet kirjoitusasussa eivät haittaa.
 
-[color=#ffd23a][b]Lopetus[/b][/color]
 [b]W[/b] nousee pöydästä."""],
 	"afrikka": ["AFRIKAN TÄHTI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Etsi Afrikan tähti (suuri timantti) maitse, meritse ja ilmateitse ja vie se Tangeriin tai Kairoon. Voittaa se, joka ehtii perille ensin.
-
-[color=#ffd23a][b]Pelilauta[/b][/color]
-Kartalla on punaisia ympyröitä (kaupunkeja ja satamia). Kussakin on sinipuolinen kiekko sokkona. Kaupunkeja yhdistää kolmenlaisia reittejä:
-  • [b]Maatie[/b] (musta pisteviiva): liikut ilmaiseksi nopan silmäluvun verran pisteitä eteenpäin.
-  • [b]Meritie[/b] (sininen pisteviiva): sataman välillä matka maksaa 100 £ / meritie, ja liikut nopan verran sinisiä pisteitä.
-  • [b]Lentoreitti[/b] (punainen viiva): maksaa 300 £, ei noppaa, ja lennät suoraan seuraavaan kaupunkiin.
+Löydä Afrikan tähti kaupunkien kiekoista ja vie se ensimmäisenä Tangeriin tai Kairoon.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-Joka vuorolla ruudun alareunaan tulee valikko. [b]↑ ↓[/b] (tai W/S, A/D) siirtää valintaa, [b]E[/b] vahvistaa, ja numerot [b]1, 2, 3…[/b] valitsevat suoraan. Voit myös klikata valikon nappia tai kaupunkia kartalla (valittu kohde korostuu vihreällä renkaalla).
-[b]1. Vuoron alku:[/b] [i]Heitä noppa[/i], [i]Lennä[/i] (300 £, ei noppaa, suoraan punaista viivaa pitkin) tai, jos seisot kaupungissa jossa on kiekko, [i]Osta kiekko[/i] (100 £) tai [i]Odota ja yritä avata kiekko nopalla[/i] (4–6 avaa ilmaiseksi, muuten vuoro menee).
-[b]2. Liikkuminen:[/b] noppa kertoo, montako pistettä kuljet. Pisteitä pitkin nappula kulkee itsestään. Kaupungissa valitset seuraavan reitin tai [i]Pysähdy tähän[/i]. Jos meritie, lähtö satamasta maksaa 100 £ (ilman rahaa ei voi lähteä). Voit pysähtyä ennen kuin silmäluku on käytetty.
-[b]3. Kiekko:[/b] kun pysähdyt kaupunkiin, kiekon voi ostaa 100 £:lla ja kääntää. Tyhjä: pois · topaasi +300 £ · smaragdi +600 £ · rubiini +1000 £ · rosvo: menetät kaikki rahat · hevosenkenkä: ei mitään, ellei tähteä ole vielä löydetty; sen jälkeen löydetty hevosenkenkä käy tähden asemesta · [b]Afrikan tähti[/b]: vie se Tangeriin tai Kairoon.
-[b]4. Voitto:[/b] se, joka tuo tähden (tai hevosenkengän sen löytymisen jälkeen) ensimmäisenä Tangeriin tai Kairoon, voittaa heti.
-[b]5. Erikoispaikat:[/b] Kapkaupunki: ensimmäinen perille saa 500 £ · Accra (Kultarannikko): jalokivestä saa tuplahinnan · Lagos: tyhjän kiekon ostaja jää kolmeksi vuoroksi pois (myrsky) · Pyhä Helena: pidätetään, kunnes noppa antaa 1 tai 2 · Saharan autiomaa (musta piste sinisessä renkaassa): jos vuoro päättyy siihen, beduiinit pidättävät, kunnes noppa antaa 1 tai 2.
-[b]6. Rahat:[/b] aloitat 300 £:lla. Tähti kantaa kirkkaan merkin nappulan vieressä.
+• Vuorolla valitse valikosta ([b]↑ ↓[/b], [b]E[/b] tai numero; myös klikkaus): [i]Heitä noppa[/i], [i]Lennä[/i] (300 £) tai kaupungissa [i]Osta kiekko[/i] (100 £).
+• Maatie: ilmainen, noppa kertoo askelet. Meritie: 100 £ sataman lähdöstä. Voit pysähtyä kesken.
+• Kiekko: tyhjä · topaasi +300 £ · smaragdi +600 £ · rubiini +1000 £ · rosvo vie kaikki rahat · hevosenkenkä (käy tähden sijaan, kun tähti on löytynyt) · [b]Afrikan tähti[/b].
+• Erikoispaikat: Kapkaupunki +500 £ ensimmäiselle · Accra tuplaa jalokiven · Lagos: myrsky kolmeksi vuoroksi · Pyhä Helena ja Saharan autiomaa: vapaa vasta nopalla 1 tai 2.
+• Aloitusraha 300 £.
 
-[color=#ffd23a][b]Vinkit[/b][/color]
-• Rosvo vie kaikki rahat, joten jalokivi kannattaa heti käyttää lentoon tai merimatkaan.
-• Lentoreitit säästävät aikaa, mutta kuluttavat rahaa.
-
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] nousee pöydästä. [b]H[/b] avaa ohjeen uudestaan pelin aikana."""],
+[b]F[/b] nousee pöydästä, [b]H[/b] avaa ohjeen."""],
 	"muistelu": ["MUISTATKO KUN", """[color=#ffd23a][b]Tavoite[/b][/color]
-Nuotiolla porukka kertoo vuorotellen ysärimuistoja, ja sinä valitset, miten reagoit. Valinnat muuttavat illan tunnelmaa (−2…+2), ja tunnelma vaikuttaa seuraavaan aamuun (mainepisteet) ja pelin loppuun.
+Nuotiolla kerrotaan neljä ysärimuistoa. Vastauksesi muuttavat illan tunnelmaa, mikä näkyy aamun mainepisteissä.
 
 [color=#ffd23a][b]Näin pelaat[/b][/color]
-[b]1. Aloita:[/b] [b]E[/b] jatkaa. Illassa on neljä tarinaa: kolme kertoo joku muu, ja neljännen kerrot itse.
-[b]2. Valitse vastaus:[/b] [b]↑ ↓[/b] (tai [b]← →[/b] / A / D) siirtää valintaa, [b]E[/b] vahvistaa. Voit myös painaa [b]1[/b], [b]2[/b] tai [b]3[/b] tai klikata vastausta.
-[b]3. Seuraava:[/b] kun vastaus on annettu, kerronta jatkuu [b]E[/b]:llä.
-Hyvä, vitsikäs ja kannustava vastaus nostaa tunnelmaa, piikittely ja nyrpeys laskee sitä. Saman illan vaikutus on rajattu, joten toistaminen ei kasvata sitä loputtomasti.
+• [b]E[/b] jatkaa tarinaa.
+• Vastaus: [b]↑ ↓[/b] ja [b]E[/b], tai [b]1[/b] [b]2[/b] [b]3[/b] / klikkaus.
+• Kannustus ja vitsit nostavat tunnelmaa, piikittely laskee.
 
-[color=#ffd23a][b]Lopetus[/b][/color]
-[b]F[/b] poistuu nuotiolta valintojen aikana, [b]W[/b] muulloin."""],
+[b]F[/b] poistuu nuotiolta valinnoissa, [b]W[/b] muulloin."""],
 	"kortit": ["KORTTIPELIT", """[color=#ffd23a][b]Ristiseiska[/b][/color]
-Pelaajat laskevat kortit riveihin seiskasta alkaen. Ristiseiskan saanut aloittaa. Seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava (rivi etenee 7, 6, 8, 5 ja siitä vapaasti). Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin. Ensimmäinen, jonka kortit loppuvat, voittaa kierroksen (0 pistettä); muut saavat yhden pisteen jokaisesta jääneestä kortista. Viikonlopun vähiten pisteitä saanut voittaa.
+Laske kortit riveihin seiskasta alkaen; ristiseiskan saanut aloittaa. Pelaa jatko, jos voit. Ässä ja kuningas antavat lisävuoron. Jos et voi, edellinen antaa sinulle kortin. Ensin tyhjäksi voittaa, muut saavat pisteen jokaisesta kortista.
 
 [color=#ffd23a][b]Tuppi[/b][/color]
-Neljä pelaajaa, vastakkain istuvat ovat pari. Jokainen laittaa tarjouskortin (punainen = rami, musta = nolo). Ramissa ilmoittajan pari saa 4 pistettä jokaisesta tikistä yli kuuden, nolossa vähemmän tikkejä saanut pari saa pisteet. Maata on tunnustettava, tikin vie suurin kortti (ässä on suurin). Ensimmäinen 52 pisteeseen voittaa.
+Neljä pelaajaa, vastapelaajat ovat pari. Tarjouskortti: punainen = rami, musta = nolo. Maata on tunnustettava, ässä vie. Ensin 52 pisteeseen voittaa.
 
 [color=#ffd23a][b]Ohjaus[/b][/color]
-[b]Välilyönti[/b] jakaa kortit. [b]Klikkaa korttia[/b] pelataksesi sen. [b]A/D[/b] tai hiiren oikea nappi pohjassa katsoo pöydän ympäri. [b]E[/b] näyttää pöydän ylhäältä. [b]W[/b] nousee pöydästä, ja peli tallentuu."""],
+[b]Välilyönti[/b] jakaa, klikkaus pelaa kortin, [b]A/D[/b] katsoo ympärille, [b]E[/b] ylhäältä. [b]W[/b] nousee pöydästä."""],
 }
-
 signal closed
 
 ## Testit (skip_menu) eivät avaa ohjetta itsestään.
@@ -174,8 +131,8 @@ func _ready() -> void:
 	_body.scroll_active = true
 	_body.fit_content = false
 	_body.custom_minimum_size = Vector2(820, 470)
-	_body.add_theme_font_size_override("normal_font_size", 17)
-	_body.add_theme_font_size_override("bold_font_size", 17)
+	_body.add_theme_font_size_override("normal_font_size", 21)
+	_body.add_theme_font_size_override("bold_font_size", 21)
 	_body.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(_body)
 	_foot = Ui.label(box, "E / Enter / klikkaus: valmis   ·   ↑ ↓ vierittää   ·   H avaa ohjeen pelissä milloin tahansa", 15,

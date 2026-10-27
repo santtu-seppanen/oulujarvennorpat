@@ -217,7 +217,7 @@ func add_log(i: int) -> void:
 ## Sytytysminipelin onnistuminen: halot menevät pesään ja tuli palaa asettelun laadun mukaan.
 func ignite(i: int, logs: int, quality: float, smoky: bool) -> void:
 	carried[i] = maxi(0, carried.get(i, 0) - logs)
-	fire = minf(MAX_FIRE, logs * LOG_BURN * (0.5 + 0.5 * quality) * (0.85 if smoky else 1.0))
+	fire = maxf(fire, minf(MAX_FIRE, logs * LOG_BURN * (0.5 + 0.5 * quality) * (0.85 if smoky else 1.0)))
 	Sfx.play_on(_glow, "fire", -6.0, 1.2)
 	game.mp.send({"t": "halko", "f": fire, "T": temp})
 	var how := "Hyvä veto, tuli lähti heti!" if quality >= 0.9 and not smoky else \
@@ -261,6 +261,7 @@ func _process(delta: float) -> void:
 	_glow.light_energy = clampf(fire / 60.0, 0.0, 1.0) * (1.4 + sin(Time.get_ticks_msec() * 0.013) * 0.2)
 	_smoke.emitting = fire > 0.0
 	(game.world.mokki as Node).set("fire_left", fire)
+	(game.world.mokki as Node).set("sauna_temp", temp)
 	if game.activity == "sauna":
 		# Kuumuus hakeutuu löylyn mukaiseen tasoon: nousee nopeasti, laskee hitaasti. Kylmässä saunassa löyly
 		# ei lämmitä.

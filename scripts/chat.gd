@@ -30,6 +30,7 @@ var piper: Node
 var _ui: CanvasLayer
 var _log: VBoxContainer
 var _edit: LineEdit
+var bubbles_hidden := false  # välianimaation ajaksi (main.gd _nap): puhekuplat piiloon
 var _bubbles := {}  # hahmon indeksi -> [Label3D, jäljellä oleva aika]
 var _lines: Array = []  # [Label, aika]
 var _voices: Array = []  # käytettävissä olevat äänet (tyhjä = ei puhesynteesiä)
@@ -274,6 +275,8 @@ func _process(delta: float) -> void:
 		if cam != null:
 			l.scale = Vector3.ONE * clampf(l.global_position.distance_to(cam.global_position) / 6.0, 1.0, 4.0)
 		l.outline_modulate.a = l.modulate.a * 0.95
+		if bubbles_hidden:
+			l.visible = false
 		if e[1] <= 0.0:
 			l.queue_free()
 			_bubbles.erase(i)

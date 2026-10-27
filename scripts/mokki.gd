@@ -148,6 +148,7 @@ var stash_pos := Vector3.ZERO  # olut- ja viinakätkö saunan takana rinteessä
 var fire_pos := Vector3.ZERO  # nuotiopaikan keskipiste (nuotio.gd)
 var fire_seats := []  # nuotion ympärillä neljä istuinhirttä: [paikka, nuotio], hahmon indeksin mukaan
 var bodies: Array = []  # mökkiläiset (main.gd): istumapaikan varaus katsotaan heidän paikoistaan
+var sauna_temp := 80.0  # saunan lämpö (sauna.gd päivittää)
 var fire_left := 600.0  # kiukaan palamisaika (sauna.gd päivittää): tietokone hakee haloja, kun hiipuu
 
 

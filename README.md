@@ -103,6 +103,13 @@ sanat ja tyylikehotteen Popeda-henkiselle suomirock-kappaleelle; `tools/traileri
 **Saapumiskohtaus:** uuden pelin alussa (valikko: Aloita peli) norpat ajavat torstai-iltana mökin pihaan (sauna on kylmä), nostavat kaljakorit takakontista,
 kantavat ne terassille, Jukka panee saunan lämpiämään ja kaikki heittävät vaatteet pois. E tai välilyönti ohittaa.
 
+## Pankkiautomaatti, yöunet ja saunan sytytys
+
+- **Pankkiautomaatti** (`happybeach.gd` `_atm`, `baari.gd` `atm_withdraw`): Happy Beachin tien puoleisessa seinässä oven oikealla puolella. E antaa 20 € pelirahaa (pajatso, hedelmäpeli, pokeri) kerran päivässä.
+- **Yöunet oodin jälkeen** (`oodi.gd` -> `main.gd` `go_to_bed`): kun oodi on laulettu, tietokoneen hahmot kävelevät ylämökkiin nukkumaan ja pelaaja saa yöversion nukkumisesta (`paikkarit.gd`, 16 s): kamera kulkee viiden kuvan läpi ovelta sänkyjen väliin, nukkujiin ja ikkunalle, yöpöydän lamppu sammuu ja huone jää kuutamon varaan. Herätessä kello on 7.00 (ei verkkopelissä), kunto täynnä ja humala poissa. Huoneessa on vaaleansininen puolipaneeli ja valkoiseksi maalattu hirsiyläosa, lankkulattia, kattopalkit, ovi metsän puoleisella seinällä ikkunaa vastapäätä, ikkunassa oikea järvinäkymä (SubViewport, kamera mökin ulkopuolella), kahden hengen sänky, vuodesohva ja Jukan nukkumapaikka lattialla (vain yöllä), yöpöytä, hylly ja kuvat.
+- **Saunan tuli** sammuu nyt: tietokone hakee haloja vasta, kun kiuas on sammunut ja sauna jäähtynyt alle 60 asteen, joten pelaaja ehtii sytyttää tulen minipelillä (sytytys tarjolla, kun tulta on alle yhden halon verran jäljellä).
+- **Häviöruudulla** vain E aloittaa uuden pelin. Testi: `tools/testit/yotesti.gd`.
+
 ## Satamatie ja Happy Beachin satama
 
 - **Sataman tie:** Äpätintie ja sen jatke satamaan on raivattu puista (`satama.gd` `ROAD_LINE`, 5 m keskiviivan molemmin puolin),

@@ -245,3 +245,4 @@ func _end() -> void:
 			b.brain.sing_end()
 	_taken.clear()
 	game.toast("Oodi Oulujärvelle laulettu. Hyvää yötä, norpat!", 5.0)
+	game.go_to_bed()

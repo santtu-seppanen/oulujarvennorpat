@@ -9,6 +9,7 @@ var _loops := {}
 var _want := {}
 var _probe_t := 0.0
 var _crow_t := 20.0
+var indoor := ""  # ylämökin välianimaatio: "paiva" = vain hiljainen linnunviserrys, "yo" = täysin hiljaista
 
 
 func _ready() -> void:
@@ -32,8 +33,13 @@ func _process(delta: float) -> void:
 		_probe(player.global_position)
 	for k in _loops:
 		var p: AudioStreamPlayer = _loops[k]
-		p.volume_db = move_toward(p.volume_db, _want[k], 12.0 * delta)
+		var w: float = _want[k]
+		if indoor != "":
+			w = -26.0 if (indoor == "paiva" and k == "amb_birds") else -80.0
+		p.volume_db = move_toward(p.volume_db, w, (30.0 if indoor != "" else 12.0) * delta)
 	_crow_t -= delta
+	if indoor != "":
+		return  # sisällä ei variksia
 	if _crow_t <= 0.0:
 		_crow_t = randf_range(25.0, 70.0)
 		if _want.amb_birds > -40.0:

@@ -28,6 +28,7 @@ const STAIR_B := [25.0, 38.0]
 const OPEN_HOUR := 20
 const CLOSE_HOUR := 2
 const HOURS_TEXT := "joka päivä 20–02"
+const ATM := Vector2(-6.8, 8.2)  # pankkiautomaatin edusta (a, b) tien puoleisen seinän vieressä oven oikealla puolella
 const DECK_H := 0.1
 
 const WALL := Color(0.95, 0.92, 0.82)
@@ -547,12 +548,51 @@ func _main_building() -> void:
 	_box(Vector3(-8.0, 1.1, 8.96), Vector3(1.0, 2.2, 0.06), TRIM, false)
 	_box(Vector3(-8.0, 2.4, 8.7), Vector3(1.6, 0.06, 0.6), TRIM, false)
 	_terrace()
+	_atm()
 	# Kyltit: nimi päätykolmion levyssä ja aukioloajat oven vieressä.
 	var big := B.sign_plate(_root, "CAMPING HAPPY BEACH", TRIM, Color.WHITE, 0.3, 54, Color(0.95, 0.9, 0.5))
 	big.position = P(-4.0, 3.5, 16.45)
 	var hours := B.sign_plate(_root, "KIOSKI JA BAARI\n" + HOURS_TEXT, Color(0.97, 0.95, 0.88), Color(0.1, 0.1, 0.12), 0.18, 34,
 		TRIM)
 	hours.position = P(-6.75, 1.9, 16.12)
+
+
+## Pankkiautomaatti tien puoleisessa seinässä oven vieressä: tummanharmaa kotelo, hehkuva näyttö, näppäimistö,
+## korttirako ja setelirako sekä vihreä kyltti (ulospäin -b). Nosto: baari.gd atm_withdraw, kerran päivässä.
+func _atm() -> void:
+	var a := ATM.x
+	var body := Color(0.2, 0.22, 0.25)
+	_box(Vector3(a, 0.95, 8.74), Vector3(0.9, 1.9, 0.5), body)
+	_box(Vector3(a, 1.0, 8.485), Vector3(0.8, 1.6, 0.02), body.lightened(0.12), false)  # etulevy
+	var scr := StandardMaterial3D.new()
+	scr.albedo_color = Color(0.3, 0.8, 0.9)
+	scr.emission_enabled = true
+	scr.emission = Color(0.25, 0.75, 0.9)
+	scr.emission_energy_multiplier = 1.6
+	var mi := MeshInstance3D.new()
+	mi.mesh = B.boxm(Vector3(0.52, 0.34, 0.02))
+	mi.material_override = scr
+	mi.position = P(a, 1.52, 8.47)
+	_root.add_child(mi)
+	_box(Vector3(a, 1.52, 8.48), Vector3(0.58, 0.4, 0.02), Color(0.08, 0.08, 0.1), false)  # näytön kehys
+	for r in 4:  # näppäimistö 3 x 4
+		for c in 3:
+			_box(Vector3(a - 0.1 + c * 0.1, 1.2 - r * 0.075, 8.465), Vector3(0.08, 0.05, 0.02), Color(0.75, 0.77, 0.8), false)
+	_box(Vector3(a + 0.28, 1.15, 8.47), Vector3(0.08, 0.3, 0.02), Color(0.1, 0.1, 0.12), false)  # sivupainikkeet
+	_box(Vector3(a, 0.78, 8.47), Vector3(0.5, 0.03, 0.02), Color(0.02, 0.02, 0.03), false)  # korttirako
+	_box(Vector3(a, 0.6, 8.47), Vector3(0.5, 0.09, 0.02), Color(0.45, 0.85, 0.5), false)  # setelirako
+	_box(Vector3(a, 0.6, 8.46), Vector3(0.44, 0.04, 0.02), Color(0.02, 0.02, 0.03), false)
+	var plate := B.sign_plate(_root, "PANKKIAUTOMAATTI", Color(0.1, 0.5, 0.3), Color.WHITE, 0.2, 30, Color.WHITE)
+	plate.position = P(a, 2.1, 8.49)
+	_lamp_bulb(P(a - 0.55, 2.35, 8.55))
+
+
+## Pankkiautomaatin edessä (ulkona leirintäalueella)?
+func atm_near(p: Vector3) -> bool:
+	if in_pocket(p) or absf(p.y - (pad_y + DECK_H)) > 2.0:
+		return false
+	var w := Reitti.cw(ATM.x, ATM.y)
+	return Vector2(p.x - w.x, p.z - w.y).length() < 1.5
 
 
 ## Terassi järven puolella (a -12…4, b 16…21,2): lankkulattia, portaat järvelle, kaide, pöytäryhmät tuoleineen,

@@ -3,7 +3,7 @@ extends Node
 ## - voitto (sunnuntai klo 18): iloiset mutta herkistyneet norpat halaavat pareittain, kyyneleet ja sydämet leijuvat,
 ##   sitten kaikki nousevat autoon ja lähtevät kotiin tietä pitkin; lopuksi tulos ja peli jatkuu vapaana.
 ## - häviö (maine 0): sateinen ja synkkä ilta, norpat lerpattavat päätään, auto köhii ja yskii hitaasti pois tietä
-##   pitkin ja sammuu; "Hävisit pelin", E / R aloittaa alusta.
+##   pitkin ja sammuu; "Hävisit pelin", vain E aloittaa uuden pelin.
 ## Hahmojen ja auton fysiikka pysäytetään cutscenen ajaksi ja ne asetetaan käsin paikoilleen.
 
 const Reitti := preload("res://scripts/reitti.gd")
@@ -104,7 +104,7 @@ func start_win(summary: String) -> void:
 
 func start_loss() -> void:
 	_begin("tappio")
-	_card_text = "HÄVISIT PELIN\n\nMaine laski nollaan. Kotimatka oli hiljainen.\n\nE / R: aloita alusta"
+	_card_text = "HÄVISIT PELIN\n\nMaine laski nollaan. Kotimatka oli hiljainen.\n\nE: uusi peli"
 	_caption.text = "Maine nollassa…"
 	_fade.color.a = 1.0
 	_rain = CPUParticles3D.new()
@@ -458,7 +458,7 @@ func _loss(delta: float) -> void:
 		_text_done = true
 		_caption.text = ""
 		_card.text = _card_text
-	if _text_done and (Input.is_action_just_pressed("interact") or Input.is_key_pressed(KEY_R) or Input.is_key_pressed(KEY_ENTER)):
+	if _text_done and Input.is_action_just_pressed("interact"):
 		active = false
 		get_tree().reload_current_scene()
 

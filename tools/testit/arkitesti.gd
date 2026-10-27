@@ -64,7 +64,7 @@ func _process(delta: float) -> bool:
 				var d: Vector3 = Mokki.cabin_door()
 				var lake_side: float = Mokki.wc(Vector2(d.x, d.z)).y
 				check(lake_side < -Mokki.CABIN_HV, "ylämökin ovi metsän puolella (v %.2f)" % lake_side)
-				p.promille = 2.0
+				p.promille = 1.9  # alle konttauskunnon rajan (kannit.gd TRIGGER 2,0)
 				p.stamina = 20.0
 				_put(p, d)
 				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)
@@ -84,7 +84,7 @@ func _process(delta: float) -> bool:
 		2:
 			if t > main.NAP_T + 0.5:
 				check(not p.hidden_inside and p.controls_enabled and main._nap_t <= 0.0, "heräsi päikkäreiltä")
-				check(p.stamina >= 99.0 and p.promille < 1.0, "kunto täynnä, humala laskenut (%.1f ‰)" % p.promille)
+				check(p.stamina >= 99.0 and p.promille < 0.8, "kunto täynnä, humala laskenut (%.1f ‰)" % p.promille)
 				var called := false
 				for e in main.chat._lines:
 					if (e[0] as Label).text.begins_with("Jukka:"):
