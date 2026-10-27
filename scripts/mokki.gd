@@ -95,10 +95,10 @@ const STASH := Vector2(2.4, -7.65)
 const PEE_SPOT := Vector2(5.9, -5.2)
 const PEE_R := 1.6
 const STAIR_W := 1.2
-## Nuotiopaikka grillikatoksen takana rinteen päällä tasanteella (u, v), ja nuotion ympärillä olevien istuinhirsien
-## etäisyys. Polku nousee rannalta terassin länsipuolelta (FIRE_PATH), ja puut raivataan nuotion ja polun kohdalta.
-const FIRE := Vector2(-12.0, -8.0)
-const FIRE_PATH := [Vector2(-12.5, 3.0), Vector2(-12.0, -5.0), Vector2(-12.0, -6.6)]
+## Nuotiopaikka vesirajassa mökin länsipuolella (u, v), ja nuotion ympärillä olevien istuinhirsien etäisyys.
+## Polku kulkee hiekkarannalta nuotiolle (FIRE_PATH), ja puut raivataan nuotion ja polun kohdalta.
+const FIRE := Vector2(-14.5, 8.0)
+const FIRE_PATH := [Vector2(-9.0, 4.2), Vector2(-11.6, 5.8), Vector2(-12.6, 6.5)]
 const FIRE_CLEAR := 4.5
 const FIRE_SEAT_R := 1.5
 ## Alamökki: takaseinän ulkopinta ja väliseinä (keittiön takaseinä) v-suunnassa sekä ovet terassin puoleisessa
@@ -1624,7 +1624,7 @@ static func cabin_steps_foot() -> Vector3:
 	return Vector3(w.x, Terrain.h(w.x, w.y), w.y)
 
 
-# --- Ranta: kivet vedessä ja peitetty vene ---------------------------------------------------------------------
+# --- Ranta: kivet vedessä ---------------------------------------------------------------------
 
 func _shore(pt: Part) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -1643,17 +1643,6 @@ func _shore(pt: Part) -> void:
 		cs.shape = sh
 		cs.position = Vector3(q.x, y + r * 0.3, q.y)
 		pt.body.add_child(cs)
-	# Pressun alla oleva soutuvene rannalla pääterassin länsipuolella.
-	var bp := yw(-11.6, 3.6)
-	var by := maxf(Terrain.h(bp.x, bp.y), 0.0)
-	var yaw := atan2(-LAKE.x, -LAKE.y) + 0.5
-	var basis := Basis(Vector3.UP, yaw)
-	var tarp := Color(0.55, 0.57, 0.6)
-	pt.bt.add(B.boxm(Vector3(1.4, 0.55, 3.8)), Transform3D(basis, Vector3(bp.x, by + 0.3, bp.y)), tarp)
-	pt.bt.add(B.boxm(Vector3(1.1, 0.25, 3.4)), Transform3D(basis, Vector3(bp.x, by + 0.65, bp.y)), tarp.darkened(0.1))
-	var bs := B.box_shape(Vector3(1.4, 0.8, 3.8))
-	bs.transform = Transform3D(basis, Vector3(bp.x, by + 0.4, bp.y))
-	pt.body.add_child(bs)
 
 
 # --- Reittipisteet tekoälylle ---------------------------------------------------------------------------------
@@ -1673,7 +1662,7 @@ func _waypoints() -> void:
 		var a := TAU * (k + 0.5) / 4.0
 		var sw := yw(FIRE.x + cos(a) * FIRE_SEAT_R, FIRE.y + sin(a) * FIRE_SEAT_R)
 		fire_seats.append([Vector3(sw.x, maxf(Terrain.h(sw.x, sw.y), 0.0), sw.y), fire_pos])
-	var fa := yw(FIRE.x, FIRE.y + 2.4)
+	var fa := yw(FIRE.x + 1.9, FIRE.y - 1.6)
 	var fl := yw(FIRE_PATH[0].x, FIRE_PATH[0].y)
 	var fu := yw(FIRE_PATH[1].x, FIRE_PATH[1].y)
 	points = {

@@ -392,6 +392,26 @@ static func beer_bag() -> Node3D:
 	return bag
 
 
+## Kaljakori: punainen muovikori, jossa kaksitoista ruskeaa pulloa (kaulat ja korkit näkyvät yläpuolella). Origo on
+## korin pohjan keskellä, pitkä sivu (0,42 m) x-suunnassa.
+static func beer_crate() -> Node3D:
+	var crate := Node3D.new()
+	var red := Color(0.78, 0.12, 0.1)
+	B.mesh(crate, B.boxm(Vector3(0.42, 0.04, 0.3)), Vector3(0, 0.02, 0), red.darkened(0.15))
+	for sx in [-1.0, 1.0]:
+		B.mesh(crate, B.boxm(Vector3(0.02, 0.22, 0.3)), Vector3(sx * 0.2, 0.12, 0), red)
+	for sz in [-1.0, 1.0]:
+		B.mesh(crate, B.boxm(Vector3(0.42, 0.22, 0.02)), Vector3(0, 0.12, sz * 0.14), red)
+	for i in 4:
+		for j in 3:
+			var p := Vector3((i - 1.5) * 0.095, 0.0, (j - 1) * 0.095)
+			B.mesh(crate, B.cyl(0.034, 0.034, 0.2, 10), p + Vector3(0, 0.15, 0), Color(0.32, 0.17, 0.06))
+			B.mesh(crate, B.cyl(0.012, 0.017, 0.1, 8), p + Vector3(0, 0.3, 0), Color(0.32, 0.17, 0.06))
+			var cap := B.mesh(crate, B.cyl(0.015, 0.015, 0.012, 8), p + Vector3(0, 0.356, 0), Color(0.85, 0.75, 0.2))
+			(cap.material_override as StandardMaterial3D).metallic = 0.8
+	return crate
+
+
 ## Kassi roikkuu kädestä pystyssä (ei käänny käden luun mukana, muuten se kääntyisi lepoasennon T-asennosta
 ## kyljen sisään) hieman kyljen ulkopuolella, ja alapää heilahtaa jäljessä, kun käsi liikkuu hahmoon nähden.
 ## bag on hahmon lapsi top_level-tilassa.

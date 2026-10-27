@@ -22,7 +22,7 @@ E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sy
 A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
 E / Q	nuotiolla rannalla: paista makkaraa (A/D siirtää hiilloksella, ei liekkiin) / "Muistatko kun" -tarinat (↑/↓ tai 1/2/3 + E, F poistuu)
 Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: valikko ↑/↓ + E tai klikkaus (noppa, reitti, kiekon osto, lento). H: ohje missä tahansa pelissä, F nousee pöydästä
-F	lopettaa rantatenniksen ja pallon heittelyn
+F	lopettaa Spartan pinkiponkin ja amerikanpallon
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)
@@ -162,7 +162,8 @@ func _choose() -> void:
 			game.choose_character(i)
 			game.respawn()
 			game.sun.start_preset(when.selected)
-			close())
+			close()
+			game.saapuminen.start())
 		var d := _label(c.desc, 15, Color(0.85, 0.85, 0.8))
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.custom_minimum_size = Vector2(560, 0)

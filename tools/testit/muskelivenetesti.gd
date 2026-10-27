@@ -55,7 +55,7 @@ func _process(_d: float) -> bool:
 			check(vn.free_at(vn.global_position, vn.rotation.y), "veneen paikka laiturin kyljessä on riittävän syvää vettä")
 			var Sat: GDScript = load("res://scripts/satama.gd")
 			check(Sat.DECK > 0.42 + 0.25, "sataman kansi (%.2f m) on korkeampi kuin mökkilaiturin (0,42 m)" % Sat.DECK)
-			check(Vector2(h.pos.x - 150.0, h.pos.z + 104.0).length() < 40.0 and h.pos.z < -110.0, "satama on niemen kärjessä")
+			check(Vector2(h.pos.x - 119.0, h.pos.z + 42.0).length() < 20.0, "satama on tien vasemmalla puolella lahdessa maavallin takana")
 			check(vn.moorings.size() == 2 and vn.moorings[1].name == "Happy Beachin satama", "satamapaikkoja kaksi: Äpätti ja Happy Beach")
 			check(vn.free_at(vn.moorings[1].pos, vn.moorings[1].yaw), "Happy Beachin laiturin paikka on riittävän syvää vettä")
 			_put_player_on_deck(h.deck)
@@ -83,7 +83,7 @@ func _process(_d: float) -> bool:
 		2:
 			if t > 240:
 				check(vn.speed > 8.0, "kaasu vie vauhtiin (%.1f m/s)" % vn.speed)
-				check(vn.global_position.distance_to(vn.moorings[0].pos) > 20.0, "vene on ajanut satamasta pois")
+				check(vn.global_position.distance_to(vn.moorings[0].pos) > 10.0, "vene on ajanut satamasta pois")
 				check(main.player.global_position.distance_to(vn.to_global(Vene.SEAT)) < 1.5, "kuljettaja pysyy penkillä")
 				Input.action_release("forward")
 				# Avovedellä ei voi telakoida.
@@ -99,8 +99,8 @@ func _process(_d: float) -> bool:
 				# Reitti Happy Beachille syvässä vedessä.
 				var a: Vector3 = vn.moorings[0].pos
 				var b: Vector3 = vn.moorings[1].pos
-				var path := [Vector2(a.x, a.z), Vector2(a.x - 12.0, -134.0), Vector2(100.0, -136.0), Vector2(-200.0, -110.0), Vector2(-480.0, -110.0), Vector2(-535.0, -100.0),
-					Vector2(b.x, b.z)]
+				var path: Array = vn.plan_route(1, vn.approach_point(0))  # automaattiajon reitti lahdesta Happy Beachille
+				check(path.size() >= 2, "automaattiajolle löytyy reitti lahdesta (%d pistettä)" % path.size())
 				var blocked := 0
 				for i in path.size() - 1:
 					var p0: Vector2 = path[i]
@@ -194,7 +194,7 @@ func _process(_d: float) -> bool:
 				check(true, "automaattiajo telakoi veneen Happy Beachin laituriin (%.0f s)" % (float(frames - ts) / 60.0))
 				_put_player_on_deck(vn.moorings[1].deck)
 				next()
-			elif t > 6000:
+			elif t > 14000:
 				check(false, "automaattiajo ei päässyt Happy Beachille (%s)" % vn.global_position)
 				next()
 		10:
@@ -207,7 +207,7 @@ func _process(_d: float) -> bool:
 				check(true, "automaattiajo toi veneen takaisin Äpätin satamaan")
 				print("Valmis, vikoja: %d" % fails)
 				quit(1 if fails > 0 else 0)
-			elif t > 6000:
+			elif t > 14000:
 				check(false, "automaattiajo ei päässyt takaisin Äpättiin (%s)" % vn.global_position)
 				print("Valmis, vikoja: %d" % fails)
 				quit(1)

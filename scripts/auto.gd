@@ -352,7 +352,7 @@ func _physics_process(delta: float) -> void:
 	_throttle = throttle
 	var p := global_position
 	var fwd := -global_transform.basis.z
-	var on_road := Reitti.on_route(p.x, p.z) or Terrain.surface(p.x, p.z) in [Terrain.ROAD, Terrain.FILL, Terrain.YARD]
+	var on_road := Reitti.on_route(p.x, p.z) or Terrain.surface(p.x, p.z) in [Terrain.ROAD, Terrain.FILL, Terrain.YARD] or Satama.on_road(p.x, p.z)
 	var vmax := MAX_SPEED if on_road else OFFROAD_SPEED
 	if driver == null:
 		speed = move_toward(speed, 0.0, 6.0 * delta)
@@ -428,7 +428,7 @@ func _follow_ground(delta: float) -> void:
 	for fz: float in [1.0, -1.0]:
 		for rx: float in [-1.0, 1.0]:
 			var q := p + fwd * fz * WHEELBASE * 0.5 + right * rx * TRACK * 0.5
-			hs[Vector2(fz, rx)] = Terrain.h(q.x, q.z) + Satama.ramp_h(q.x, q.z)
+			hs[Vector2(fz, rx)] = Terrain.h(q.x, q.z)
 	var front: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(1.0, 1.0)]) * 0.5
 	var rear: float = (hs[Vector2(-1.0, -1.0)] + hs[Vector2(-1.0, 1.0)]) * 0.5
 	var left: float = (hs[Vector2(1.0, -1.0)] + hs[Vector2(-1.0, -1.0)]) * 0.5

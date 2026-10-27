@@ -61,7 +61,7 @@ func _process(delta: float) -> bool:
 		1:
 			if t > 0.5:
 				var it: Dictionary = main._interaction()
-				check(str(it.get("text", "")).contains("amerikkalaisen jalkapallon"), "kehote: %s" % it.get("text", ""))
+				check(str(it.get("text", "")).contains("amerikanpallo"), "kehote: %s" % it.get("text", ""))
 				it.cb.call()
 				check(tn.active and tn.players.size() == 4, "peli alkoi, mukana %d" % tn.players.size())
 				next()

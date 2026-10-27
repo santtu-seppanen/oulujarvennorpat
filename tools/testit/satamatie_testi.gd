@@ -1,7 +1,7 @@
 extends SceneTree
 ## Sataman tien ajotesti (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/satamatie_testi.gd
 ## Auto ajaa täyttä vauhtia mökin ajouran päästä satamaan tien keskiviivaa pitkin: ei törmäyksiä puihin,
-## vauhti ei putoa ja hyppyri nostaa auton ilmaan.
+## vauhti ei putoa.
 
 
 var Satama: GDScript
@@ -11,7 +11,6 @@ var started := false
 var ri := 1
 var min_speed := 99.0
 var hits := 0
-var max_air := 0.0
 var done := false
 
 
@@ -43,9 +42,7 @@ func _process(delta: float) -> bool:
 	min_speed = minf(min_speed, car.speed)
 	if car.get_slide_collision_count() > 0:
 		hits += 1
-	var g: float = Satama.ramp_h(p.x, p.y) + load("res://scripts/terrain.gd").h(p.x, p.y)
-	max_air = maxf(max_air, car.global_position.y - g)
 	if ri >= line.size() - 1 or clock > 40.0:
-		print("perillä=", ri >= line.size() - 1, " törmäyksiä=", hits, " min_vauhti=%.1f" % min_speed, " korkein ilmassa=%.2f m" % max_air, " t=%.1f" % clock)
+		print("perillä=", ri >= line.size() - 1, " törmäyksiä=", hits, " min_vauhti=%.1f" % min_speed, " t=%.1f" % clock)
 		return true
 	return false

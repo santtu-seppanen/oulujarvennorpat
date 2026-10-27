@@ -1,5 +1,5 @@
 extends Node
-## Nuotiopaikka grillikatoksen takana rinteen päällä: kivikehä, hiillos, liekit, savu ja lepattava valo sekä
+## Nuotiopaikka vesirajassa mökin länsipuolella: kivikehä, hiillos, liekit, savu ja lepattava valo sekä
 ## neljä istuinhirttä nuotion ympärillä (paikat mokki.gd fire_seats). Nuotiolla paistetaan makkaraa (makkara.gd)
 ## ja kerrotaan tarinoita (muistelu.gd): molemmissa pelaaja istuu hirrelle ja tietokoneen ohjaamat mökkiläiset
 ## tulevat istumaan ympärille.

@@ -41,13 +41,13 @@ static func list(game: Node3D) -> Array:
 	out.append({"name": "Auton paikka", "p": Reitti.HOME_SPOT, "kind": "paikka", "major": false})
 	# Mökin paikat.
 	out.append({"name": "Huussi", "p": Mokki.yw(11.5, -1.7), "kind": "paikka", "major": false})
-	out.append({"name": "Äpätin venesatama (niemen kärki)", "p": Vector2(game.world.satama.harbor.pos.x, game.world.satama.harbor.pos.z), "kind": "paikka",
+	out.append({"name": "Äpätin venesatama (maavallin takana)", "p": Vector2(game.world.satama.harbor.pos.x, game.world.satama.harbor.pos.z), "kind": "paikka",
 		"major": true})
 	out.append({"name": "Grillikatos", "p": Mokki.yw(-9.0, -1.4), "kind": "paikka", "major": false})
 	out.append({"name": "Nuotiopaikka", "p": Vector2(game.nuotio.pos.x, game.nuotio.pos.z), "kind": "paikka", "major": false})
 	out.append({"name": "Tarjoilupöytä", "p": game.tarjoilu.pos_xz(), "kind": "paikka", "major": false})
-	out.append({"name": "Rantatennis", "p": Rantatennis.fw(0.0, 0.0), "kind": "peli", "major": false})
-	out.append({"name": "Jalkapallon heitto", "p": Mokki.yw(Amerikanpallo.AREA_C.x, Amerikanpallo.AREA_C.y), "kind": "peli",
+	out.append({"name": "Spartan pinkiponki", "p": Rantatennis.fw(0.0, 0.0), "kind": "peli", "major": false})
+	out.append({"name": "Amerikanpallo", "p": Mokki.yw(Amerikanpallo.AREA_C.x, Amerikanpallo.AREA_C.y), "kind": "peli",
 		"major": false})
 	out.append({"name": "Hiekkaranta", "p": Vector2((Ranta.BEACH_X.x + Ranta.BEACH_X.y) * 0.5, (Ranta.BEACH_Z.x + Ranta.BEACH_Z.y) * 0.5),
 		"kind": "paikka", "major": true})

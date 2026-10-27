@@ -34,6 +34,8 @@ const Amerikanpallo := preload("res://scripts/amerikanpallo.gd")
 const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 const Auto := preload("res://scripts/auto.gd")
 const Tarina := preload("res://scripts/tarina.gd")
+const Saapuminen := preload("res://scripts/saapuminen.gd")
+const Kannit := preload("res://scripts/kannit.gd")
 const OmatKatkot := preload("res://scripts/omat_katkot.gd")
 const Baari := preload("res://scripts/baari.gd")
 const Tarjoilupoyta := preload("res://scripts/tarjoilupoyta.gd")
@@ -92,11 +94,13 @@ var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var _sytytys_for := "sauna"  # mitä sytytysminipeli sytyttää: "sauna" | "nuotio"
 var sytytys: CanvasLayer = null  # saunan sytytys käynnissä (sytytys_game.gd)
-var tennis: Node3D  # rantatennis ylämökin edessä (rantatennis.gd)
-var heittely: Node3D  # amerikkalaisen jalkapallon heittely vedessä (amerikanpallo.gd)
+var tennis: Node3D  # Spartan pinkiponki ylämökin edessä (rantatennis.gd)
+var heittely: Node3D  # amerikanpallo: heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta Sinikan kanssa (baari.gd)
 var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
+var kannit: Node  # konttauskunto-välianimaatio 2 promillen humalassa (kannit.gd)
+var saapuminen: Node  # saapumiskohtaus uuden pelin alussa (saapuminen.gd)
 var nuotio: Node  # nuotiopaikka rannalla (nuotio.gd)
 var makkara: Node  # makkaranpaisto nuotiolla (makkara.gd)
 var ohje: Node  # minipelien ohjeruutu (ohje.gd)
@@ -275,6 +279,12 @@ func _ready() -> void:
 	tarina = Tarina.new()
 	tarina.game = self
 	add_child(tarina)
+	saapuminen = Saapuminen.new()
+	saapuminen.game = self
+	add_child(saapuminen)
+	kannit = Kannit.new()
+	kannit.game = self
+	add_child(kannit)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -868,9 +878,9 @@ func _interaction() -> Dictionary:
 		return {"text": "E: paista makkaraa nuotiolla · Q: \"Muistatko kun\" -tarinat (vain auringonlaskun aikaan)",
 			"cb": func() -> void: start_activity("makkara")}
 	if tennis.can_start(player.global_position) and player.boat == null:
-		return {"text": "E: rantatennis koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
+		return {"text": "E: Spartan pinkiponki koko porukalla (ennätys %d lyöntiä)" % tennis.record, "cb": tennis.start}
 	if heittely.can_start(player.global_position) and player.boat == null:
-		return {"text": "E: amerikkalaisen jalkapallon heittely koko porukalla (ennätys %d heittoa)" % heittely.record,
+		return {"text": "E: amerikanpallo koko porukalla (ennätys %d heittoa)" % heittely.record,
 			"cb": heittely.start}
 	if Mokki.at_woodshed(player.global_position):
 		return {"text": "E: halot syliin saunan kiukaaseen (sauna %d °C, %s)" % [roundi(sauna.temp), sauna.fire_text()],
@@ -945,7 +955,7 @@ func _enter_motorboat() -> void:
 	muskelivene.board(player)
 	_board_crew_boat(player_index)
 	mp.send({"t": "vene", "on": true, "i": player_index})
-	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · G automaattiajo · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 8.0)
+	toast("Muskelivene: W/S kaasu ja peruutus · A/D ohjaa · G automaattiajo · V näkymä · E telakoi satamaan. Vene kulkee vain syvässä vedessä, ja sen voi jättää vain Äpätin venesatamaan (lahti maavallin takana) tai Happy Beachin laituriin.", 8.0)
 	var other: Dictionary = muskelivene.moorings[1 - maxi(muskelivene.from_mooring, 0)]
 	_map.has_target = true
 	_map.target = Vector2(other.pos.x, other.pos.z)  # kompassi osoittaa toiseen satamaan
@@ -969,9 +979,9 @@ func _leave_motorboat() -> void:
 	if idx < 0:
 		var dock: Vector2 = Mokki.yw(-2.2, 14.0)
 		if Vector2(muskelivene.global_position.x - dock.x, muskelivene.global_position.z - dock.y).length() < 16.0:
-			toast("Mökkilaituri on liian matala muskeliveneelle. Aja Äpätin venesatamaan (niemen kärkeen, koilliseen).", 4.0)
+			toast("Mökkilaituri on liian matala muskeliveneelle. Aja Äpätin venesatamaan (tien vasemmalla puolella olevaan lahteen, maavallin taakse).", 4.0)
 		else:
-			toast("Muskelivenettä ei voi jättää tähän. Aja Äpätin venesatamaan (niemen kärki) tai Happy Beachin laituriin.", 4.0)
+			toast("Muskelivenettä ei voi jättää tähän. Aja Äpätin venesatamaan (lahti maavallin takana) tai Happy Beachin laituriin.", 4.0)
 		return
 	if absf(muskelivene.speed) > Muskelivene.DOCK_SPEED:
 		toast("Hidasta ensin (S), sitten E telakoi.", 2.5)

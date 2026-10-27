@@ -1,5 +1,5 @@
 extends "res://scripts/pallopeli.gd"
-## Amerikkalaisen jalkapallon heittely vedessä alamökin edustalla, samalla mekaniikalla kuin rantatennis
+## Amerikanpallo: amerikkalaisen jalkapallon heittely vedessä alamökin edustalla, samalla mekaniikalla kuin rantatennis
 ## (pallopeli.gd): koko porukka heittelee yhdessä vyötäröön asti vedessä, ja heitot lasketaan, kunnes pallo
 ## putoaa veteen. E heittää ja ottaa kiinni. Pallo kiertää lennossa pituusakselinsa ympäri (spiraali) ja kelluu
 ## pudottuaan. Paikka on 20-30 m rannasta, jossa vettä on 0,7-1 m: kahlataan, ei uida.
@@ -10,10 +10,11 @@ const AREA_H := Vector2(8.0, 6.0)
 const SPOTS := [Vector2(-4.5, 0.0), Vector2(0.0, 3.2), Vector2(4.5, 0.0), Vector2(0.0, -3.2)]
 
 var _spin := 0.0
+var _sign: Label3D
 
 
 func _init() -> void:
-	title = "Amerikkalainen jalkapallo"
+	title = "Amerikanpallo"
 	msg = "af"
 	section = "amerikanpallo"
 	save_path = "user://amerikanpallo.cfg"
@@ -36,6 +37,24 @@ func _init() -> void:
 	hit_sound = ["whoosh", -10.0, 1.1]
 	lines_miss = ["Plums!", "Liukas pallo!", "Ei se mitään, uusiks!", "Aalto vei."]
 	lines_good = ["Spiraali!", "Touchdown!", "Hyvä koppi!", "Nyt lentää!"]
+
+
+func _ready() -> void:
+	super._ready()
+	# Ennätystaulu: seiväs vedessä pelialueen rannanpuoleisella reunalla (kuten rantatenniksen taulu).
+	var w := Mokki.yw(AREA_C.x, AREA_C.y - AREA_H.y - 0.6)
+	var gy := Terrain.h(w.x, w.y)
+	B.mesh(self, B.cyl(0.06, 0.07, 2.4, 8), Vector3(w.x, gy + 1.2, w.y), Color(0.4, 0.3, 0.2))
+	_sign = B.label(self, "", Vector3(w.x, gy + 2.2, w.y), 30, Color(1, 0.97, 0.85), true)
+	_update_sign()
+
+
+func _update_sign() -> void:
+	_sign.text = "AMERIKANPALLO\nEnnätys %d heittoa" % record
+
+
+func _on_record() -> void:
+	_update_sign()
 
 
 static func area_local(p: Vector2) -> Vector2:

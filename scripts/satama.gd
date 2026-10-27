@@ -1,5 +1,5 @@
 extends Node3D
-## Äpätin venesatama Äpätin niemen kärjessä (n. 150 m itään ja 105 m pohjoiseen mökiltä, tien päässä): pitkä pääsilta
+## Äpätin venesatama Äpätin niemen länsipuolen lahdessa maavallin (niemen harjanteen) takana (n. 120 m itään ja 25 m pohjoiseen mökiltä, tien vasemmalla puolella): pitkä pääsilta
 ## järveen, T-pää, sivulaituri pienveneille, rannassa venevaja, nostoramppi ja veneentelakka-alue (kumossa olevat veneet
 ## telineillä, tynnyreitä, polttoainepumppu, pelastusrengas), lamput ja kyltti "ÄPÄTIN VENESATAMA". Pienveneitä
 ## (soutuveneitä ja alumiinimoottoriveneitä) on kiinni laiturien kyljissä ja poijuissa. Muskeliveneen paikka (harbor) on
@@ -9,7 +9,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
-const ORIGIN := Vector2(150.0, -104.0)  # rantaviivan kohta niemen kärjessä (x, z)
+const ORIGIN := Vector2(116.0, -23.0)  # rantaviivan kohta sataman lahden etelärannalla, tien vasemmalla puolella (x, z)
 const DECK := 0.75
 const PIER_W := 2.4
 const PIER_LEN := 28.0
@@ -25,14 +25,9 @@ const ROAD_LINE := [Vector2(-26.1, 141.4), Vector2(-8.1, 137.1), Vector2(17.4, 1
 	Vector2(129.6, 20.7), Vector2(136.8, 9.9), Vector2(145.4, -3.8), Vector2(153.8, -19.4), Vector2(159.7, -31.0),
 	Vector2(166.3, -40.4), Vector2(169.9, -48.4), Vector2(168.8, -55.0), Vector2(164.9, -67.7), Vector2(156.2, -83.0),
 	Vector2(151.5, -89.6), Vector2(147.1, -97.2)]
+## Haara tieltä lahden rantaan sataman luo (tie kääntyy vasemmalle maavallin yli).
+const SPUR := [Vector2(153.8, -19.4), Vector2(140.0, -21.5), Vector2(126.0, -20.0), Vector2(116.0, -17.0)]
 const ROAD_TREE_R := 5.0  # puita ei tämän lähempänä tien keskiviivaa (m)
-## Hyppyri tiellä (n. 130 m ennen satamaa): pitkä nousu satamaan päin ja jyrkkä lasku, jolla auto lentää.
-const RAMP_START := Vector2(138.6, 6.6)
-const RAMP_DIR := Vector2(0.53, -0.848)
-const RAMP_RISE := 8.0
-const RAMP_FALL := 2.5
-const RAMP_H := 1.5
-const RAMP_HW := 2.3
 const GAP_A := Vector2(-12.0, 137.0)
 const GAP_B := Vector2(6.0, 133.0)
 const GAP_R := 4.5
@@ -50,51 +45,18 @@ static func _near_seg(p: Vector2, a: Vector2, b: Vector2, r: float) -> bool:
 	return p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)) < r
 
 
-## Hyppyrin lisäkorkeus maaston päällä kohdassa (x, z) (auto.gd lisää sen renkaiden alla olevaan maastoon).
-static func ramp_h(x: float, z: float) -> float:
-	var r := Vector2(x, z) - RAMP_START
-	var a := r.dot(RAMP_DIR)
-	if a < 0.0 or a > RAMP_RISE + RAMP_FALL or absf(r.dot(RAMP_DIR.orthogonal())) > RAMP_HW:
-		return 0.0
-	return RAMP_H * (a / RAMP_RISE if a < RAMP_RISE else 1.0 - (a - RAMP_RISE) / RAMP_FALL)
-
-
-## Hyppyri näkyviin: puinen kiila ja keltaiset reunamerkit (korkeus tulee ramp_h:sta, ei törmäyskappaletta).
-func _ramp() -> void:
-	var side := RAMP_DIR.orthogonal()
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var stops := [0.0, RAMP_RISE, RAMP_RISE + RAMP_FALL]
-	var rows: Array = []
-	for a: float in stops:
-		var row := []
-		for sd: float in [-RAMP_HW, RAMP_HW]:
-			var w := RAMP_START + RAMP_DIR * a + side * sd
-			row.append([Vector3(w.x, Terrain.h(w.x, w.y) + ramp_h(w.x, w.y) + 0.01, w.y), Vector3(w.x, Terrain.h(w.x, w.y) - 0.4, w.y)])
-		rows.append(row)
-	for k in 2:
-		var l0: Array = rows[k][0]
-		var r0: Array = rows[k][1]
-		var l1: Array = rows[k + 1][0]
-		var r1: Array = rows[k + 1][1]
-		for v: Vector3 in [l0[0], r0[0], r1[0], l0[0], r1[0], l1[0]]:
-			st.add_vertex(v)
-		for v: Vector3 in [l0[0], l1[0], l1[1], l0[0], l1[1], l0[1]]:
-			st.add_vertex(v)
-		for v: Vector3 in [r0[0], r1[1], r1[0], r0[0], r0[1], r1[1]]:
-			st.add_vertex(v)
-	var last: Array = rows[2]
-	for v: Vector3 in [last[0][0], last[1][0], last[1][1], last[0][0], last[1][1], last[0][1]]:
-		st.add_vertex(v)
-	st.generate_normals()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = B.mat(Color(0.55, 0.42, 0.28))
-	add_child(mi)
-	for sd: float in [-RAMP_HW, RAMP_HW]:
-		for a: float in [1.0, 3.5, 6.0]:
-			var w := RAMP_START + RAMP_DIR * a + side * sd
-			B.mesh(self, B.boxm(Vector3(0.2, 0.2, 0.2)), Vector3(w.x, Terrain.h(w.x, w.y) + ramp_h(w.x, w.y) + 0.12, w.y), Color(0.95, 0.8, 0.1))
+## Onko piste sataman tiellä (ROAD_LINE ja tien katkoksen ylittävä GAP-osuus): auto ajaa siellä täyttä vauhtia.
+static func on_road(x: float, z: float) -> bool:
+	var q := Vector2(x, z)
+	if _near_seg(q, GAP_A, GAP_B, 3.0):
+		return true
+	for k in ROAD_LINE.size() - 1:
+		if _near_seg(q, ROAD_LINE[k], ROAD_LINE[k + 1], 3.0):
+			return true
+	for k in SPUR.size() - 1:
+		if _near_seg(q, SPUR[k], SPUR[k + 1], 3.0):
+			return true
+	return false
 
 
 ## Paikallisen (u, v) -suorakulmion vastine maailmassa.
@@ -123,6 +85,9 @@ static func clears_tree(x: float, z: float) -> bool:
 		for k in ROAD_LINE.size() - 1:
 			if _near_seg(q, ROAD_LINE[k], ROAD_LINE[k + 1], ROAD_TREE_R):
 				return true
+		for k in SPUR.size() - 1:
+			if _near_seg(q, SPUR[k], SPUR[k + 1], ROAD_TREE_R):
+				return true
 	# Tien katkos Äpätintien ja sataman tien välillä (ei tieluokkaa): auton ajolinja raivataan.
 	if _near_seg(Vector2(x, z), GAP_A, GAP_B, GAP_R):
 		return true
@@ -139,7 +104,6 @@ func _ready() -> void:
 	_pier()
 	_side_pier()
 	_land()
-	_ramp()
 	_boats()
 	# avoid: pääsilta sivulaitureineen ja T-pää varoalueineen (muskeliveneen automaattiajo kiertää ne).
 	harbor = {"name": "Äpätin venesatama", "pos": P(3.0, 0.0, 19.0), "yaw": 0.0, "deck": P(0.7, DECK, 19.0),

@@ -148,6 +148,6 @@ Norpat! Norpat!
 | ristiseiska ja tuppi | `ristiseiska.gd`, `tuppi.gd` |
 | nuotion makkara, musta | nuotio ja makkaranpaisto (`nuotio.gd`, `makkara.gd`) |
 | Happy Beach, Sinikka tiskillä, karaoke | `happybeach.gd`, `baari.gd`, `karaoke_game.gd` |
-| täysillä tietä, hyppyri | auto ja sataman tie (`auto.gd`, `satama.gd` hyppyri) |
+| täysillä tietä | auto ja sataman tie (`auto.gd`, `satama.gd`; sanoituksen "hyppyri" oli tehty ennen hyppyrin poistoa) |
 | muskelivene | `muskelivene.gd`, Äpätin ja Happy Beachin satamat |
 | keskiyö, vainojen virmat, pirttimme piilköhöt | keskiyön oodi Oulujärvelle (`oodi.gd`) |

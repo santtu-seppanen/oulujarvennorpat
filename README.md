@@ -19,7 +19,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää ja Q aloittaa tutkimusmatkan viinakätkölle; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen (sammunut kiuas sytytetään minipelillä); ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; nuotiolla grillikatoksen takana makkaranpaisto (E) ja "Muistatko kun" -tarinat (Q); keittiön pöydässä Q: ysäritrivia; ylämökin edessä rantatennis (syötä ja lyö); vedessä alamökin edustalla amerikkalaisen jalkapallon heittely (heitä ja ota kiinni) |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää ja Q aloittaa tutkimusmatkan viinakätkölle; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen (sammunut kiuas sytytetään minipelillä); ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; nuotiolla grillikatoksen takana makkaranpaisto (E) ja "Muistatko kun" -tarinat (Q); keittiön pöydässä Q: ysäritrivia; ylämökin edessä Spartan pinkiponki (syötä ja lyö); vedessä alamökin edustalla amerikanpallo (amerikkalaisen jalkapallon heittely: heitä ja ota kiinni) |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
 | Q | kätköllä (saunan takana, rannan rinteessä tai tutkimusmatkan kätköllä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen); veneessä tutkimusmatka viinakätkölle (uudelleen Q keskeyttää) |
 | F | lopettaa huussin minipelin, rinteeseen virtsaamisen, rantatenniksen tai pallon heittelyn |
@@ -72,7 +72,7 @@ lämmitys haloilla).
 
 ## Nuotio ja ysäritrivia
 
-- **Nuotiopaikka (`scripts/nuotio.gd`):** grillikatoksen takana rinteen päällä tasanteella (n. 5 m katoksen takaseinästä, polku nousee terassin länsipuolelta) on kivikehä, hiillos, liekit ja neljä istuinhirttä (paikat `mokki.gd` `fire_seats`). Pelaaja istuu omalle hirrelleen ja tietokoneen mökkiläiset tulevat istumaan ympärille (`ai.gd` `fire`). Kartalla "Nuotiopaikka".
+- **Nuotiopaikka (`scripts/nuotio.gd`):** vesirajassa mökin länsipuolella (polku hiekkarannalta) on kivikehä, hiillos, liekit ja neljä istuinhirttä (paikat `mokki.gd` `fire_seats`). Pelaaja istuu omalle hirrelleen ja tietokoneen mökkiläiset tulevat istumaan ympärille (`ai.gd` `fire`). Kartalla "Nuotiopaikka".
   - **Makkaranpaisto (E nuotiolla, `scripts/makkara.gd`):** E pistää makkaran tikun päähän, A/D siirtää sitä nuotion yllä. Makkara kypsyy tasaisesti hiilloksella, mutta kaksi liekkiä vaeltaa nuotiossa: liekissä makkara kypsyy kovaa vauhtia ja noettuu, ja liekissä liian kauan pidetty makkara on palanut. E nostaa makkaran pois ja syö sen: raaka vie kuntoa, palanut ei hyödytä, nokinen ja vaisu on kelpo ja täydellisestä (vihreä alue, ei nokea) kunto palaa täyteen. Tarinatehtävä "makkara".
   - **"Muistatko kun" -muistelu (Q nuotiolla, `scripts/muistelu.gd`):** illassa on neljä tarinaa. Kolme kertoo joku muu ysärimuistona (puhekuplana) ja pelaaja valitsee, miten reagoi (1/2/3 tai A/D + E), neljännen kertoo pelaaja itse ja valitsee kerrontatavan. Jokainen valinta muuttaa illan tunnelmaa (-2..+2). Illan tunnelma vaikuttaa seuraavaan aamuun keskiyöllä (hyvä ilta +2 tai +4 mainepistettä, kiusallinen -3; vaikutus kerran päivässä, joten saman illan toistaminen ei kasvata sitä), tehtävälistan "Tunnelma"-riviin sekä pelin loppuun: lopputuloksessa on nuotiotarinoiden määrä ja tunnelma, ja hyvän tunnelman viikonlopun lähtöpuheessa muistellaan tunnetuinta tarinaa. Tarinatehtävä "muistelu" (vähintään kolme tarinaa).
 - **Ysäritrivia (Q keittiön pöydässä ja valinta 1, `scripts/lautapeli.gd`):** Trivial Pursuit -tyylinen lautapeli koko porukalla (tietokoneen hahmot tulevat pöytään). Kuusi aihepiiriä (urheilu, musiikki, elokuvat ja tv, tekniikka ja pelit, Suomi ja maantieto, mökkielämä), yhteensä 37 kysymystä 90-luvulta ja mökiltä. Vuorossa oleva saa kysymyksen aihepiiristä, josta hänellä ei vielä ole kiilaa: oikea vastaus antaa kiilan ja pitää vuoron, väärä siirtää vuoron. Ensimmäinen, jolla on neljä kiilaa, voittaa. **Vastaus kirjoitetaan chattiin** (Enter; kysymykseen on 45 s, E ohittaa); ääkköset, isot kirjaimet ja taivutus (esim. "Ranskan") eivät haittaa. Tietokone vastaa muiden puolesta hahmon taidon mukaan. Pelaajan voitto antaa 3 mainepistettä, ja voittajat näkyvät lopputuloksessa. Tarinatehtävä "trivia" (vähintään kolme oikeaa vastausta). Chat-vastaukset toimivat vain paikallisesti, eli muita ihmispelaajia ei oteta vastaajiksi.
@@ -82,30 +82,33 @@ lämmitys haloilla).
 
 ## Äpätin satama ja muskelivene
 
-- **Äpätin venesatama (`scripts/satama.gd`):** Äpätin niemen kärjessä (n. 150 m itään ja 105 m pohjoiseen mökiltä, tien päässä) on oikea pienvenesatama: pitkä pääsilta T-päällä (kansi 0,75 m vedenpinnan yläpuolella), sivulaituri pienveneille, soutuveneitä ja alumiinimoottoriveneitä kiinni laitureissa ja poijuissa, rannassa punamullattu venevaja, nostoramppi, kumoon käännettyjä veneitä telineillä, tynnyreitä, polttoainepumppu, pelastusrengas, lamput (yöllä päällä) ja kyltti "ÄPÄTIN VENESATAMA". Muskeliveneen paikka on pääsillan itäkyljessä. Mökkilaituri (kansi 0,42 m) on muskeliveneelle liian matala, joten sinne ei telakoida; se jää kumiveneelle. Kartalla "Äpätin venesatama (niemen kärki)".
+- **Äpätin venesatama (`scripts/satama.gd`):** Äpätin niemen länsipuolen lahdessa maavallin (niemen harjanteen) takana (n. 120 m itään ja 25 m pohjoiseen mökiltä, tien vasemmalla puolella) on oikea pienvenesatama: pitkä pääsilta T-päällä (kansi 0,75 m vedenpinnan yläpuolella), sivulaituri pienveneille, soutuveneitä ja alumiinimoottoriveneitä kiinni laitureissa ja poijuissa, rannassa punamullattu venevaja, nostoramppi, kumoon käännettyjä veneitä telineillä, tynnyreitä, polttoainepumppu, pelastusrengas, lamput (yöllä päällä) ja kyltti "ÄPÄTIN VENESATAMA". Muskeliveneen paikka on pääsillan itäkyljessä. Mökkilaituri (kansi 0,42 m) on muskeliveneelle liian matala, joten sinne ei telakoida; se jää kumiveneelle. Kartalla "Äpätin venesatama (maavallin takana)".
 - **Muskelivene (`scripts/muskelivene.gd`, toteutus Normipäivä Saloisissa -pelin muskeliveneestä):** punavalkoinen nopea moottorivene (7 x 2,4 m, perämoottori "300", rattiin kääntyvä ratti, tuulilasi, istuimet, vanavesi ja keulan roiskeet). Vene on aina jossain satamassa: aluksi Äpätin venesatamassa pääsillan kyljessä. E laiturilla veneen luona nousee kuljettajaksi (pelaaja istuu oikealle penkille), W/S kaasu ja peruutus (huippu n. 60 km/h), A/D ohjaa, V vaihtaa näkymää, ja humala heiluttaa ohjausta. Keula nousee kiihdyttäessä, vene kallistuu käännöksessä, moottoriääni seuraa vauhtia. Kompassi osoittaa toiseen satamaan. **G kytkee automaattiajon** toiseen satamaan: vene liukuu laiturista irti, ajaa A*-reittiä syvässä vedessä (rannasta ja laiturirakenteista pidetään etäisyyttä) ja telakoituu itse. Rannan esto: rungon ympärillä pitää olla 4 m syvää vettä (satamapaikan lähellä 0,8 m), joten venettä ei saa jumiin Happy Beachin matalikolle.
   - **Vene kulkee vain syvässä vedessä** (pohja alle -0,4 m: keula, perä, kyljet ja keskipiste tarkistetaan) ja törmää laitureihin ja lohkareisiin; matalikolle ei pääse.
   - **Veneen voi jättää vain satamaan:** E ajaessa telakoi Äpätin venesatamaan tai Happy Beachin laiturille (alle 12 m paikasta ja alle 3 m/s), vene liukuu paikalleen ja pelaaja nousee laiturille. Muualla E antaa ilmoituksen; mökkilaiturin lähellä: "Mökkilaituri on liian matala muskeliveneelle". Vene jää sinne, mihin sen jättää, eli Happy Beachin laiturilta voi ajaa takaisin Äpättiin. R tai hahmon vaihto palauttaa veneen Äpätin satamaan.
   - **Happy Beachin laituri** (`happybeach.gd` `jetty_mooring`): venepaikka laiturin kaakkoispuolella, vesi yli 0,5 m syvää. Matka Äpätistä n. 540 m (reitti kulkee koko matkan vähintään 0,67 m syvässä vedessä, testattu).
-  - Karttamerkit: "Muskelivene" ja "Äpätin venesatama (niemen kärki)". **Moninpeli kuten auto:** kun joku nousee veneeseen, hän lähettää viestin "vene" (ajajan hahmo) ja veneen tilan 12 kertaa sekunnissa ("vene_s": paikka, suunta, nopeus, kääntönopeus); muilla koneilla vene on kaukoajettu (`remote`, liukuu verkon tilaan), ja niiden pelaaja istuu kyytiin (`board_passenger`) ja tietokoneen hahmot istuvat penkeille. Ajon päättyessä (telakointi) lähtee viesti "vene" `on: false` ja satamapaikka (`at`): vene siirtyy sinne kaikilla koneilla ja kyytiläiset nousevat laiturille. Neljä penkkiä: 0 kuljettaja, 1 kaverin penkki, 2 ja 3 takapenkki; kyytiläisten penkki on hahmon järjestys muiden kuin kuljettajan joukossa (`_boat_slot`), sama kaikilla koneilla. Toisin kuin autossa porukka istuu näkyvissä (ei piilossa). Kun porukka nousee Happy Beachin laiturille, he odottavat siellä ja palaavat pihalle, kun vene on taas Äpätin satamassa. Testi simuloi viestit (`_remote_motorboat`), kaksikoneinen testi vaatii palvelimen.
+  - Karttamerkit: "Muskelivene" ja "Äpätin venesatama (maavallin takana)". **Moninpeli kuten auto:** kun joku nousee veneeseen, hän lähettää viestin "vene" (ajajan hahmo) ja veneen tilan 12 kertaa sekunnissa ("vene_s": paikka, suunta, nopeus, kääntönopeus); muilla koneilla vene on kaukoajettu (`remote`, liukuu verkon tilaan), ja niiden pelaaja istuu kyytiin (`board_passenger`) ja tietokoneen hahmot istuvat penkeille. Ajon päättyessä (telakointi) lähtee viesti "vene" `on: false` ja satamapaikka (`at`): vene siirtyy sinne kaikilla koneilla ja kyytiläiset nousevat laiturille. Neljä penkkiä: 0 kuljettaja, 1 kaverin penkki, 2 ja 3 takapenkki; kyytiläisten penkki on hahmon järjestys muiden kuin kuljettajan joukossa (`_boat_slot`), sama kaikilla koneilla. Toisin kuin autossa porukka istuu näkyvissä (ei piilossa). Kun porukka nousee Happy Beachin laiturille, he odottavat siellä ja palaavat pihalle, kun vene on taas Äpätin satamassa. Testi simuloi viestit (`_remote_motorboat`), kaksikoneinen testi vaatii palvelimen.
   - `on_foot.gd`: uusi `vehicle`-tila (hahmo istuu ajoneuvon penkillä, `seat_global()`), jota vene käyttää.
 - Testi: `tools/testit/muskelivenetesti.gd` (satama ja paikat, nousu ja ajo, telakointi vain satamiin, reitti Happy Beachille syvässä vedessä, paluu).
 
 ## Traileri ja traileribiisi
 
-`tools/traileri/` tekee pelikuvasta trailerin Godotin Movie Maker -tilalla (ks. `tools/traileri/LUEMINUT.md`), ja
-`docs/traileri/biisi.md` sisältää Suno-yhteensopivat sanat ja tyylikehotteen Popeda-henkiselle suomirock-kappaleelle,
-joka upotetaan trailerin ääneksi (`tools/traileri/kokoa.sh` liittää kappaleen videoon).
+`tools/traileri/` tekee pelikuvasta trailerin Godotin Movie Maker -tilalla (ks. `tools/traileri/LUEMINUT.md`): norpat saapuvat
+mökille torstai-iltana (saapumiskohtaus `scripts/saapuminen.gd`, sama näytetään uuden pelin alussa), ja sen jälkeen näytetään mökin
+minipelit: Spartan pinkiponki, amerikanpallo, pyttipannun paisto, virtsaaminen rinteeseen, ristiseiska, päikkärit, tutkimusmatka ja
+viinakätkön etsintä, nuotiolla istuskelu ja vihainen työpuhelu. Lopuksi neljä norppaa laulaa oodin
+Oulujärvelle terassilla auringon laskiessa. Trailerin ääninä on vain biisi (`docs/traileri/biisi.md` sisältää Suno-yhteensopivat
+sanat ja tyylikehotteen Popeda-henkiselle suomirock-kappaleelle; `tools/traileri/kokoa.sh` liittää kappaleen videoon).
 
-## Satamatie, hyppyri ja Happy Beachin satama
+**Saapumiskohtaus:** uuden pelin alussa (valikko: Aloita peli) norpat ajavat torstai-iltana mökin pihaan (sauna on kylmä), nostavat kaljakorit takakontista,
+kantavat ne terassille, Jukka panee saunan lämpiämään ja kaikki heittävät vaatteet pois. E tai välilyönti ohittaa.
+
+## Satamatie ja Happy Beachin satama
 
 - **Sataman tie:** Äpätintie ja sen jatke satamaan on raivattu puista (`satama.gd` `ROAD_LINE`, 5 m keskiviivan molemmin puolin),
   joten autolla voi ajaa täyttä vauhtia (80 km/h) mökin ajouralta Äpätin venesatamaan. Testi: `tools/testit/satamatie_testi.gd`.
-- **Hyppyri** (`satama.gd` `ramp_h`, `RAMP_START`): tiellä n. 130 m ennen satamaa on pitkä nousu satamaan päin ja jyrkkä lasku;
-  täysillä ajava auto lentää (`auto.gd` lisää hyppyrin korkeuden renkaiden alla olevaan maastoon).
 - **Happy Beachin satama** (`happybeach.gd` `_marina`, satelliittikuvan mukaan): suorakaiteen muotoinen allas, jota rajaavat louhikkoaallonmurtajat
-  (rantapenger ja itäkärki, pohjoinen murtaja, länsimuuri; sisääntulo idässä), kaksi kelluvaa päälaituria sormilaitureineen ja
-  pienveneineen, pysäköintialue ja nostoramppi länsipäässä, lamput ja kyltti. Muskeliveneen paikka on entisen laiturin kyljessä
+  (rantapenger ja itäkärki, pohjoinen murtaja, länsimuuri; sisääntulo idässä), kaksi kelluvaa päälaituria sormilaitureineen, pysäköintialue ja nostoramppi länsipäässä, lamput ja kyltti. Muskeliveneen paikka on entisen laiturin kyljessä
   altaassa (`MARINA_LINES` antaa automaattiajon väistöalueet).
 
 ## Huussi ja pitkospuut
@@ -210,7 +213,7 @@ näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat
 Testit: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`) ja kahden koneen
 `tools/testit/tennismoninpeli.gd` (ohjeet tiedoston alussa), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
 
-### Amerikkalaisen jalkapallon heittely vedessä
+### Amerikanpallo: amerikkalaisen jalkapallon heittely vedessä
 
 Samalla mekaniikalla (`scripts/pallopeli.gd`, yhteinen pohja rantatenniksen kanssa) heitellään amerikkalaista
 jalkapalloa vedessä alamökin edustalla, 20-30 m rannasta, jossa vettä on 0,7-1 m (`scripts/amerikanpallo.gd`).
@@ -223,8 +226,8 @@ moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Tes
 Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 12 (`scripts/tarina.gd`). Joka päivä on omat
 tehtävät hahmon mukaan, ja ne näkyvät vasemmalla (J piilottaa): torstaina halot, kätkö, sauna, uinti, huussi; perjantaina
 pöydän pelit, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, kätkön haku, Happy Beach (baari ja karaoke) ja
-auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Pinkiponki (rantatennis)** vaatii torstaina 30 lyöntiä
-putkeen ja joka päivä 20 lisää (50, 70, 90); **amerikkalaisen jalkapallon heittely** torstaina 10 heittoa ja joka päivä 10 lisää
+auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Spartan pinkiponki (rantatennis)** vaatii torstaina 30 lyöntiä
+putkeen ja joka päivä 20 lisää (50, 70, 90); **amerikanpallo** torstaina 10 heittoa ja joka päivä 10 lisää
 (20, 30, 40). **Tutkimusmatka ja kätkön haku:** kun tutkimusmatkan kätköltä on haettu viinaa (E olut, Q viina), oman kätkön
 tekeminen avautuu (`scripts/omat_katkot.gd`): sopivassa metsän, kallion tai aukean kohdassa mökin lähellä (alle 250 m) E kaivaa uuden
 viinakätkön (enintään 6, tallentuvat). Kompassi näyttää lähimmän kätkön. Testit: `katkotesti.gd`, `korttitallennustesti.gd`. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää

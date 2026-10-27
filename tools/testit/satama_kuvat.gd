@@ -23,7 +23,7 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	frames += 1
 	if frames == 30:
-		var o := Vector3(150.0, 0.0, -104.0)
+		var o := Vector3(116.0, 0.0, -23.0)
 		shots = [
 			["satama_ilmasta", o + Vector3(14.0, 22.0, -34.0), o + Vector3(0.0, 0.0, -16.0)],
 			["satama_rannalta", o + Vector3(-4.0, 2.2, 14.0), o + Vector3(1.0, 0.8, -14.0)],

@@ -29,7 +29,7 @@ var data := {}
 var trees: Node3D
 var mokki: Node3D
 var ranta: Node3D  # hiekkaranta, kätköpolku ja viinakätkö (ranta.gd)
-var satama: Node3D  # Äpätin venesatama niemen kärjessä (satama.gd)
+var satama: Node3D  # Äpätin venesatama lahdessa maavallin takana (satama.gd)
 var happy: Node3D  # Camping Happy Beach leirintäalue törmällä (happybeach.gd)
 var ponds: Array = []   # [{level, poly: PackedVector2Array}]
 var names: Array = []   # [{name, p: Vector2}]

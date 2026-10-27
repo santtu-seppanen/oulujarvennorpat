@@ -14,6 +14,7 @@ const ANSWER_POINTS := -6.0
 const IGNORE_POINTS := 3.0
 ## [soittaja, repliikki].
 const CALLS := [
+	["Esimies", "JAAKKO! Missä ne raportit on?! Vastaa nyt heti!"],
 	["Esimies", "Moi, onko sulla hetki? Tuotannossa palaa jotain, ja sua tarvittaisiin heti."],
 	["Asiakas", "Hei, pieni kysymys vain: voitko katsoa yhtä asiaa nyt, ennen kuin se unohtuu?"],
 	["Palaveri", "Muistutus: palaveri alkoi viisi minuuttia sitten. Missä sä olet?"],
@@ -171,7 +172,7 @@ func _ai_mumble(delta: float) -> void:
 		if game.Porukka.CREW[j].name != WHO or j == game.player_index or game.crew_modes[j] != "ai":
 			continue
 		var b: CharacterBody3D = game.crew[j]
-		if b.brain != null and b.brain.activity == "sauna" and b.pose.begins_with("Sitting") and _rng.randf() < delta / 30.0:
+		if b.brain != null and "activity" in b.brain and b.brain.activity == "sauna" and b.pose.begins_with("Sitting") and _rng.randf() < delta / 30.0:
 			_ai_day = _day()
 			game.chat.ai_say(j, MUMBLES[_rng.randi() % MUMBLES.size()])
 

@@ -13,7 +13,7 @@ var _sign: Label3D
 
 
 func _init() -> void:
-	title = "Rantatennis"
+	title = "Spartan pinkiponki"
 	msg = "tn"
 	section = "rantatennis"
 	save_path = "user://rantatennis.cfg"
@@ -139,7 +139,7 @@ func _build_field() -> void:
 
 
 func _update_sign() -> void:
-	_sign.text = "RANTATENNIS\nEnnätys %d lyöntiä" % record
+	_sign.text = "SPARTAN PINKIPONKI\nEnnätys %d lyöntiä" % record
 
 
 ## Alhaalta pihasta ja saunalta portaita ylös ylämökin terassille, oven edustan tasanteelta portaat alas kentälle.

@@ -1071,8 +1071,6 @@ func _marina() -> void:
 		while a < 67.0:
 			for sd: float in [-1.0, 1.0]:
 				_box(Vector3(a, py, row + sd * 3.4), Vector3(0.5, 0.12, 5.6), pont.darkened(0.1), false)
-				if rng.randf() < 0.65:
-					_marina_boat(Vector3(a + 1.7, -pad_y, row + sd * 3.6), rng)
 			a += 4.4
 	# Päälaituri pohjoismurtajalta kellukkeille (kulku pohjoisesta).
 	_box(Vector3(30.0, py, 87.5), Vector3(1.4, 0.14, 6.0), pont, false)
@@ -1093,20 +1091,6 @@ func _marina() -> void:
 	sg.position = P(4.0, top + 1.6, 44.0)
 	sg.rotation.y = PI
 	_box(Vector3(4.0, top + 0.8, 44.0), Vector3(0.08, 1.6, 0.08), WOOD.darkened(0.3), false)
-
-
-## Pieni vene kelluvan laiturin sormen vieressä.
-func _marina_boat(c: Vector3, rng: RandomNumberGenerator) -> void:
-	var cols: Array[Color] = [Color(0.95, 0.95, 0.93), Color(0.85, 0.9, 0.95), Color(0.9, 0.85, 0.7), Color(0.2, 0.3, 0.5)]
-	var col: Color = cols[rng.randi() % 4]
-	var boat := Node3D.new()
-	boat.position = P(c.x, c.y, c.z)
-	boat.rotation.y = rng.randf_range(-0.04, 0.04)
-	_root.add_child(boat)
-	B.mesh(boat, B.boxm(Vector3(1.9, 0.5, 5.2)), Vector3(0, 0.15, 0), col)
-	B.mesh(boat, B.boxm(Vector3(1.5, 0.06, 4.6)), Vector3(0, 0.42, 0), Color(0.55, 0.45, 0.35))
-	if rng.randf() < 0.5:
-		B.mesh(boat, B.boxm(Vector3(1.2, 0.5, 1.4)), Vector3(0, 0.68, -0.4), Color(0.9, 0.92, 0.95))
 
 
 ## Laiturin yksityiskohdat: leveä purkupaikka päässä, kaiteet, pollarit, renkaat suojana, tikkaat, pelastusrengas,

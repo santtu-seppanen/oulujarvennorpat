@@ -35,7 +35,7 @@ const DAYS := [
 		"intro": "Sunnuntai: viimeinen päivä. Päikkärit, saunan viimeiset löylyt ja halaukset – klo 18 lähdetään."},
 ]
 
-## Joka päivä samat: ruoka ja kahvi, päikkärit, sekä pinkiponki ja amerikkalainen jalkapallo ennätystavoitteella.
+## Joka päivä samat: ruoka ja kahvi, päikkärit, sekä Spartan pinkiponki ja amerikanpallo ennätystavoitteella.
 const COMMON := [
 	{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"]},
 	{"id": "grilli", "text": "Grillaa pihvit klo 20–22 grillikatoksessa (vain Marko grillaa)", "only": ["Marko"]},
@@ -49,7 +49,7 @@ const COMMON := [
 ]
 ## Ennätystavoitteet: aloitusennätys, ja joka päivä tehtävä on rikkoa se (uusi ennätys on seuraava tavoite).
 const RECORD_START := {"tennis": 20, "heittely": 8}
-const RECORD_NAME := {"tennis": "Pinkiponki (rantatennis): lyöntiä ilmassa", "heittely": "Amerikkalaista jalkapalloa vedessä: heittoa putkeen"}
+const RECORD_NAME := {"tennis": "Spartan pinkiponki: lyöntiä ilmassa", "heittely": "Amerikanpalloa vedessä: heittoa putkeen"}
 ## Arvottava pooli: jokaiselle päivälle arvotaan picks kappaletta (eri päiville eri tehtäviä).
 const POOL := [
 	{"id": "halot", "text": "Lämmitä sauna: halot halkovajasta kiukaaseen"},
@@ -352,7 +352,7 @@ func _advance_day() -> void:
 		game.toast("%s – %s. %s" % [weekday, DAYS[day].title, DAYS[day].intro], 9.0)
 
 
-## Ennätystavoite (pinkiponki, amerikkalainen jalkapallo) jäi rikkomatta: 10 mainepistettä per tavoite.
+## Ennätystavoite (Spartan pinkiponki, amerikanpallo) jäi rikkomatta: 10 mainepistettä per tavoite.
 func _record_penalties(d: int) -> void:
 	for t: Dictionary in tasks_for(d):
 		if t.has("record") and not done[d].has(t.id):
