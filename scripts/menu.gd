@@ -21,7 +21,7 @@ E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
 E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sytytetään minipelillä
 A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
 E / Q	nuotiolla rannalla: paista makkaraa (A/D siirtää hiilloksella, ei liekkiin) / "Muistatko kun" -tarinat (↑/↓ tai 1/2/3 + E, F poistuu)
-Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: valikko ↑/↓ + E tai klikkaus (noppa, reitti, kiekon osto, lento). H: ohje missä tahansa pelissä, F nousee pöydästä
+Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: valikko ↑/↓ + E tai klikkaus (noppa, reitti, kiekon osto, lento). J: ohje missä tahansa pelissä (pääpelissä J piilottaa tehtävät), F nousee pöydästä
 F	lopettaa Spartan pinkiponkin ja amerikanpallon
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
@@ -338,7 +338,7 @@ func _settings(from: String) -> void:
 	_slider(a, "Tehosteet", "vol_sfx", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Ympäristö", "vol_ambience", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Musiikki", "vol_music", 0.0, 1.0, 0.05, "%d %%", 100.0)
-	_check(a, "Puhesynteesi: puhekuplat ääneen", "tts")
+	_check(a, "Puhe: nauhoitetut repliikit ääneen", "tts")
 	_slider(a, "Puhe", "vol_speech", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_check(a, "Äänilinkki: mikrofoni moninpelissä (N mykistää)", "voice_mic")
 	_slider(a, "Muiden pelaajien puhe", "vol_voice", 0.0, 1.0, 0.05, "%d %%", 100.0)

@@ -120,6 +120,10 @@ var _ride_crew: Array = []  # porukka autossa tai Happy Beachillä paikallaan (h
 var _ride_by := ""  # "auto" | "vene": millä porukka lähti (ratkaisee, milloin he palaavat pihalle)
 var oodi: Node  # keskiyön oodi Oulujärvelle etuterassilla (oodi.gd)
 ## Päikkärit ylämökissä: jäljellä oleva uniaika ja ruudun pimennys.
+## Nauhoitetut repliikit (puhe.gd): Jukan kahvihuuto ja porukan kommentit matkalla Happy Beachille.
+const COFFEE_LINES := ["Kahville! Pannukahvit on valmiina.", "Herätys, kahvit on pöydässä!", "Kaffelle, pojat!"]
+const RIDE_LINES_A := ["Happy Beach! Mennään baarille.", "Hieno reissu. Kuka tarjoaa ekat?", "Tänne pääsee nopeammin veneellä."]
+const RIDE_LINES_B := ["Happy Beach! Mennään baarille.", "Täällä on kyllä kauniit maisemat.", "Kuka tarjoaa ekat?"]
 const NAP_T := 10.0
 const NIGHT_T := 16.0  # yöunien välianimaation kesto
 const WAKE_HOUR := 7  # yöunilta herätään aamuseitsemältä
@@ -213,7 +217,6 @@ func _ready() -> void:
 	muistelu.game = self
 	add_child(muistelu)
 	ohje = Ohje.new()
-	ohje.auto = not skip_menu
 	add_child(ohje)
 	lautapeli = Lautapeli.new()
 	lautapeli.game = self
@@ -639,7 +642,7 @@ func _coffee_shout() -> int:
 			j = i
 	if j < 0:
 		return -1
-	chat.show_message(j, ["Kahville! Pannukahvit on valmiina.", "Herätys, kahvit on pöydässä!", "Kaffelle, pojat!"][day % 3])
+	chat.show_message(j, COFFEE_LINES[day % 3])
 	if j != player_index:
 		toast("Jukka huutaa kahville: kupit alamökin keittiön pöydässä.", 4.0)
 	return j
@@ -1138,7 +1141,7 @@ func _release_crew_boat(idx: int) -> void:
 	if idx == 0:
 		_ride_crew.clear()
 	elif not _ride_crew.is_empty():
-		chat.ai_say(_ride_crew[0], ["Happy Beach! Mennään baarille.", "Hieno reissu. Kuka tarjoaa ekat?", "Tänne pääsee nopeammin veneellä."][randi() % 3])
+		chat.ai_say(_ride_crew[0], RIDE_LINES_A[randi() % 3])
 
 
 ## Moninpeli: toinen pelaaja (driver_idx) ajaa muskelivenettä (on) tai telakoi sen satamaan at (ei): oma pelaaja ja
@@ -1265,7 +1268,7 @@ func _release_crew(at_home: bool) -> void:
 	if at_home:
 		_ride_crew.clear()
 	elif not _ride_crew.is_empty() and Happybeach.in_camp(car.global_position):
-		chat.ai_say(_ride_crew[0], ["Happy Beach! Mennään baarille.", "Täällä on kyllä kauniit maisemat.", "Kuka tarjoaa ekat?"][randi() % 3])
+		chat.ai_say(_ride_crew[0], RIDE_LINES_B[randi() % 3])
 
 
 ## Ajo keskeytyy (hahmon vaihto, R): kuljettaja ulos ja porukka takaisin mökin pihalle.

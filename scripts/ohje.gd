@@ -1,8 +1,9 @@
 extends CanvasLayer
 ## Minipelien ohjeruutu: seikkaperäiset säännöt ja näppäimet jokaiselle pelille (TEXTS). open(id) näyttää ohjeen ja
 ## kutsuu closed-takaisinkutsun, kun se suljetaan; pelin ajan peli odottaa (baari.gd ja pöytäpelit tarkistavat is_open()).
-## Ensimmäisellä kerralla (per istunto) ohje aukeaa itsestään (open_first), ja H avaa sen milloin tahansa uudelleen.
-## E / Enter / välilyönti / Esc / klikkaus sulkee, nuolet ↑↓ ja hiiren rulla vierittävät.
+## Ohjeet ovat aina piilossa, kunnes pelaaja pyytää ne: J avaa ohjeen pelin aikana (sama näppäin kuin tehtävälistan
+## piilotus pääpelissä), eikä mikään peli avaa ohjetta itsestään (open_first ei näytä mitään).
+## J / E / Enter / välilyönti / Esc / klikkaus sulkee, nuolet ↑↓ ja hiiren rulla vierittävät.
 
 const Ui := preload("res://scripts/ui.gd")
 
@@ -81,7 +82,7 @@ Löydä Afrikan tähti kaupunkien kiekoista ja vie se ensimmäisenä Tangeriin t
 • Erikoispaikat: Kapkaupunki +500 £ ensimmäiselle · Accra tuplaa jalokiven · Lagos: myrsky kolmeksi vuoroksi · Pyhä Helena ja Saharan autiomaa: vapaa vasta nopalla 1 tai 2.
 • Aloitusraha 300 £.
 
-[b]F[/b] nousee pöydästä, [b]H[/b] avaa ohjeen."""],
+[b]F[/b] nousee pöydästä, [b]J[/b] avaa ohjeen."""],
 	"muistelu": ["MUISTATKO KUN", """[color=#ffd23a][b]Tavoite[/b][/color]
 Nuotiolla kerrotaan neljä ysärimuistoa. Vastauksesi muuttavat illan tunnelmaa, mikä näkyy aamun mainepisteissä.
 
@@ -102,8 +103,6 @@ Neljä pelaajaa, vastapelaajat ovat pari. Tarjouskortti: punainen = rami, musta 
 }
 signal closed
 
-## Testit (skip_menu) eivät avaa ohjetta itsestään.
-var auto := true
 
 var _panel: PanelContainer
 var _title: Label
@@ -135,7 +134,7 @@ func _ready() -> void:
 	_body.add_theme_font_size_override("bold_font_size", 21)
 	_body.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(_body)
-	_foot = Ui.label(box, "E / Enter / klikkaus: valmis   ·   ↑ ↓ vierittää   ·   H avaa ohjeen pelissä milloin tahansa", 15,
+	_foot = Ui.label(box, "E / Enter / klikkaus: valmis   ·   ↑ ↓ vierittää   ·   J avaa ohjeen pelissä milloin tahansa", 15,
 		Color(0.8, 0.8, 0.85))
 
 
@@ -166,13 +165,10 @@ func open(id: String, on_close := Callable()) -> void:
 	CamCtl.free_mouse = true
 
 
-## Avaa ohjeen vain, jos sitä ei ole vielä näytetty tässä istunnossa; muuten kutsuu on_close heti.
-func open_first(id: String, on_close := Callable()) -> void:
-	if _seen.has(id) or not auto:
-		if on_close.is_valid():
-			on_close.call()
-		return
-	open(id, on_close)
+## Ohjetta ei avata itsestään: kutsuu on_close heti (säilytetty, jotta pelit voivat odottaa ohjeen jälkeen).
+func open_first(_id: String, on_close := Callable()) -> void:
+	if on_close.is_valid():
+		on_close.call()
 
 
 func close() -> void:
@@ -199,7 +195,7 @@ func _input(event: InputEvent) -> void:
 			var bar := _body.get_v_scroll_bar()
 			var d := 60.0 if (kc == KEY_DOWN or kc == KEY_PAGEDOWN) else -60.0
 			bar.value += d * (4.0 if kc == KEY_PAGEUP or kc == KEY_PAGEDOWN else 1.0)
-		elif not event.echo and kc in [KEY_E, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_H, KEY_F]:
+		elif not event.echo and kc in [KEY_E, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_J, KEY_F]:
 			close()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:

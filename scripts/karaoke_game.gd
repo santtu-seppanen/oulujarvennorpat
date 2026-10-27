@@ -12,6 +12,8 @@ extends CanvasLayer
 signal finished(score: float)
 signal line(text: String)
 
+const Ui := preload("res://scripts/ui.gd")
+
 const W := 1280.0
 const H := 720.0
 const RATE := 22050.0
@@ -134,7 +136,7 @@ func _ready() -> void:
 		_begin()
 	else:
 		_menu = true
-		_keys.set_text("%s valitse · %s / Enter / klikkaus aloittaa · %s takaisin" % [Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("mount", "Esc")])
+		_keys.set_text("%s valitse · %s / klikkaus aloittaa · %s takaisin   J ohje" % [Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("mount", "Esc")])
 
 
 ## Kappalevalikko: paikan oma kappale ja aito versio.
@@ -185,7 +187,7 @@ func _begin() -> void:
 		add_child(_player)
 		_player.play()
 		_pb = _player.get_stream_playback()
-	_keys.set_text("%s näppäile nuotit tahtiin · pitkät pohjassa · %s lopeta" % ["A S K L / ←↓↑→", Settings.cap("mount", "Esc")])
+	_keys.set_text("%s näppäile nuotit tahtiin · pitkät pohjassa · %s lopeta   J ohje" % ["A S K L / ←↓↑→", Settings.cap("mount", "Esc")])
 
 
 func _build_own_notes() -> void:
@@ -245,11 +247,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if _menu:
 		if event is InputEventKey and event.pressed and not event.echo:
-			if event.is_action("forward") or event.keycode == KEY_UP:
-				_menu_i = (_menu_i + menu_titles.size() - 1) % menu_titles.size()
-			elif event.is_action("back") or event.keycode == KEY_DOWN:
-				_menu_i = (_menu_i + 1) % menu_titles.size()
-			elif event.is_action("interact") or event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			var r := Ui.pick_key(event, _menu_i, menu_titles.size())  # yhteinen valintalogiikka (ui.gd)
+			if not r.is_empty():
+				_menu_i = int(r.sel)
+				if r.confirm:
+					_choose(_menu_i)
+			elif event.is_action("interact"):
 				_choose(_menu_i)
 		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			for i in _menu_rects.size():
@@ -580,7 +583,7 @@ func _draw_menu() -> void:
 		c.draw_rect(r, Color(0.2, 0.28, 0.5, 0.95) if sel else Color(0.1, 0.12, 0.2, 0.9))
 		c.draw_rect(r, Color(1.0, 0.85, 0.3) if sel else Color(0.4, 0.45, 0.6), false, 3.0)
 		var e: Array = menu_titles[i]
-		c.draw_string(f, r.position + Vector2(24, 44), ("▶ " if sel else "") + str(e[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color.WHITE if sel else Color(0.85, 0.85, 0.95))
+		c.draw_string(f, r.position + Vector2(24, 44), Ui.choice_text(i, str(e[1]), sel), HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color.WHITE if sel else Color(0.85, 0.85, 0.95))
 		c.draw_multiline_string(f, r.position + Vector2(24, 76), str(e[2]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 48.0, 20, 2, Color(0.8, 0.85, 1.0, 0.9))
 
 

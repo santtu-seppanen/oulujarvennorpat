@@ -157,7 +157,7 @@ func _process(delta: float) -> void:
 	_info.text = "HEDELMÄPELI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
 	match _phase:
 		"idle":
-			_keys.set_text("%s pelaa (%d €)   %s/%s panos%s   %s lopeta" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
+			_keys.set_text("%s pelaa (%d €)   %s/%s panos%s   %s lopeta   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
 				Settings.cap("back"), "   [1] [2] [3] lukitse rulla" if _lock_ok else "", Settings.cap("mount")])
 		"win":
 			_keys.set_text("%s voitot talteen" % Settings.cap("interact"))

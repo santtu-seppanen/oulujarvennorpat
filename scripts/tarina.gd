@@ -154,7 +154,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J:
-		if active and game.state == "play" and not get_tree().paused:
+		if active and game.state == "play" and not get_tree().paused and game.activity == "":  # minipelissä J on pelin ohje
 			shown = not shown
 			_dirty = true
 

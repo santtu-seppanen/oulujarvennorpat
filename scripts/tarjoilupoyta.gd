@@ -10,6 +10,8 @@ const Porukka := preload("res://scripts/porukka.gd")
 
 const SPOT := Vector2(-4.9, 0.25)  # pihan kehyksessä (u, v): teltan pöydän keskikohta (mokki.gd _tent)
 const REACH := 1.5
+const BREAKFAST_LINE := "Aamupala on valmis! Pyttipannua tarjoilupöydällä."  # nauhoitetut (puhe.gd)
+const STEAK_LINE := "Pihvit grillistä! Ruoka on pöydässä."
 const PRAISE_COFFEE := ["Barista Salonen, tää on kahvia!", "Kiitos Barista Salonen – pannukahvi on parasta.", "Barista Salosen pannukahvi, ei voita mikään!",
 	"Barista Salonen on taas tehnyt täydellisen pannullisen."]
 const PRAISE_FOOD := ["Michelin Marko, tää on tähtiruokaa!", "Kiitos Michelin Marko – pyttipannu on huikeaa.", "Michelin Markon pyttipannu, kolme tähteä!",
@@ -83,12 +85,12 @@ func _process(_delta: float) -> void:
 	if lt.hour == 12 and _day12 != day:
 		_day12 = day
 		game.kokkaus.add(4)
-		game.chat.ai_say(_marko_index(), "Aamupala on valmis! Pyttipannua tarjoilupöydällä.")
+		game.chat.ai_say(_marko_index(), BREAKFAST_LINE)
 		game.toast("Marko on paistanut aamupalaksi pyttipannua: tarjoilupöydällä (Q syö).", 5.0)
 	elif lt.hour == 20 and _day20 != day:
 		_day20 = day
 		add_steaks(4)
-		game.chat.ai_say(_marko_index(), "Pihvit grillistä! Ruoka on pöydässä.")
+		game.chat.ai_say(_marko_index(), STEAK_LINE)
 		game.toast("Marko grillasi pihvit grillikatoksessa: tarjoilupöydällä (Q syö).", 5.0)
 
 

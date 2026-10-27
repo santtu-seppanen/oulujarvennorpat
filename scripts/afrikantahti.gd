@@ -12,10 +12,12 @@ extends Node
 ## Guineanlahti (Lagos: tyhjän kiekon ostaja jää kolmeksi vuoroksi), Pyhä Helena (vankina, kunnes noppa antaa 1 tai 2),
 ## Saharan autiomaa (mustalla pisteellä sinisen renkaan sisällä vuoronsa päättävä jää vangiksi, kunnes noppa antaa 1 tai 2).
 ## Aloitusraha 300 £. Pelaaja valitsee ylös/alas-nuolilla (W/S, A/D) valikosta ja vahvistaa E:llä tai klikkaa karttaa;
-## tietokoneen mökkiläiset pelaavat itse ja istuvat pöytään. F nousee pöydästä, H avaa ohjeen.
+## tietokoneen mökkiläiset pelaavat itse ja istuvat pöytään. F nousee pöydästä, J avaa ohjeen.
 
 const Ui := preload("res://scripts/ui.gd")
 const Chat := preload("res://scripts/chat.gd")
+const STAR_FOUND := "Tähti löytyi!"  # nauhoitetut repliikit (puhe.gd)
+const STAR_MINE := "Afrikan tähti on minun!"
 
 const START_MONEY := 300
 const TOKEN_PRICE := 100
@@ -591,7 +593,7 @@ func _open_token(free: bool) -> void:
 			_message += " Guineanlahdella myrsky: kolme vuoroa väliin."
 		Sfx.play("lose", -14.0)
 	if tk == "tahti" and who != human():
-		game.chat.ai_say(who, "Tähti löytyi!")
+		game.chat.ai_say(who, STAR_FOUND)
 
 
 func end_turn() -> void:
@@ -625,7 +627,7 @@ func _win(who: int) -> void:
 		_message += " Maine +3."
 		Sfx.play("win", -8.0)
 	else:
-		game.chat.ai_say(who, "Afrikan tähti on minun!")
+		game.chat.ai_say(who, STAR_MINE)
 	if _human_turns >= 3:
 		game.tarina.complete("afrikka")
 	_refresh()
@@ -724,10 +726,10 @@ func keeps_arrows() -> bool:
 
 func prompt() -> String:
 	if phase == "over":
-		return "E: uusi peli · H: ohje · F: nouse pöydästä"
+		return "E: uusi peli · J: ohje · F: nouse pöydästä"
 	if turn != human():
-		return "Vuorossa: %s · H: ohje · F: nouse pöydästä" % _name(turn)
-	return "↑/↓: valitse · E: vahvista (tai klikkaa karttaa) · H: ohje · F: nouse pöydästä"
+		return "Vuorossa: %s · J: ohje · F: nouse pöydästä" % _name(turn)
+	return "↑/↓: valitse · E: vahvista (tai klikkaa karttaa) · J: ohje · F: nouse pöydästä"
 
 
 func act() -> void:
@@ -750,24 +752,21 @@ func _click_city(c: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _on or Chat.typing or not (event is InputEventKey) or not event.pressed or event.echo:
 		return
-	if event.physical_keycode == KEY_H:
+	if event.physical_keycode == KEY_J:
 		game.ohje.open("afrikka")
 		get_viewport().set_input_as_handled()
 		return
 	if turn != human() or not (phase == "roll" or phase == "choose") or opts.is_empty():
 		return
-	var k: int = event.physical_keycode - KEY_1
-	if k >= 0 and k < opts.size():
-		sel = k
-		confirm(k)
-	elif event.is_action_pressed("forward") or event.is_action_pressed("left"):
-		sel = (sel + opts.size() - 1) % opts.size()
+	var r := Ui.pick_key(event, sel, opts.size())  # yhteinen valintalogiikka (ui.gd)
+	if r.is_empty():
+		return
+	sel = int(r.sel)
+	if r.confirm:
+		confirm(sel)
+	else:
 		_refresh()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("back") or event.is_action_pressed("right"):
-		sel = (sel + 1) % opts.size()
-		_refresh()
-		get_viewport().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
 
 func _status(i: int) -> String:
@@ -794,9 +793,10 @@ func _refresh() -> void:
 		c.queue_free()
 	if turn == human() and (phase == "roll" or phase == "choose"):
 		for i in opts.size():
-			var b := Ui.button(_flow, "%s%d. %s" % ["> " if i == sel else "", i + 1, opts[i].text], func() -> void:
+			var b := Ui.button(_flow, Ui.choice_text(i, opts[i].text, i == sel), func() -> void:
 				sel = i
 				confirm(i))
+			Ui.mark(b, i == sel)
 			b.custom_minimum_size = Vector2(250, 36)
 			b.add_theme_font_size_override("font_size", 15)
 	_map.queue_redraw()

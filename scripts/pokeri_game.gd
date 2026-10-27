@@ -372,10 +372,10 @@ func _process(delta: float) -> void:
 	_info.text = "POKERI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
 	match _phase:
 		"idle":
-			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
+			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
 				Settings.cap("back"), Settings.cap("mount")])
 		"hold":
-			_keys.set_text("[1]–[5] / klikkaus pitää kortin   %s vaihda loput   H ohje" % Settings.cap("interact"))
+			_keys.set_text("[1]–[5] / klikkaus pitää kortin   %s vaihda loput   J ohje" % Settings.cap("interact"))
 		"win":
 			if _can_double():
 				_keys.set_text("%s voitto talteen   %s PIENI (A–6)   %s SUURI (8–K)   punainen 7 = voitot talteen" % [

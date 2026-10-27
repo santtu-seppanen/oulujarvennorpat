@@ -64,7 +64,6 @@ func _process(_delta: float) -> bool:
 		pk._toggle(2)
 		root.get_texture().get_image().save_png(out.path_join("pokeri.png"))
 		pk.queue_free()
-		main.ohje.auto = true
 		main.ohje.open("pokeri")
 	elif t == 70:
 		root.get_texture().get_image().save_png(out.path_join("ohje_pokeri.png"))

@@ -6,12 +6,13 @@ extends Node
 ## - pajatso: kolme rullaa, pelimerkit (ei oikeaa rahaa)
 ## - hedelmäpeli: kolme rullaa, voi lukita rullia ennen uutta pyöräytystä ja tuplata voiton
 ## - pokeri: Coinline-jokeripokeri (pokeri_game.gd), viisi korttia ja jokeri, pidä ja vaihda, tuplaus
-## Jokaisella pelillä on ohje (ohje.gd): se aukeaa ensimmäisellä kerralla itsestään, ja H avaa sen uudelleen.
+## Jokaisella pelillä on ohje (ohje.gd): se aukeaa ensimmäisellä kerralla itsestään, ja J avaa sen.
 ## - Sinikka: juttelu, drinkin tarjoaminen ja yhteistanssi; pöytäseurue ja korttipelaajat: jutustelu
 ## - tanssi: tanssilattialla eurodance-rytmipeli diskopallon alla (tanssi_game.gd), yksin tai Sinikan kanssa
 ## Käyttöliittymä on valikon tyylinen (ui.gd); F tai E (valikoissa) lopettaa.
 
 const Ui := preload("res://scripts/ui.gd")
+const Chat := preload("res://scripts/chat.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const PokeriGame := preload("res://scripts/pokeri_game.gd")
@@ -43,6 +44,9 @@ var mode := ""  # tiski | karaoke | jukeboksi | pajatso | hedelma | pokeri | tan
 var _ui: CanvasLayer
 var _box: VBoxContainer
 var _status: Label
+const LIST_MODES := ["tiski", "jukeboksi", "sinikka", "seurue"]  # valintalistat (ui.gd pick_key)
+var _choices: Array = []  # [nappi, teksti, takaisinkutsu]
+var _sel := 0
 var _tokens := 10  # euroja pajatsolle ja hedelmäpelille
 const ATM_SUM := 20  # pankkiautomaatista saa päivässä kerran näin monta euroa
 var _atm_key := -1  # päivä (vvvvkkpp), jona nosto on jo tehty
@@ -275,11 +279,11 @@ func _launch_game() -> void:
 		_attach(g))
 
 
-## H avaa pelin ohjeen kesken pajatson, hedelmäpelin tai videopokerin (peli odottaa, kunnes ohje suljetaan).
+## J avaa pelin ohjeen kesken pajatson, hedelmäpelin tai videopokerin (peli odottaa, kunnes ohje suljetaan).
 func _input(event: InputEvent) -> void:
-	if not in_game or mode not in ["pajatso", "hedelma", "pokeri"] or not is_instance_valid(_gnode) or game.ohje.is_open():
+	if not in_game or mode not in ["pajatso", "hedelma", "pokeri", "karaoke", "tanssi"] or not is_instance_valid(_gnode) or game.ohje.is_open():
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_H:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J:
 		var g := _gnode
 		g.process_mode = Node.PROCESS_MODE_DISABLED
 		game.ohje.open(mode, func() -> void:
@@ -325,12 +329,12 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	match mode:
 		"karaoke":
-			return ""
+			return "J: ohje"
 		"pajatso", "hedelma", "pokeri":
-			return "H: ohje · F / Esc: lopeta"
+			return "J: ohje · F / Esc: lopeta"
 		"tanssi":
-			return "A S W D tai nuolet: askeleet tahtiin · Esc / F: lopeta"
-	return "Valitse klikkaamalla · E tai F: lopeta"
+			return "A S W D tai nuolet: askeleet tahtiin · J: ohje · Esc / F: lopeta"
+	return "↑/↓ tai 1–%d: valitse · E: vahvista · F: poistu" % maxi(_choices.size(), 1)
 
 
 func act() -> void:
@@ -340,7 +344,10 @@ func act() -> void:
 		"pajatso", "hedelma", "pokeri":
 			pass  # minipeli lukee E:n itse
 		_:
-			game.end_activity()
+			if not _choices.is_empty():
+				(_choices[_sel][2] as Callable).call()  # E vahvistaa korostetun rivin (kuten muissakin listoissa)
+			else:
+				game.end_activity()
 
 
 # --- Näkymät --------------------------------------------------------------------------------------------------
@@ -349,6 +356,8 @@ func _build() -> void:
 	for c in _ui.get_children():
 		c.queue_free()
 	_reels.clear()
+	_choices.clear()
+	_sel = 0
 	_meter = null
 	_box = Ui.panel(_ui, "bottom", 560)
 	var title: String = {"tiski": "HAPPY BEACH · BAARI", "karaoke": "KARAOKE", "jukeboksi": "JUKEBOKSI", "pajatso": "PAJATSO",
@@ -360,14 +369,14 @@ func _build() -> void:
 			_status.text = "Baarimikko: \"Mitäs laitetaan?\""
 			for i in game.world.happy.MENU_ITEMS.size():
 				var it: Array = game.world.happy.MENU_ITEMS[i]
-				Ui.button(_box, it[0], func() -> void: _order(i)).custom_minimum_size = Vector2(300, 38)
+				_choice(it[0], func() -> void: _order(i))
 		"jukeboksi":
 			_status.text = "Toivo biisi:"
 			for t: Array in TRACKS:
 				if not ResourceLoader.exists(t[1]):
 					continue
-				Ui.button(_box, t[0], func() -> void: _play(t)).custom_minimum_size = Vector2(300, 38)
-			Ui.button(_box, "Sammuta musiikki", func() -> void:
+				_choice(t[0], func() -> void: _play(t))
+			_choice("Sammuta musiikki", func() -> void:
 				game.world.happy.play_music(null)
 				_status.text = "Musiikki pois.")
 		"pajatso":
@@ -401,12 +410,12 @@ func _build() -> void:
 			Ui.button(_box, "Pyöräytä (E)", _spin)
 		"sinikka":
 			_status.text = "Sinikka: \"Moi! Kiva nähdä.\""
-			Ui.button(_box, "Juttele", func() -> void:
+			_choice("Juttele", func() -> void:
 				_flirt_add(0.7)
 				var t: String = game.world.happy.SINIKKA_LINES.pick_random()
 				_status.text = "Sinikka: \"%s\"" % t
 				game.world.happy.say(game.world.happy.sinikka, t))
-			Ui.button(_box, "Tarjoa drinkki (lonkero)", func() -> void:
+			_choice("Tarjoa drinkki (lonkero)", func() -> void:
 				game.player.drink(0.2)
 				Sfx.play("register", -8.0)
 				game.tarina.complete("baari")
@@ -414,7 +423,7 @@ func _build() -> void:
 				var t := "Voi kiitos, juot sinäkin! Kippis!"
 				_status.text = "Sinikka: \"%s\" (%.1f ‰)" % [t, game.player.promille]
 				game.world.happy.say(game.world.happy.sinikka, t))
-			Ui.button(_box, "Pyydä tanssimaan", func() -> void:
+			_choice("Pyydä tanssimaan", func() -> void:
 				_flirt_add(1.6)
 				game.end_activity()
 				_with_sinikka = true
@@ -422,7 +431,7 @@ func _build() -> void:
 				game.start_activity("baari"))
 		"seurue":
 			_status.text = "Seurue: \"Istu vaan!\""
-			Ui.button(_box, "Juttele seurueen kanssa", func() -> void:
+			_choice("Juttele seurueen kanssa", func() -> void:
 				var t: String = game.world.happy.SEURUE_LINES.pick_random()
 				_status.text = "Seurue: \"%s\"" % t
 				game.world.happy.say(game.world.happy._seurue.pick_random(), t))
@@ -438,8 +447,47 @@ func _build() -> void:
 			_status.text = "Tanssit Sinikan kanssa diskopallon alla. F lopettaa." if _with_sinikka else "Diskopallo pyörii. F lopettaa."
 			_dance_t = 0.0
 			game.world.happy.disco_on = maxf(game.world.happy.disco_on, 40.0)
-	Ui.button(_box, "Valmis (E)" if mode in ["tiski", "jukeboksi", "sinikka", "seurue"] else "Lopeta",
-		func() -> void: game.end_activity())
+	if mode in LIST_MODES:
+		_choice("Valmis", func() -> void: game.end_activity())
+		_refresh_choices()
+	else:
+		Ui.button(_box, "Lopeta", func() -> void: game.end_activity())
+
+
+## Valintalistan rivi: nappi (klikkaus vahvistaa), numero pikavalintana. Logiikka on ui.gd:n pick_key kaikissa listoissa.
+func _choice(text: String, cb: Callable) -> void:
+	var idx := _choices.size()
+	var b := Ui.button(_box, "", func() -> void:
+		_sel = idx
+		_refresh_choices()
+		cb.call())
+	b.custom_minimum_size = Vector2(300, 38)
+	_choices.append([b, text, cb])
+
+
+func _refresh_choices() -> void:
+	for i in _choices.size():
+		var b: Button = _choices[i][0]
+		b.text = Ui.choice_text(i, _choices[i][1], i == _sel)
+		Ui.mark(b, i == _sel)
+
+
+## Valintalistat käyttävät ylös/alas-nuolia valintaan, joten main.gd ei lopeta aktiviteettia niistä.
+func keeps_arrows() -> bool:
+	return _ui.visible and mode in LIST_MODES and not in_game
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _ui.visible or mode not in LIST_MODES or in_game or game.ohje.is_open() or Chat.typing:
+		return
+	var r := Ui.pick_key(event, _sel, _choices.size())
+	if r.is_empty():
+		return
+	_sel = int(r.sel)
+	_refresh_choices()
+	if r.confirm:
+		(_choices[_sel][2] as Callable).call()
+	get_viewport().set_input_as_handled()
 
 
 func _order(i: int) -> void:
@@ -519,6 +567,7 @@ func _wife_call() -> void:
 	_call_ui.visible = true
 	_call_t = 8.0
 	Sfx.play("alert", -4.0)
+	game.chat.speak_voice("vaimo", t)  # nalkuttava naisääni (nauhoitettu)
 	game.toast("Vaimo soitti äkäisen puhelun Sinikasta! Mainepisteet -%d." % MAINE_LOSS, 5.0)
 
 

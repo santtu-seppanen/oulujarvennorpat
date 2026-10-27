@@ -29,7 +29,7 @@ var values := {
 	"vol_sfx": 0.9,
 	"vol_ambience": 0.8,
 	"vol_music": 0.8,
-	"tts": true,  # puhekuplat ääneen käyttöjärjestelmän puhesynteesillä (chat.gd)
+	"tts": true,  # käsikirjoitetut repliikit ääneen: valmiit nauhoitteet (puhe.gd)
 	"vol_speech": 0.8,
 	"voice_mic": true,  # moninpelin äänilinkki: oma mikki käyttöön (aanilinkki.gd), N mykistää
 	"vol_voice": 0.9,  # muiden pelaajien puhe äänilinkissä

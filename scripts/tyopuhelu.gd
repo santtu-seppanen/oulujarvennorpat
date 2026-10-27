@@ -127,6 +127,8 @@ func answer(yes: bool) -> void:
 	if not active:
 		return
 	_close()
+	# Soittajan nalkuttava miesääni (nauhoitettu, puhe.gd): vastattaessa puhelimessa, muuten vastaajaviestinä hiljaa.
+	game.chat.speak_voice("esimies", str(_call[1]), 0.0 if yes else -9.0)
 	var s: Node = game.sauna
 	if yes:
 		answered += 1

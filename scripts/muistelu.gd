@@ -168,11 +168,11 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	match _phase:
 		"choose":
-			return "↑/↓ tai 1/2/3: valitse · E: vahvista · H: ohje · F: poistu nuotiolta"
+			return "↑/↓ tai 1/2/3: valitse · E: vahvista · J: ohje · F: poistu nuotiolta"
 		"done":
 			return "E: poistu nuotiolta"
 		_:
-			return "Seuraava tarina alkaa itsestään (E: heti) · H: ohje · F: poistu nuotiolta"
+			return "Seuraava tarina alkaa itsestään (E: heti) · J: ohje · F: poistu nuotiolta"
 
 
 func act() -> void:
@@ -194,25 +194,21 @@ func keeps_arrows() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _ui.visible or Chat.typing:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J:
 		game.ohje.open("muistelu")
 		get_viewport().set_input_as_handled()
 		return
 	if _phase != "choose":
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		var k: int = event.physical_keycode - KEY_1
-		if k >= 0 and k < 3:
-			choose(k)
-			return
-	if event.is_action_pressed("left") or event.is_action_pressed("forward"):
-		_sel = (_sel + 2) % 3
+	var r := Ui.pick_key(event, _sel, 3)  # yhteinen valintalogiikka (ui.gd)
+	if r.is_empty():
+		return
+	_sel = int(r.sel)
+	if r.confirm:
+		choose(_sel)
+	else:
 		_refresh()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("right") or event.is_action_pressed("back"):
-		_sel = (_sel + 1) % 3
-		_refresh()
-		get_viewport().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
 
 ## Seuraava tarina (tai illan päätös).
@@ -301,7 +297,8 @@ func _refresh() -> void:
 			for k in 3:
 				var b: Button = _btns[k]
 				b.visible = true
-				b.text = "%s%d. %s" % ["> " if k == _sel else "   ", k + 1, _cur.opts[_order[k]][0]]
+				b.text = Ui.choice_text(k, _cur.opts[_order[k]][0], k == _sel)
+				Ui.mark(b, k == _sel)
 			_info.text = "Tarina %d/%d" % [_count + 1, SESSION]
 		"reply":
 			_text.text = _cur.text

@@ -8,6 +8,7 @@ extends Node
 
 const Ui := preload("res://scripts/ui.gd")
 const Chat := preload("res://scripts/chat.gd")
+const PASS_LINES := ["Hmm... en muista.", "Ööö... pas.", "Kyllä mä tiesin, mutta..."]  # nauhoitetut (puhe.gd)
 
 const WIN := 4
 const ASK_T := 45.0  # pelaajan vastausaika
@@ -175,37 +176,33 @@ func keeps_arrows() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _on or Chat.typing:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H and phase != "valinta":
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J and phase != "valinta":
 		game.ohje.open("trivia")
 		get_viewport().set_input_as_handled()
 		return
 	if phase != "valinta":
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode == KEY_1:
-			choose(0)
-		elif event.physical_keycode == KEY_2:
-			choose(1)
-	if event.is_action_pressed("forward") or event.is_action_pressed("left"):
-		_pick = (_pick + 1) % 2
+	var r := Ui.pick_key(event, _pick, 2)  # yhteinen valintalogiikka (ui.gd)
+	if r.is_empty():
+		return
+	_pick = int(r.sel)
+	if r.confirm:
+		choose(_pick)
+	else:
 		_refresh()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("back") or event.is_action_pressed("right"):
-		_pick = (_pick + 1) % 2
-		_refresh()
-		get_viewport().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
 
 func prompt() -> String:
 	match phase:
 		"valinta":
-			return "↑/↓ tai 1/2: valitse peli · E: aloita · F: nouse pöydästä"
+			return "↑/↓ tai 1/2: valitse peli · E: vahvista · F: nouse pöydästä"
 		"ask":
 			if turn == human():
 				return "Enter: kirjoita vastaus chattiin · E: ohita · F: nouse pöydästä"
 			return "Vastaamassa: %s · F: nouse pöydästä" % _name(turn)
 		"over":
-			return "E: uusi peli · H: ohje · F: nouse pöydästä"
+			return "E: uusi peli · J: ohje · F: nouse pöydästä"
 		_:
 			return "E: jatka · F: nouse pöydästä"
 
@@ -332,7 +329,7 @@ func _ai_answer() -> void:
 	if ok:
 		game.chat.ai_say(turn, "%s!" % (q[2] as Array)[0].capitalize())
 	else:
-		game.chat.ai_say(turn, ["Hmm... en muista.", "Ööö... pas.", "Kyllä mä tiesin, mutta..."][_rng.randi() % 3])
+		game.chat.ai_say(turn, PASS_LINES[_rng.randi() % 3])
 	_resolve(ok, "x")
 
 
@@ -346,7 +343,8 @@ func _refresh() -> void:
 	for k in _picks.size():
 		var b: Button = _picks[k]
 		b.visible = phase == "valinta"
-		b.text = "%s%d. %s" % ["> " if k == _pick else "   ", k + 1, ["Ysäritrivia", "Afrikan tähti"][k]]
+		b.text = Ui.choice_text(k, ["Ysäritrivia", "Afrikan tähti"][k], k == _pick)
+		Ui.mark(b, k == _pick)
 	_meter.visible = phase == "ask" and turn == human()
 	if _meter.visible:
 		_meter.zones = [[0.0, 1.0, Color(0.25, 0.5, 0.3, 0.6)]]

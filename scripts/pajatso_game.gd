@@ -228,18 +228,18 @@ func _process(delta: float) -> void:
 	var e := Settings.cap("interact")
 	var tie := ("   %s siima kolikkoon" % q) if siima and not siima_used and not _tied else ""
 	if _coin_state == "" and _yank_cup >= 0:
-		_keys.set_text("%s nykäise siimasta   %s uusi kolikko (1 €)   %s lopeta" % [q, e, Settings.cap("mount")])
+		_keys.set_text("%s nykäise siimasta   %s uusi kolikko (1 €)   %s lopeta   J ohje" % [q, e, Settings.cap("mount")])
 	elif _coin_state == "":
 		var pay := ("%s MAKSUVIPU (%d)   " % [Settings.cap("forward"), _pending_total()]) if _pending_total() > 0 else ""
-		_keys.set_text("%s%s syötä kolikko (1 €)   %s vaihtokone%s   %s lopeta" % [pay, e, Settings.cap("right"), tie,
+		_keys.set_text("%s%s syötä kolikko (1 €)   %s vaihtokone%s   %s lopeta   J ohje" % [pay, e, Settings.cap("right"), tie,
 			Settings.cap("mount")])
 	elif _coin_state == "ready":
-		_keys.set_text("%s pidä = kerää sormeen voimaa, päästä = napsauta laukaisinta   %s peukalotuki   %s saatto%s   %s lopeta" % [e,
+		_keys.set_text("%s pidä = kerää sormeen voimaa, päästä = napsauta laukaisinta   %s peukalotuki   %s saatto%s   %s lopeta   J ohje" % [e,
 			Settings.cap("jump"), Settings.cap("back"), tie, Settings.cap("mount")])
 	elif _coin_state == "free":
-		_keys.set_text("Kolikko lentää...   %s tönäise konetta (TILT!)   %s lopeta" % [Settings.cap("kick"), Settings.cap("mount")])
+		_keys.set_text("Kolikko lentää...   %s tönäise konetta (TILT!)   %s lopeta   J ohje" % [Settings.cap("kick"), Settings.cap("mount")])
 	else:
-		_keys.set_text("Kolikko matkalla...   %s lopeta" % Settings.cap("mount"))
+		_keys.set_text("Kolikko matkalla...   %s lopeta   J ohje" % Settings.cap("mount"))
 
 
 func _eur(v: float) -> String:
