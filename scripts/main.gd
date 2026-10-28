@@ -1579,6 +1579,11 @@ func _build_hud() -> void:
 	map_layer.add_child(_map)
 
 
+## Kohtaus käynnissä (saapuminen, konttaus, loppu, päikkärit/yöunet): ei tehtäviä eikä kosketusnappeja.
+func in_cutscene() -> bool:
+	return saapuminen.active or kannit.active or loppu.active or _nap_t > 0.0
+
+
 func _update_hud() -> void:
 	if not _hud.visible:
 		return

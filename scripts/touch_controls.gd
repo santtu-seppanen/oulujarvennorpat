@@ -54,6 +54,8 @@ func set_extra(list: Array) -> void:
 
 
 func _process(_delta: float) -> void:
+	var scene := get_tree().current_scene
+	visible = not (scene != null and scene.has_method("in_cutscene") and scene.in_cutscene())
 	var s := get_viewport().get_visible_rect().size
 	if s != _size or _buttons.is_empty():
 		_size = s
