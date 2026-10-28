@@ -40,6 +40,16 @@ func _ready() -> void:
 	steaks = Node3D.new()
 	steaks.position = Vector3(-0.3, top, 0.25)
 	add_child(steaks)
+	# Ruoka tulee pöytään vain, kun tietokoneen Marko on oikeasti laittanut sen (ai.gd _done).
+	game.world.mokki.cooked.connect(func(_n: int) -> void:
+		if not game.at_beach():
+			game.chat.ai_say(_marko_index(), BREAKFAST_LINE)
+			game.toast("Marko on paistanut aamupalaksi pyttipannua: tarjoilupöydällä (Q syö).", 5.0))
+	game.world.mokki.grilled.connect(func(n: int) -> void:
+		add_steaks(n)
+		if not game.at_beach():
+			game.chat.ai_say(_marko_index(), STEAK_LINE)
+			game.toast("Marko grillasi pihvit grillikatoksessa: tarjoilupöydällä (Q syö).", 5.0))
 	game.mp.on("pihvi", func(d: Dictionary, _from: int) -> void: _set_steaks(int(d.n)))
 
 
@@ -78,24 +88,31 @@ func _marko_index() -> int:
 
 
 func _process(_delta: float) -> void:
-	if game.state != "play" or (game.mp.online() and not game.mp.net.is_host()) or not _marko_ai():
+	if game.state != "play" or (game.mp.online() and not game.mp.net.is_host()) or not _marko_ai() or game.travelling() or game.ball_playing():
 		return
 	var lt: Dictionary = game.sun.local()
 	var day: int = lt.day
 	if lt.hour == 12 and _day12 != day:
 		_day12 = day
-		game.kokkaus.add(4)
-		if not game.at_beach(): game.chat.ai_say(_marko_index(), BREAKFAST_LINE)
-		if not game.at_beach(): game.toast("Marko on paistanut aamupalaksi pyttipannua: tarjoilupöydällä (Q syö).", 5.0)
+		_send_marko("kokkaus")
 	elif lt.hour == 20 and _day20 != day:
 		_day20 = day
-		add_steaks(4)
-		if not game.at_beach(): game.chat.ai_say(_marko_index(), STEAK_LINE)
-		if not game.at_beach(): game.toast("Marko grillasi pihvit grillikatoksessa: tarjoilupöydällä (Q syö).", 5.0)
+		_send_marko("grilli")
+
+
+## Tietokoneen Marko menee laittamaan ruokaa (kokkaus: hella, grilli: grillikatos), kun nykyinen puuha päättyy.
+func _send_marko(a: String) -> void:
+	var b: CharacterBody3D = game.crew[_marko_index()]
+	if b.brain != null:
+		b.brain.queue(a)
 
 
 ## Pihvejä pöydälle (Markon grillaama tai tietokoneen Markon tekemä).
+## Pihvien tullessa pöytään aamupalan pyttipannu viedään pois.
 func add_steaks(n: int) -> void:
+	if game.kokkaus.annokset > 0:
+		game.kokkaus._set_count(0)
+		game.mp.send({"t": "pytti", "n": 0})
 	_set_steaks(mini(8, pihvit + n))
 	game.mp.send({"t": "pihvi", "n": pihvit})
 

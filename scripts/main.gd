@@ -35,7 +35,6 @@ const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 const Auto := preload("res://scripts/auto.gd")
 const Tarina := preload("res://scripts/tarina.gd")
 const Saapuminen := preload("res://scripts/saapuminen.gd")
-const Kannit := preload("res://scripts/kannit.gd")
 const OmatKatkot := preload("res://scripts/omat_katkot.gd")
 const Baari := preload("res://scripts/baari.gd")
 const Tarjoilupoyta := preload("res://scripts/tarjoilupoyta.gd")
@@ -100,7 +99,6 @@ var heittely: Node3D  # amerikanpallo: heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
 var maine := 50  # mainepisteet 0-100: laskevat mm. liiallisesta flirttailusta Sinikan kanssa (baari.gd)
 var grilli: Node  # Markon pihvit grillikatoksessa (grilli.gd)
-var kannit: Node  # konttauskunto-välianimaatio 2 promillen humalassa (kannit.gd)
 var saapuminen: Node  # saapumiskohtaus uuden pelin alussa (saapuminen.gd)
 var nuotio: Node  # nuotiopaikka rannalla (nuotio.gd)
 var makkara: Node  # makkaranpaisto nuotiolla (makkara.gd)
@@ -117,6 +115,8 @@ var omat_katkot: Node3D  # pelaajan omat kätköt lähimaastossa (omat_katkot.gd
 var retki: Node3D  # tutkimusmatka kumiveneellä viinakätkölle (tutkimusmatka.gd)
 var car: CharacterBody3D  # farmariauto: ajo Happy Beachille ja takaisin (auto.gd)
 var tarina: Node  # mökkiviikonlopun tehtävät torstaista sunnuntaihin (tarina.gd)
+var _coffee_pending := false  # kahvikutsu odottaa kahvia tai pallopelin loppua
+var _coffee_pending_day := -1
 var _ride_crew: Array = []  # porukka autossa tai Happy Beachillä paikallaan (hahmojen indeksit)
 var _ride_by := ""  # "auto" | "vene": millä porukka lähti (ratkaisee, milloin he palaavat pihalle)
 var oodi: Node  # keskiyön oodi Oulujärvelle etuterassilla (oodi.gd)
@@ -291,9 +291,6 @@ func _ready() -> void:
 	saapuminen = Saapuminen.new()
 	saapuminen.game = self
 	add_child(saapuminen)
-	kannit = Kannit.new()
-	kannit.game = self
-	add_child(kannit)
 	_menu = Menu.new()
 	_menu.game = self
 	add_child(_menu)
@@ -420,6 +417,11 @@ func _process(delta: float) -> void:
 			car.set_night(night)
 	if car != null:
 		_ride_check()
+	if _coffee_pending:
+		if sun.local().day != _coffee_pending_day:
+			_coffee_pending = false
+		else:
+			_coffee_call()
 	if _nap_t > 0.0:
 		_nap_t -= delta
 		# Häivytys mustaan välianimaation alussa ja lopussa.
@@ -643,18 +645,23 @@ func _ballgame() -> Node3D:
 ## Päikkärien jälkeen Jukka huutaa porukan kahville (kerran päivässä): kupit alamökin keittiön pöydässä.
 ## Huuto lähtee kaikille koneille (viesti "kahvikutsu"); kupit kulkevat kahvi.gd:n viestillä.
 func _coffee_call() -> void:
+	if kahvi.kupit <= 0 or ball_playing() or travelling():
+		# Kahvia ei tule itsestään: huuto odottaa (_process), kunnes Jukka on oikeasti keittänyt (kahvi.gd).
+		if not _coffee_pending:
+			_coffee_pending = true
+			_coffee_pending_day = sun.local().day
+		return
+	_coffee_pending = false
 	var j := _coffee_shout()
 	if j < 0:
 		return
-	if crew_modes[j] == "ai" and kahvi.kupit < 4:
-		kahvi.add(4 - kahvi.kupit)  # tietokoneen Jukka keitti kahvit päikkärien aikana
 	mp.send({"t": "kahvikutsu"})
 
 
 ## Jukan huuto tällä koneella (kerran päivässä): kupla, puhe ja ilmoitus. Palauttaa Jukan indeksin tai -1.
 func _coffee_shout() -> int:
 	var day: int = sun.local().day
-	if _coffee_day == day:
+	if _coffee_day == day or travelling():
 		return -1
 	_coffee_day = day
 	var j := -1
@@ -674,7 +681,7 @@ func _coffee_shout() -> int:
 ## Klo 16 aikoihin porukka lähtee päikkäreille (ai.gd): kerran päivässä ilmoitus pelaajalle.
 func _nap_call() -> void:
 	var lt: Dictionary = sun.local()
-	if sun.after_first_day() and lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day:
+	if sun.after_first_day() and lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day and not travelling():
 		_nap_day = lt.day
 		if at_beach():
 			return  # mökin päikkäriviesti ei kuulu Happy Beachille
@@ -736,6 +743,20 @@ func go_to_bed() -> void:
 		_crew_to_bed(true)
 		return
 	_nap(true, false)  # jokainen kone aloittaa oodin lopussa itse, viestiä ei tarvita
+
+
+## Pinkiponki tai amerikanpallo on käynnissä: kaikki ovat pelaamassa, joten kukaan ei tee ruokaa eikä kahvia.
+func ball_playing() -> bool:
+	for g in ballgames:
+		if g.session:
+			return true
+	return false
+
+
+## Pelaaja on autolla tai veneellä (kuskina tai kyydissä): mökillä ei tapahdu mitään, ennen kuin ollaan perillä.
+func travelling() -> bool:
+	return car.driver != null or car.passenger != null or muskelivene.driver != null or muskelivene.passenger != null \
+		or player.boat != null
 
 
 ## Pelaaja on Happy Beachillä (alue, ravintola ja terassi): ei oodia, ei päikkäreitä eikä yöunia mökille.
@@ -1622,7 +1643,7 @@ func _build_hud() -> void:
 
 ## Kohtaus käynnissä (saapuminen, konttaus, loppu, päikkärit/yöunet): ei tehtäviä eikä kosketusnappeja.
 func in_cutscene() -> bool:
-	return saapuminen.active or kannit.active or loppu.active or _nap_t > 0.0
+	return saapuminen.active or loppu.active or _nap_t > 0.0
 
 
 var _night_set := -1.0  # viimeksi valoihin asetettu yön aste

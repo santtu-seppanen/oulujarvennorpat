@@ -52,7 +52,8 @@ var _t := 0.0
 var _day := -1  # yö, jona oodi on jo laulettu
 var _taken: Array = []  # tämän koneen ohjaamat laulajat (crew-indeksit)
 var _player: AudioStreamPlayer
-var _away := false  # pelaaja oli oodin alkaessa Happy Beachillä: ei ääntä eikä kuplia, maine vähenee
+var _away := false  # pelaaja oli oodin alkaessa Happy Beachillä tai matkalla: ei ääntä eikä kuplia, maine vähenee
+var _away_text := ""  # missä pelaaja oli poissa (ilmoitukseen)
 var _req := false
 var _next := 0  # seuraava laulettava sana (lines() -lista)
 var _lines: Array = []
@@ -139,7 +140,9 @@ func _gather(send: bool) -> void:
 	if state != "":
 		return
 	state = "kokoontuu"
-	_away = game.at_beach()  # Happy Beachillä oleville oodi ei kuulu: he eivät kuule sitä, ja mainepisteet vähenevät
+	# Happy Beachillä tai autolla/veneellä oleville oodi ei kuulu: he eivät kuule sitä, ja mainepisteet vähenevät
+	_away = game.at_beach() or game.travelling()
+	_away_text = "Happy Beachillä" if game.at_beach() else "matkalla"
 	_t = 0.0
 	_day = game.sun.local().day
 	if send:
@@ -223,7 +226,7 @@ func _settle_fame() -> void:
 	var sang: bool = not _away and ((game.crew_modes[j] == "ai" and j in _taken) or (game.crew_modes[j] != "ai" and _player_there()))
 	if _away:
 		game.maine = maxi(0, game.maine - MAINE_LOSS)
-		game.toast("Keskiyö Happy Beachillä: oodi Oulujärvelle jäi laulamatta, mainepisteet -%d (nyt %d/100)" % [MAINE_LOSS, game.maine], 5.0)
+		game.toast("Keskiyö %s: oodi Oulujärvelle jäi laulamatta, mainepisteet -%d (nyt %d/100)" % [_away_text, MAINE_LOSS, game.maine], 5.0)
 	elif sang:
 		game.maine = mini(100, game.maine + MAINE_GAIN)
 		game.toast("Lauloit oodin Oulujärvelle: mainepisteet +%d (nyt %d/100)" % [MAINE_GAIN, game.maine], 5.0)
@@ -255,4 +258,8 @@ func _end() -> void:
 	if not _away:
 		game.toast("Oodi Oulujärvelle laulettu. Hyvää yötä, norpat!", 5.0)
 	_away = false
+	# Yön yli juomattomat kahvit ja syömättömät ruoat menevät hukkaan (jokainen kone nollaa omansa).
+	game.kahvi._set_count(0)
+	game.kokkaus._set_count(0)
+	game.tarjoilu._set_steaks(0)
 	game.go_to_bed()

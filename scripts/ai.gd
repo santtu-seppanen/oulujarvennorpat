@@ -34,6 +34,7 @@ var _face := Vector3.ZERO
 var _stuck := 0.0
 var _last := Vector3.ZERO
 var _next := ""
+var _want := ""  # tarjoilupoyta.gd:n pyytämä puuha (ruoanlaitto): ohittaa muut jonossa olevat
 var _talk_t := 0.0
 var _avoid := 0.0
 var _avoid_dir := 1.0
@@ -77,7 +78,7 @@ func think(delta: float) -> void:
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
-	if _sunset() and not activity in ["aurinko", "kortit", "nuotio", "sauna", "kokkaus", "kahvi", "oodi", "yo"] and _state != "hidden":
+	if _sunset() and not activity in ["aurinko", "kortit", "nuotio", "sauna", "kokkaus", "kahvi", "grilli", "oodi", "yo"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -188,6 +189,12 @@ func go_to_bed() -> void:
 	_start("yo")
 
 
+## Seuraavaksi tehtävä (tarjoilupoyta.gd: Markon ruoanlaitto): aloitetaan, kun nykyinen puuha on ohi.
+func queue(a: String) -> void:
+	if activity != a:
+		_want = a
+
+
 ## Joku muu meni päikkäreille (main.gd): mukaan ylämökkiin, paitsi Jukka (kahvit).
 func go_nap() -> void:
 	if name == "Jukka" or activity == "paikkarit" or body.boat != null or activity == "oodi":
@@ -245,6 +252,11 @@ func _sunset() -> bool:
 
 
 func _choose() -> void:
+	if _want != "":
+		var w := _want
+		_want = ""
+		_start(w)
+		return
 	if _next != "":
 		var n := _next
 		_next = ""
@@ -526,6 +538,8 @@ func _done() -> void:
 		mokki.cooked.emit(rng.randi_range(2, 4))
 	elif activity == "kahvi":
 		mokki.coffee.emit(rng.randi_range(3, 4))
+	elif activity == "grilli" and name == "Marko" and sun != null and sun.local().hour >= 20 and sun.local().hour < 22:
+		mokki.grilled.emit(4)
 	if _stove == name:
 		_stove = ""
 	body.pose = ""

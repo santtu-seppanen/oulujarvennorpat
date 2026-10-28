@@ -32,6 +32,7 @@ extends Node3D
 
 signal loyly  # tietokoneen hahmo heitti löylyä (sauna.gd)
 signal cooked(n: int)  # tietokoneen Marko paistoi pyttipannua (kokkaus.gd)
+signal grilled(n: int)  # tietokoneen Marko grillasi pihvit (tarjoilupoyta.gd)
 signal coffee(n: int)  # tietokoneen Jukka keitti kahvit (kahvi.gd)
 signal log_added  # tietokoneen hahmo lisäsi halon kiukaaseen (sauna.gd)
 signal talk(who: String, text: String)  # tietokoneen hahmo sanoo jotain (main.gd: puhekupla)
