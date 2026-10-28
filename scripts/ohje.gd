@@ -17,7 +17,6 @@ Kolikko voittorakoon. Keskellä [b]14 €[/b], reunoilla 2–3 € tai panos tak
 [b]Välilyönti[/b] peukalotuki · [b]S[/b] snaiffaus
 Hiirellä PEUKALO, HIDASTUS ja SIIMA ovat kytkimiä: valitse ensin, sitten KOLIKKO-nappi ottaa ne käyttöön (siimakela löytyy alamökin itäpuolelta halkovajan takaa).
 [b]K[/b] tönäise (liian kova = TILT) · [b]W[/b] maksuvipu
-[b]D[/b] vaihtokone: 2 € kolikko kahdeksi euroksi
 
 [b]F[/b] / [b]Esc[/b] lopettaa[/center]"""],
 	"hedelma": ["HEDELMÄPELI", """[center][color=#ffd23a][b]Tavoite[/b][/color]

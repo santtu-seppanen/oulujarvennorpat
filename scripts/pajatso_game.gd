@@ -1,8 +1,7 @@
 extends CanvasLayer
 ## Siitarin pajatso RAY:n 50 pennin pajatson (1966) mukaan (siitari_interior.gd "pajatso"): tiikkikehyksinen kaappi,
-## lasin takana tummanpunainen lauta. Pelataan euron kolikoilla: taskussa on yleensä yksi, oikean kehyksen
-## vaihtokone (D) vaihtaa kahden euron kolikon kahdeksi euroksi kahvaa vääntämällä, ja voittokourun kolikot käyvät
-## suoraan peliin. Euro syötetään (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas
+## lasin takana tummanpunainen lauta. Pelataan euron kolikoilla: taskusta tippuu uusi kolikko, kun euroja riittää,
+## ja voittokourun kolikot käyvät suoraan peliin. Euro syötetään (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas
 ## lyöntipaikalle rakonauhan tasolle. Kolikkoa lyödään koneen kyljen laukaisimesta (puoliksi esiin työntyvä kiekko, prikkajono ja
 ## heittoliuska): lyönnin voima on ainoa, mitä pelaaja hallitsee, ja kolikko lähtee aina vasemmalle ja hieman ylös.
 ## Se lentää rakojen yli (laskettu lentorata, kimpoaa vasemmasta seinästä ja katosta) ja putoaa harmaalle nauhalle,
@@ -63,7 +62,6 @@ const SLOT_IN := Vector2(589, -62)  # kolikkoaukko yläkehyksen kiinnikkeessä (
 const INSERT_T := 0.4      # syötetty kolikko putoaa aukosta pidikkeeseen (s)
 const CHANGER := Vector2(BW + FRAME_RIGHT / 2.0, 470)  # vaihtokoneen kahva oikeassa kehyksessä
 const CHANGE_CUP_Y := 600.0  # vaihtorahojen kuppi kahvan alla
-const CHANGE_T := 0.45     # kahvan vääntö ennen kuin kolikot kilahtavat kuppiin
 const FRAME_TOP := 110.0
 const FRAME_BOTTOM := 120.0
 const CONTENT_H := BH + FRAME_TOP + FRAME_BOTTOM + 30.0
@@ -137,8 +135,6 @@ var _sparks: Array = []
 var _payout: Array = []    # putoavat kolikot: [paikka, nopeus, viive, "win" (voittokouruun) tai "change" (vaihtokupiin)]
 var _tray := 0             # voittokourun kolikot (näkyvä kasa)
 var _cup_coins := 0        # vaihtokoneen kupin kolikot
-var _change_t := -1.0      # kahvan vääntö käynnissä (s), -1 = ei
-var _change_paid := false
 var _insert_t := 0.0
 var _drops: Array = []     # suppiloa pitkin putkiin valuvat kolikot: [ikä, x, putki]
 var _pending: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0]  # porttien vapautetut voitot, maksetaan maksuvivulla
@@ -248,8 +244,7 @@ func _process(delta: float) -> void:
 		_keys.set_text("%s nykäise siimasta   %s uusi kolikko (1 €)   %s lopeta   J ohje" % [q, e, Settings.cap("mount")])
 	elif _coin_state == "":
 		var pay := ("%s MAKSUVIPU (%d)   " % [Settings.cap("forward"), _pending_total()]) if _pending_total() > 0 else ""
-		_keys.set_text("%s%s syötä kolikko (1 €)   %s vaihtokone%s   %s lopeta   J ohje" % [pay, e, Settings.cap("right"), tie,
-			Settings.cap("mount")])
+		_keys.set_text("%s%s syötä kolikko (1 €)%s   %s lopeta   J ohje" % [pay, e, tie, Settings.cap("mount")])
 	elif _coin_state == "ready":
 		_keys.set_text("%s pidä = kerää sormeen voimaa, päästä = napsauta laukaisinta   %s peukalotuki   %s saatto%s   %s lopeta   J ohje" % [e,
 			Settings.cap("jump"), Settings.cap("back"), tie, Settings.cap("mount")])
@@ -266,7 +261,7 @@ func _layout_buttons() -> void:
 	var flying := _coin_state == "free"
 	var loaded := _coin_state == "ready"
 	var idle := _coin_state == ""
-	var can_insert := idle and coins >= 1 and money >= PRICE
+	var can_insert := idle and money >= PRICE
 	var tie := siima and not siima_used and not _tied
 	var siima_def: Variant = ["SIIMA", "nykäise", Color(0.85, 0.85, 0.9), "drink", idle and _yank_cup >= 0, false, false]
 	if _yank_cup < 0 and not _tied:
@@ -274,13 +269,12 @@ func _layout_buttons() -> void:
 			"col": Color(0.85, 0.85, 0.9), "call": func() -> void: _toggle_siima(), "lit": _sw_siima or tie}
 	var defs := [
 		["NAPSAUTA" if loaded else "KOLIKKO", "pidä = voima" if loaded else "%s €" % _eur(PRICE), Color(0.95, 0.75, 0.2), "interact",
-			loaded or can_insert, loaded or can_insert, loaded],
+			loaded or can_insert, can_insert, loaded],
 		{"label": "PEUKALO", "sub": "päällä" if _sw_thumb else "tärinä pois", "col": Color(0.6, 0.9, 0.6), "call": func() -> void: _sw_thumb = not _sw_thumb,
 			"lit": _sw_thumb},
 		{"label": "HIDASTUS", "sub": "päällä" if _sw_snaif else "jarruta", "col": Color(0.6, 0.8, 1.0), "call": func() -> void: _sw_snaif = not _sw_snaif,
 			"lit": _sw_snaif},
 		["MAKSUVIPU", "%d" % _pending_total(), Color(0.25, 0.85, 0.3), "forward", idle and _pending_total() > 0, idle and _pending_total() > 0, false],
-		["VAIHTO", "2 € → 2 × 1 €", Color(0.25, 0.6, 1.0), "right", idle and money - coins >= 2.0 - 0.001, false, false],
 		siima_def,
 		["TÖNÄISE", "TILT-riski", Color(1.0, 0.45, 0.1), "kick", flying, false, false],
 		["LOPETA", "", Color(0.9, 0.2, 0.15), "mount", true, false, false],
@@ -306,19 +300,16 @@ func _eur(v: float) -> String:
 ## sisään; sen jousi vain palauttaa liipaisimen. Sormi tärisee (humalassa enemmän); peukalotuki (välilyönti pohjassa:
 ## peukalo kehyksen reunaan) poistaa tärinän, mutta voima kertyy hitaammin. S on snaiffaus: sormenpää saattaa liipaisinta ja jarruttaa iskua. Kolikon lennon
 ## aikana K tönäisee konetta: tärähdys vaimentaa portin jousta hetkeksi, mutta tilt-hälytin voi laueta. Q solmii
-## siiman tai nykäisee siimakolikon. D vääntää vaihtokoneen kahvaa, W vetää maksuvipua.
+## siiman tai nykäisee siimakolikon. W vetää maksuvipua.
 func _striker(delta: float) -> void:
 	_ring_t = maxf(0.0, _ring_t - delta)
 	_nudge_t = maxf(0.0, _nudge_t - delta)
 	_tilt_t = maxf(0.0, _tilt_t - delta)
 	if Input.is_action_just_pressed("drink"):
 		_siima_key()
-	if Input.is_action_just_pressed("right"):
-		_change()
 	if Input.is_action_just_pressed("forward"):
 		_collect()
 	_lever_t = maxf(0.0, _lever_t - delta)
-	_change_step(delta)
 	if _coin_state == "free" and Input.is_action_just_pressed("kick"):
 		_nudge()
 	if _coin_state == "insert":
@@ -351,13 +342,8 @@ func _striker(delta: float) -> void:
 		return
 	if _coin_state != "" or not Input.is_action_just_pressed("interact"):
 		return
-	if coins < 1 or money < PRICE:
-		if money - coins >= 2.0 - 0.001:
-			comment.emit("Ei euron kolikoita. Kahden euron kolikko vaihtokoneeseen (%s) ja kahvasta väännetään." % Settings.cap("right"))
-		elif money >= PRICE:
-			comment.emit("Ei euron kolikkoa, ja vaihtokone ottaa vain kahden euron kolikoita.")
-		else:
-			comment.emit("Rahat loppu. Pajatso ei anna velaksi.")
+	if money < PRICE:
+		comment.emit("Rahat loppu. Pajatso ei anna velaksi.")
 		return
 	_insert()
 
@@ -383,34 +369,6 @@ func _tech(id: String, text: String) -> void:
 	if not id in _techs:
 		_techs.append(id)
 		comment.emit(text)
-
-
-## Vaihtokone: kahden euron kolikko rakoon ja kahvasta väännetään; kaksi euron kolikkoa kilahtaa kahvan alla olevaan
-## kuppiin (rahat eivät muutu, vain kolikoiksi).
-func _change() -> void:
-	if _change_t >= 0.0:
-		return
-	if money - coins < 2.0 - 0.001:
-		comment.emit("Kukkarossa ei ole kahden euron kolikkoa vaihdettavaksi.")
-		return
-	_change_t = 0.0
-	_change_paid = false
-	Sfx.play("coin", -8.0, 0.9)
-	_tech("vaihto", "Kahden euron kolikko vaihtokoneeseen ja kahvasta väännetään: kaksi euron kolikkoa kuppiin.")
-
-
-func _change_step(delta: float) -> void:
-	if _change_t < 0.0:
-		return
-	_change_t += delta
-	if not _change_paid and _change_t >= CHANGE_T:
-		_change_paid = true
-		Sfx.play("rattle", -10.0, 2.0)
-		for k in 2:
-			var at := _board.position + CHANGER + Vector2(randf_range(-4, 4), 64.0)
-			_payout.append([at, Vector2(randf_range(-20, 20), randf_range(20, 60)), -k * 0.12, "change"])
-	if _change_t > CHANGE_T + 0.5:
-		_change_t = -1.0
 
 
 ## Tönäisy kylkeen kolikon lennon aikana: portin jousi vaimenee hetkeksi (osumaikkuna levenee), mutta tilt-hälytin
@@ -1135,7 +1093,7 @@ func _draw_changer(o: Vector2, font: Font) -> void:
 		Vector2(cx + w - 10, lab.position.y + 226)]), white, 2.0)
 	# Kahva: musta nuppi ja poikkikahva, joka kääntyy väännettäessä.
 	var knob := o + CHANGER
-	var turn := sin(clampf(_change_t / CHANGE_T, 0.0, 1.0) * PI) * PI * 0.5 if _change_t >= 0.0 else 0.0
+	var turn := 0.0
 	MG.box(_root, Rect2(knob - Vector2(24, 26), Vector2(48, 52)), Color(0.8, 0.81, 0.85), 4, 2, MG.OUTLINE, 1)
 	for yy in [-20.0, 20.0]:
 		_root.draw_circle(knob + Vector2(-18, yy), 2.0, Color(0.4, 0.4, 0.42))
