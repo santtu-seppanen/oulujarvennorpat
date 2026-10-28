@@ -91,6 +91,8 @@ const DUCK_W := 0.8
 const OUTHOUSE := [10.75, 12.25, -2.55, -0.85]
 ## Kätkö saunan takana rinteessä, takakulun pitkospuiden takareunassa (u, v).
 const STASH := Vector2(2.4, -7.65)
+## Siimakela piilossa saunan itäpuolella halkovajan takana umpikujassa (u, v): Happy Beachin pajatsolle.
+const SIIMA := Vector2(3.75, -1.7)
 ## Rinteeseen virtsataan pitkospuiden alkupäästä (u, v) tämän säteen sisältä.
 const PEE_SPOT := Vector2(5.9, -5.2)
 const PEE_R := 1.6
@@ -144,6 +146,7 @@ var grill_spot := Vector3.ZERO  # grillaajan paikka grillin edessä
 var plate_pos := Vector3.ZERO
 var kiuas_pos := Vector3.ZERO
 var card_frame := Transform3D()  # keittiön pöydän keskikohta: x pitkin pöytää (itään), -z järvelle
+var siima_pos := Vector3.ZERO  # piilotettu siimakela alamökin itäpuolella
 var stash_pos := Vector3.ZERO  # olut- ja viinakätkö saunan takana rinteessä
 var fire_pos := Vector3.ZERO  # nuotiopaikan keskipiste (nuotio.gd)
 var fire_seats := []  # nuotion ympärillä neljä istuinhirttä: [paikka, nuotio], hahmon indeksin mukaan
@@ -905,6 +908,7 @@ func _sauna(pt: Part) -> void:
 		pt.bx(xo - 0.09, xo - 0.04, hv - 0.025, hv + 0.025, y0 + 0.95, y0 + 1.0, Color(0.3, 0.3, 0.32, METAL))
 	_interior(pt)
 	_stash(pt)
+	_siima(pt)
 	# Kuistin otsapalkki ilman pylväitä; lyhdyt riippuvat palkista.
 	for x: float in [-1.55, 1.55]:
 		pt.bx(x - 0.015, x + 0.015, 2.76, 2.79, eave - 0.45, eave - 0.2, Color(0.05, 0.05, 0.05, METAL))
@@ -1164,6 +1168,16 @@ func _stash(pt: Part) -> void:
 		pt.beam(a, a + Vector3(rng.randf_range(0.1, 0.35), rng.randf_range(-0.3, -0.1), rng.randf_range(-0.25, 0.25)),
 			0.24, 0.02, Color(0.12, 0.26, 0.13).lerp(Color(0.2, 0.32, 0.15), rng.randf()))
 	stash_pos = _world3(pt, c, v0 + 0.65, DY)
+
+
+## Siimakela halkovajan takana umpikujassa seinän vieressä lautojen alla: vihreä kela ja kelta-musta siimankiehkura.
+func _siima(pt: Part) -> void:
+	var y := DY + 0.02
+	var c := SIIMA
+	pt.bx(c.x - 0.4, c.x + 0.4, c.y - 0.12, c.y + 0.28, y, y + 0.05, Color(0.45, 0.33, 0.2))  # lautapätkä
+	pt.cyl(Part.p(c.x, c.y, y + 0.05), Part.p(c.x, c.y, y + 0.16), 0.09, Color(0.2, 0.55, 0.3), 10)
+	pt.cyl(Part.p(c.x, c.y, y + 0.1), Part.p(c.x, c.y, y + 0.12), 0.11, Color(0.85, 0.85, 0.8, 0.7), 10)
+	siima_pos = _world3(pt, c.x, c.y, DY)
 
 
 ## Huoneen valo: aina päällä, himmeä; varjot estävät valoa paistamasta katon ja seinien läpi ulos.

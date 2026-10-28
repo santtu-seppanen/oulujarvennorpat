@@ -15,6 +15,7 @@ Kolikko voittorakoon. Keskellä [b]14 €[/b], reunoilla 2–3 € tai panos tak
 [color=#ffd23a][b]Ohjaus[/b][/color]
 [b]E[/b] kolikko lyöntipaikalle, pohjassa voima kasvaa, irti = lento
 [b]Välilyönti[/b] peukalotuki · [b]S[/b] snaiffaus
+Hiirellä PEUKALO, HIDASTUS ja SIIMA ovat kytkimiä: valitse ensin, sitten KOLIKKO-nappi ottaa ne käyttöön (siimakela löytyy alamökin itäpuolelta halkovajan takaa).
 [b]K[/b] tönäise (liian kova = TILT) · [b]W[/b] maksuvipu
 [b]D[/b] vaihtokone: 2 € kolikko kahdeksi euroksi
 
@@ -116,7 +117,7 @@ func _ready() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(dim)
-	var box := Ui.panel(self, "center", 720.0)
+	var box := Ui.panel(self, "top", 720.0)
 	_panel = box.get_parent()
 	# Pajatson kaappi: punainen lakkapinta, kultareunus ja musta LED-otsikkokyltti.
 	var sb := StyleBoxFlat.new()
@@ -176,7 +177,7 @@ func open(id: String, on_close := Callable()) -> void:
 	_body.text = t[1]
 	_body.scroll_to_line(0)
 	var vp := get_viewport().get_visible_rect().size
-	_body.custom_minimum_size.y = clampf(vp.y - 260.0, 240.0, 440.0)
+	_body.custom_minimum_size.y = clampf(vp.y - 220.0, 240.0, 560.0)
 	visible = true
 	CamCtl.free_mouse = true
 

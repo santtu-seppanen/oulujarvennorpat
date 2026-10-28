@@ -94,6 +94,7 @@ var pissa: Node3D  # rinteeseen virtsaaminen pitkospuilla (rinnepissa.gd)
 var wc: CanvasLayer = null  # huussin minipeli käynnissä (wc_game.gd)
 var _sytytys_for := "sauna"  # mitä sytytysminipeli sytyttää: "sauna" | "nuotio"
 var sytytys: CanvasLayer = null  # saunan sytytys käynnissä (sytytys_game.gd)
+var siima_found := false  # siimakela löydetty alamökin itäpuolelta: pajatson siimahuijaus (pajatso_game.gd)
 var tennis: Node3D  # Spartan pinkiponki ylämökin edessä (rantatennis.gd)
 var heittely: Node3D  # amerikanpallo: heittely vedessä (amerikanpallo.gd)
 var ballgames: Array = []  # yhteiset pallopelit (pallopeli.gd): tennis ja heittely
@@ -521,6 +522,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_wc("kakkonen")
 
 
+func _near_siima() -> bool:
+	if player.pose == "Sammunut" or player.boat != null:
+		return false
+	var s: Vector3 = world.mokki.siima_pos
+	var p := player.global_position
+	return Vector2(p.x - s.x, p.z - s.z).length() < 1.3 and p.y > Mokki.DY - 0.3 and p.y < Mokki.DY + 1.2
+
+
+func _take_siima() -> void:
+	siima_found = true
+	Sfx.play("pickup", -6.0)
+	toast("Siimakela halkovajan takaa! Happy Beachin pajatsossa siima solmitaan kolikkoon (nappi SIIMA).", 5.0)
+
+
 # --- Kätköt: saunan takana rinteessä, rannan rinteessä (ranta.gd) ja tutkimusmatkan kätkö (tutkimusmatka.gd) ----
 
 func _near_stash() -> bool:
@@ -929,6 +944,8 @@ func _interaction() -> Dictionary:
 			return {"text": "Happy Beachin ravintola on kiinni (%s)" % Happybeach.open_text(lt)}
 		return {"text": "E: sisään Happy Beachin ravintolaan (baari, karaoke, tanssi, pelit)",
 			"cb": func() -> void: world.happy.enter(door)}
+	if not siima_found and _near_siima():
+		return {"text": "E: poimi siimakela (kelan pitäisi sopia pajatson kolikkoon)", "cb": _take_siima}
 	if _near_stash():
 		if _near_beach_stash():
 			return {"text": "Viinakätkö! E: olut · Q: huikka viinaa", "cb": _beer}

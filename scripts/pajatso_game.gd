@@ -112,6 +112,10 @@ var _tension := 0.0        # sormeen kerätty iskun voima
 var _drawing := false
 var _armed := false        # syöttävä E on päästetty
 var _thumb := false        # peukalotuki
+## Hiirinapit ovat kytkimiä: ne valitaan ensin ja otetaan käyttöön, kun kolikko lähetetään (näppäimet toimivat kuten ennen).
+var _sw_siima := false
+var _sw_thumb := false
+var _sw_snaif := false
 var _snaifs := 0
 var _techs: Array = []     # tekniikat, joista on jo kerrottu
 var _nudge_t := 0.0        # tönäisy vaimentaa portin jousta (s)
@@ -264,19 +268,30 @@ func _layout_buttons() -> void:
 	var idle := _coin_state == ""
 	var can_insert := idle and coins >= 1 and money >= PRICE
 	var tie := siima and not siima_used and not _tied
+	var siima_def: Variant = ["SIIMA", "nykäise", Color(0.85, 0.85, 0.9), "drink", idle and _yank_cup >= 0, false, false]
+	if _yank_cup < 0 and not _tied:
+		siima_def = {"label": "SIIMA", "sub": "päällä" if _sw_siima else ("kolikkoon" if siima else "ei siimaa"),
+			"col": Color(0.85, 0.85, 0.9), "call": func() -> void: _toggle_siima(), "lit": _sw_siima or tie}
 	var defs := [
 		["NAPSAUTA" if loaded else "KOLIKKO", "pidä = voima" if loaded else "%s €" % _eur(PRICE), Color(0.95, 0.75, 0.2), "interact",
 			loaded or can_insert, loaded or can_insert, loaded],
-		["PEUKALO", "tärinä pois", Color(0.6, 0.9, 0.6), "jump", loaded, false, true],
-		["SAATTO", "jarruta", Color(0.6, 0.8, 1.0), "back", loaded, false, false],
+		{"label": "PEUKALO", "sub": "päällä" if _sw_thumb else "tärinä pois", "col": Color(0.6, 0.9, 0.6), "call": func() -> void: _sw_thumb = not _sw_thumb,
+			"lit": _sw_thumb},
+		{"label": "HIDASTUS", "sub": "päällä" if _sw_snaif else "jarruta", "col": Color(0.6, 0.8, 1.0), "call": func() -> void: _sw_snaif = not _sw_snaif,
+			"lit": _sw_snaif},
 		["MAKSUVIPU", "%d" % _pending_total(), Color(0.25, 0.85, 0.3), "forward", idle and _pending_total() > 0, idle and _pending_total() > 0, false],
 		["VAIHTO", "2 € → 2 × 1 €", Color(0.25, 0.6, 1.0), "right", idle and money - coins >= 2.0 - 0.001, false, false],
-		["SIIMA", "kolikkoon" if tie else "nykäise", Color(0.85, 0.85, 0.9), "drink", (idle and _yank_cup >= 0) or tie, false, false],
+		siima_def,
 		["TÖNÄISE", "TILT-riski", Color(1.0, 0.45, 0.1), "kick", flying, false, false],
 		["LOPETA", "", Color(0.9, 0.2, 0.15), "mount", true, false, false],
 	]
 	_napit.list.clear()
 	for i in defs.size():
+		if defs[i] is Dictionary:
+			var k: Dictionary = defs[i]
+			_napit.list.append({"r": Rect2(Vector2(x, y + 20.0 + i * 66.0), Vector2(150, 52)), "label": k.label, "sub": k.sub, "col": k.col,
+				"call": k.call, "lit": k.lit, "blink": false, "hold": false})
+			continue
 		var d: Array = defs[i]
 		_napit.list.append({"r": Rect2(Vector2(x, y + 20.0 + i * 66.0), Vector2(150, 52)), "label": d[0], "sub": d[1], "col": d[2],
 			"action": d[3], "lit": d[4], "blink": d[5], "hold": d[6]})
@@ -316,13 +331,15 @@ func _striker(delta: float) -> void:
 			Sfx.play("glass", -14.0, 2.8)
 		return
 	if _coin_state == "ready":
-		_thumb = Input.is_action_pressed("jump")
+		_thumb = Input.is_action_pressed("jump") or _sw_thumb
 		var held := Input.is_action_pressed("interact")
 		if not held:
 			_armed = true  # syöttävä E päästetty: seuraava painallus jännittää
 		if held and _armed:
 			_drawing = true
-			_tension = minf(1.0, _tension + delta * (TENSION_THUMB if _thumb else TENSION_RATE) * (1.0 + drunk * 0.3))
+			_tension = minf(1.0, _tension + delta * (TENSION_THUMB if _thumb else TENSION_RATE) * (1.0 + drunk * 0.3) * (0.6 if _sw_snaif else 1.0))
+			if _sw_snaif and _snaifs == 0:
+				_snaifs = 1
 			if Input.is_action_just_pressed("back"):
 				_tension = maxf(0.0, _tension - SNAIF_STEP)
 				_snaifs += 1
@@ -443,6 +460,9 @@ func _insert() -> void:
 	_snaifs = 0
 	_coin_t = 0.0
 	_cp = SLOT_IN
+	if _sw_siima and siima and not siima_used and not _tied:
+		_siima_key()
+	_sw_siima = false
 	Sfx.play("coin", -10.0, 1.4)
 
 
@@ -456,6 +476,19 @@ func _launch(p: float, spread := FINGER) -> void:
 	_coin_t = 0.0
 	Sfx.play("whoosh", -12.0, 1.6)
 	_shake = 0.25
+
+
+## SIIMA-nappi: valitaan ennen kolikon lähetystä (tai kolikon ollessa pidikkeessä, jolloin se solmitaan heti).
+func _toggle_siima() -> void:
+	if not siima or siima_used:
+		comment.emit("Siimaa ei ole mukana. Se pitää löytää mökiltä." if not siima else "Siima on jo käytetty tänään.")
+		return
+	if _coin_state == "ready":
+		_siima_key()
+		return
+	_sw_siima = not _sw_siima
+	if _sw_siima:
+		comment.emit("Siima valittu: se solmitaan seuraavaan kolikkoon, kun painat KOLIKKO.")
 
 
 ## Q: siima kolikkoon (kerran päivässä) tai siimakolikon nykäisy raosta.

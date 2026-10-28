@@ -254,6 +254,9 @@ func _karaoke_end(score: float) -> void:
 		game.end_activity()
 
 
+var _siima_day := -1  # päivä, jona siimahuijaus on jo käytetty
+
+
 ## Pajatso ja hedelmäpeli ovat samat canvas-minipelit kuin Normipäivässä (pajatso_game.gd, hedelmapeli_game.gd);
 ## videopokeri on pokeri_game.gd.
 func _launch_game() -> void:
@@ -262,7 +265,10 @@ func _launch_game() -> void:
 		if mode == "pajatso":
 			var pg := PajatsoGame.new()
 			pg.pot = _pot
+			pg.siima = game.siima_found and _siima_day != game.tarina.day
 			pg.finished.connect(func(m: float, pot: int) -> void:
+				if pg.siima_used:
+					_siima_day = game.tarina.day
 				_pot = pot
 				_game_end(m))
 			g = pg

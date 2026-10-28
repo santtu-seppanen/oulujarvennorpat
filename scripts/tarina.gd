@@ -43,7 +43,7 @@ const COMMON := [
 	{"id": "grilli", "text": "Grillaa pihvit klo 20–22 grillikatoksessa (vain Marko grillaa)", "only": ["Marko"]},
 	{"id": "aamupala", "text": "Syö Michelin Markon pyttipannua tarjoilupöydältä (Q, klo 12 jälkeen)", "except": ["Marko"], "not_day": [0]},
 	{"id": "pihvi", "text": "Syö Michelin Markon grillipihvi tarjoilupöydältä (Q, klo 20 jälkeen)", "except": ["Marko"]},
-	{"id": "kahvijuonti", "text": "Juo kuppi Barista Salosen pannukahvia keittiön sivutasolta (E)", "except": ["Jukka"]},
+	{"id": "kahvijuonti", "text": "Juo kuppi Barista Salosen pannukahvia keittiön sivutasolta (E)", "except": ["Jukka"], "not_day": [0]},
 	{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"], "not_day": [0]},
 	{"id": "kahvi", "text": "Keitä pannukahvit alamökin liedellä (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
 	{"id": "tennis", "text": "", "record": "tennis"},
