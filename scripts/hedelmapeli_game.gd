@@ -4,12 +4,13 @@ extends CanvasLayer
 ## mansikka; määrät rullittain kuten alkuperäisessä), yksi voittolinja keskellä ja panos 1, 2 tai 3 € (W/S). Kolme samaa maksaa
 ## taulukon mukaan, ja mikä tahansa kolmen hedelmän yhdistelmä (myös marjat ja mansikka) maksaa 2. Hävityn kierroksen jälkeen
 ## rullia voi lukita (1, 2, 3), mutta ei kahdesti peräkkäin: "lukitse aina kaksi samaa". Tuplausta ei ole.
-## E pelaa. Voitot kertyvät koneeseen ja peli jatkuu, kunnes lopetetaan (F / Esc): silloin kone maksaa kertyneet voitot ulos. finished(money): rahat pelin jälkeen.
+## E pelaa. Pelaa voi myös hiirellä: alarivin napit LUKKO 1–3, PANOS, PELAA ja LOPETA (mg_napit.gd). Voitot kertyvät koneeseen ja peli jatkuu, kunnes lopetetaan (F / Esc): silloin kone maksaa kertyneet voitot ulos. finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
 signal comment(text: String)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Napit := preload("res://scripts/mg_napit.gd")
 
 const SYMBOLS := ["ray", "apila", "meloni", "paaryna", "rypale", "luumu", "appelsiini", "tahti", "marjat", "mansikka"]
 ## Symbolien määrä rullilla 1, 2 ja 3 (jokaisella rullalla yhteensä 24).
@@ -58,6 +59,7 @@ var _coins: Array = []           # tarjottimelle putoavat kolikot [paikka, nopeu
 var _tray := 0
 var _msg := ""
 var _btn_flash := ""
+var _napit := Napit.new()
 var _closing := false            # voitot putoavat tarjottimelle ennen sulkeutumista
 var _closing_t := 0.0
 
@@ -68,8 +70,11 @@ func _ready() -> void:
 	_root = Control.new()
 	_root.anchor_right = 1.0
 	_root.anchor_bottom = 1.0
-	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.draw.connect(_draw_root)
+	_root.gui_input.connect(func(e: InputEvent) -> void:
+		if not _done and not _closing:
+			_napit.input(e, _k))
 	add_child(_root)
 	_info = _label(24, 30.0, false)
 	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
@@ -143,9 +148,7 @@ func _process(delta: float) -> void:
 			if _lock_ok:
 				for r in 3:
 					if Input.is_key_pressed(KEY_1 + r) and not _key_held(r):
-						_locked[r] = not _locked[r]
-						_btn_flash = "lukko%d" % r
-						Sfx.play("pickup", -12.0, 1.4)
+						_toggle_lock(r)
 				_held = [Input.is_key_pressed(KEY_1), Input.is_key_pressed(KEY_2), Input.is_key_pressed(KEY_3)]
 			if Input.is_action_just_pressed("forward") and _bet < 3:
 				_bet += 1
@@ -169,6 +172,32 @@ func _process(delta: float) -> void:
 
 
 var _held := [false, false, false]
+
+
+func _toggle_lock(r: int) -> void:
+	if _phase != "idle" or not _lock_ok:
+		return
+	_locked[r] = not _locked[r]
+	_btn_flash = "lukko%d" % r
+	Sfx.play("pickup", -12.0, 1.4)
+
+
+func _press_bet() -> void:
+	if _phase != "idle":
+		return
+	_bet = _bet % 3 + 1
+	_msg = "PANOS %d €" % _bet
+	Sfx.play("pickup", -12.0, 1.2)
+
+
+func _press_play() -> void:
+	if _phase == "idle":
+		_play()
+
+
+func _press_quit() -> void:
+	if _phase != "spin":
+		_finish()
 
 
 func _key_held(r: int) -> bool:
@@ -293,6 +322,10 @@ func _finish() -> void:
 		_phase = "idle"
 		return
 	_close_now()
+
+
+func _exit_tree() -> void:
+	_napit.release_all()
 
 
 func _close_now() -> void:
@@ -461,26 +494,34 @@ func _draw_panel(r: Rect2, font: Font) -> void:
 	MG.box(_root, msg, Color(0.02, 0.06, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
 	var mtxt := _msg
 	_root.draw_string(font, msg.position + Vector2(0, 32), mtxt, HORIZONTAL_ALIGNMENT_CENTER, msg.size.x, 26, Color(0.4, 1.0, 0.35))
-	# Napit: lukot, panos, PELAA / TALTEEN.
-	var y := r.position.y + 92
+	# Napit (hiirellä painettavat, pokerin tyyliin neliskanttiset): lukot, panos, PELAA ja LOPETA.
+	_layout_buttons(r)
+	_napit.draw(_root, font, _t)
+
+
+func _layout_buttons(r: Rect2) -> void:
+	var y := r.position.y + 66.0
+	var idle := _phase == "idle" and not _closing
+	_napit.list.clear()
+	var x := r.position.x + 18.0
 	for k in 3:
-		_button(Vector2(r.position.x + 44 + k * 58, y), 22.0, "%d" % (k + 1), Color(0.95, 0.95, 0.9),
-			_locked[k] or (_lock_ok and _phase == "idle" and int(_t * 2.0) % 2 == 0), font)
-	var bp := Rect2(Vector2(r.position.x + 220, y - 26), Vector2(150, 52))
-	MG.box(_root, bp, Color(0.08, 0.02, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
-	_root.draw_string(font, bp.position + Vector2(0, 14), "PANOS", HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 12, Color(0.8, 0.8, 0.8))
-	_root.draw_string(font, bp.position + Vector2(0, 44), "%d €" % _bet, HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 30,
-		Color(1.0, 0.85, 0.2))
-	_button(Vector2(r.end.x - 60, y), 32.0, "PELAA", Color(0.25, 0.8, 0.3), _phase == "idle", font)
-
-
-func _button(c: Vector2, rad: float, text: String, col: Color, lit: bool, font: Font) -> void:
-	if lit:
-		MG.glow(_root, c, rad * 2.0, Color(col.r, col.g, col.b, 0.6))
-	_root.draw_circle(c + Vector2(0, 5), rad, col.darkened(0.6))
-	MG.ball(_root, c, rad, col if lit else col.darkened(0.45), 0.5)
-	var fs := 13 if text.length() > 2 else 18
-	_root.draw_string(font, c + Vector2(-rad * 1.5, fs * 0.35), text, HORIZONTAL_ALIGNMENT_CENTER, rad * 3.0, fs, Color(0.1, 0.06, 0.04))
+		var b := {"r": Rect2(Vector2(x, y), Vector2(54, 48)), "label": "%d" % (k + 1), "sub": "LUKKO", "col": Color(0.95, 0.93, 0.8),
+			"lit": _locked[k] or (_lock_ok and idle and int(_t * 2.0) % 2 == 0)}
+		if idle:
+			b["call"] = _toggle_lock.bind(k)
+		_napit.list.append(b)
+		x += 60.0
+	x += 8.0
+	var pb := {"r": Rect2(Vector2(x, y), Vector2(90, 48)), "label": "PANOS", "sub": "%d €" % _bet, "col": Color(0.25, 0.6, 1.0), "lit": idle}
+	var gb := {"r": Rect2(Vector2(x + 102.0, y), Vector2(100, 48)), "label": "PELAA", "col": Color(0.25, 0.85, 0.3), "lit": idle, "blink": idle}
+	var qb := {"r": Rect2(Vector2(x + 214.0, y), Vector2(72, 48)), "label": "LOPETA", "col": Color(0.9, 0.2, 0.15),
+		"lit": _phase != "spin" and not _closing}
+	if idle:
+		pb["call"] = _press_bet
+		gb["call"] = _press_play
+	if _phase != "spin" and not _closing:
+		qb["call"] = _press_quit
+	_napit.list.append_array([pb, gb, qb])
 
 
 func _draw_tray(font: Font) -> void:

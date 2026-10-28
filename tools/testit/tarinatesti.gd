@@ -49,11 +49,12 @@ func _process(delta: float) -> bool:
 				main.sun.start_preset(main.Sun.STORY_PRESET)
 				var lt: Dictionary = main.sun.local()
 				check(ta.active and lt.weekday == 4 and lt.hour == 12, "tarina alkaa torstaina klo 12 (viikonpäivä %d, klo %d)" % [lt.weekday, lt.hour])
-				check(_ids(0).has("paikkarit") and not _ids(0).has("kahvi"), "Santtun torstai: päikkärit, ei kahvinkeittoa %s" % [_ids(0)])
+				check(not _ids(0).has("paikkarit") and not _ids(0).has("aamupala") and not _ids(0).has("kahvi"), "Santtun torstai: ei päikkäreitä, pyttipannun syöntiä eikä kahvinkeittoa %s" % [_ids(0)])
+				check(_ids(1).has("paikkarit") and _ids(1).has("aamupala"), "Santtun perjantai: päikkärit ja pyttipannun syönti %s" % [_ids(1)])
 				main.choose_character(3)
-				check(_ids(0).has("kahvi") and not _ids(0).has("paikkarit"), "Jukan torstai: kahvit päikkärien tilalla %s" % [_ids(0)])
+				check(_ids(0).has("kahvi") and not _ids(0).has("paikkarit"), "Jukan torstai: kahvit, ei päikkäreitä %s" % [_ids(0)])
 				main.choose_character(1)
-				check(_ids(1).has("pytti") and not _ids(1).has("kahvi"), "Markon perjantai: pyttipannu %s" % [_ids(1)])
+				check(_ids(1).has("pytti") and not _ids(1).has("kahvi") and not _ids(0).has("pytti"), "Markon pyttipannu perjantaina, ei torstaina %s" % [_ids(1)])
 				main.choose_character(0)
 				# Tehtävät arvotaan: tarkistetaan määrä ja se, että ennätystehtävät ovat joka päivä.
 				for d in 4:
@@ -86,7 +87,7 @@ func _process(delta: float) -> bool:
 				next()
 		2:
 			if t > main.NAP_T + 0.5:
-				check(ta.is_done("paikkarit"), "päikkäreiltä herääminen kuittaa tehtävän")
+				check(not ta.is_done("paikkarit"), "torstaina päikkäreitä ei ole tehtävänä")
 				main._wc_result("ykkonen", {"done": true, "accuracy": 1.0})
 				check(ta.is_done("huussi"), "huussikäynti kuittaa tehtävän")
 				main._beer()

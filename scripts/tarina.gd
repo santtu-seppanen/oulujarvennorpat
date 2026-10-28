@@ -36,13 +36,15 @@ const DAYS := [
 ]
 
 ## Joka päivä samat: ruoka ja kahvi, päikkärit, sekä Spartan pinkiponki ja amerikanpallo ennätystavoitteella.
+## "not_day": päivät, jolloin tehtävää ei ole: torstaina tullaan mökille vasta klo 18, joten pyttipannu (klo 12–14) ja päikkärit
+## (klo 15–18, alkavat vasta perjantaina) jäävät pois.
 const COMMON := [
-	{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"]},
+	{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"], "not_day": [0]},
 	{"id": "grilli", "text": "Grillaa pihvit klo 20–22 grillikatoksessa (vain Marko grillaa)", "only": ["Marko"]},
-	{"id": "aamupala", "text": "Syö Michelin Markon pyttipannua tarjoilupöydältä (Q, klo 12 jälkeen)", "except": ["Marko"]},
+	{"id": "aamupala", "text": "Syö Michelin Markon pyttipannua tarjoilupöydältä (Q, klo 12 jälkeen)", "except": ["Marko"], "not_day": [0]},
 	{"id": "pihvi", "text": "Syö Michelin Markon grillipihvi tarjoilupöydältä (Q, klo 20 jälkeen)", "except": ["Marko"]},
 	{"id": "kahvijuonti", "text": "Juo kuppi Barista Salosen pannukahvia keittiön sivutasolta (E)", "except": ["Jukka"]},
-	{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"]},
+	{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"], "not_day": [0]},
 	{"id": "kahvi", "text": "Keitä pannukahvit alamökin liedellä (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
 	{"id": "tennis", "text": "", "record": "tennis"},
 	{"id": "heittely", "text": "", "record": "heittely"},
@@ -216,6 +218,8 @@ func tasks_for(d: int) -> Array:
 		if t.has("only") and not who in t.only:
 			continue
 		if t.has("except") and who in t["except"]:
+			continue
+		if t.has("not_day") and d in t["not_day"]:
 			continue
 		var tt: Dictionary = t.duplicate()
 		if t.has("record"):

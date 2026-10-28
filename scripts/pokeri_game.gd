@@ -4,13 +4,16 @@ extends CanvasLayer
 ## (1–5, A/D + välilyönti tai klikkaus) ja loput vaihdetaan kerran uusiin. Pienin voittava käsi on kaksi paria; päävoitto
 ## (50 × panos) tulee viitosilla (neloset ja jokeri) tai värisuoralla. Panos 1–5 € (W/S).
 ## Voiton voi tuplata, jos se on korkeintaan puolet päävoitosta: kortti 2–6 PIENI, 8–K SUURI (ässä = 1, pieni), seiska vie
-## (vasen = pieni, oikea = suuri), mutta punainen seiska päättää tuplauksen ja voitot saa pitää. E vie talteen.
-## E jakaa ja vaihtaa. F / Esc lopettaa (voitto talteen). finished(money): rahat pelin jälkeen.
+## (vasen = pieni, oikea = suuri), mutta punainen seiska päättää tuplauksen ja voitot saa pitää.
+## E jakaa ja vaihtaa; voittoa ei makseta erikseen, vaan se kertyy koneeseen, kun seuraava käsi jaetaan. F / Esc lopettaa:
+## kone maksaa kertyneet voitot kolikoina tarjottimelle (kuten hedelmäpeli). Koko peli toimii myös hiirellä: kortit ja
+## PIDÄ-napit sekä alarivin napit TUPLAUS, PIENI, ISO, PANOS ja PELAA (mg_napit.gd). finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
 signal comment(text: String)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Napit := preload("res://scripts/mg_napit.gd")
 
 const RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 const JOKER := 52  # kortti 52 = jokeri (villi)
@@ -50,6 +53,13 @@ var _msg := ""
 var _t := 0.0
 var _done := false
 var _flash := 0.0
+var _napit := Napit.new()
+var _bank := 0.0                 # koneeseen kertyneet voitot, maksetaan lopettaessa
+var _coins: Array = []           # tarjottimelle putoavat kolikot [paikka, nopeus, viive]
+var _tray := 0
+var _closing := false            # voitot putoavat tarjottimelle ennen sulkeutumista
+var _closing_t := 0.0
+var _dbl_ask := false            # TUPLAUS painettu: PIENI tai ISO?
 var _sparks: Array = []
 var _k := 1.0
 var _rng := RandomNumberGenerator.new()
@@ -176,6 +186,8 @@ func payout(idx: int, bet: int) -> int:
 
 
 func _deal() -> void:
+	if _win > 0.0:
+		_bank_win()
 	if money < float(_bet):
 		if money >= 1.0:
 			_bet = int(money)
@@ -192,6 +204,7 @@ func _deal() -> void:
 		_reveal[i] = 0.0 - i * 0.12
 	_cursor = 0
 	_win = 0.0
+	_dbl_ask = false
 	_hand_name = ""
 	_phase = "hold"
 	_msg = "PIDÄ KORTIT"
@@ -230,9 +243,11 @@ func _resolve() -> void:
 		comment.emit(LINES.pick_random())
 
 
-func _collect() -> void:
-	money += _win
+## Käden voitto kertyy koneeseen (maksetaan vasta lopettaessa).
+func _bank_win() -> void:
+	_bank += _win
 	_win = 0.0
+	_dbl_ask = false
 	_phase = "idle"
 	_msg = "PANOS %d €" % _bet
 	Sfx.play("coin", -10.0, 1.2)
@@ -250,7 +265,7 @@ func _double(guess: String) -> void:
 func _double_result() -> void:
 	if _card == 7 and _card_red:
 		comment.emit("Punainen seiska! Tuplaus päättyy, ja voitot saa pitää.")
-		_collect()
+		_bank_win()
 		return
 	var ok := (_guess == "pieni" and _card <= 6) or (_guess == "suuri" and _card >= 8)
 	if ok:
@@ -259,8 +274,8 @@ func _double_result() -> void:
 		Sfx.play("win_small", -6.0, 1.1)
 		_msg = "TUPLAUS %s €" % _eur(_win)
 		if not _can_double():
-			comment.emit("Tuplausraja täynnä (puolet päävoitosta). Kone maksaa voiton ulos.")
-			_collect()
+			comment.emit("Tuplausraja täynnä (puolet päävoitosta). Voitto kertyy koneeseen.")
+			_bank_win()
 			return
 		_phase = "win"
 	else:
@@ -284,12 +299,113 @@ func _toggle(i: int) -> void:
 	Sfx.play("pickup", -12.0, 1.4)
 
 
+## Lopetus: kertyneet voitot putoavat ensin tarjottimelle, sitten peli sulkeutuu.
 func _finish() -> void:
 	if _win > 0.0:
-		money += _win
+		_bank += _win
+		_win = 0.0
+	if _bank >= 1.0:
+		_pay(_bank)
+		_bank = 0.0
+		_closing = true
+		_msg = "VOITOT ULOS"
+		_phase = "idle"
+		return
+	_close_now()
+
+
+func _close_now() -> void:
+	money += _bank + _coins.size()
+	_coins.clear()
+	_napit.release_all()
 	_done = true
 	finished.emit(money)
 	queue_free()
+
+
+func _pay(amount: float) -> void:
+	var n := int(amount)
+	for k in n:
+		_coins.append([_tray_rect().get_center() + Vector2(randf_range(-40, 40), -150.0), Vector2(randf_range(-60, 60), randf_range(-120, 0)),
+			-k * minf(0.07, 2.5 / n)])
+	money += amount - n  # sentit suoraan
+
+
+func _coin_step(delta: float) -> void:
+	for c in _coins:
+		c[2] += delta
+		if c[2] < 0.0:
+			continue
+		c[1].y += 900.0 * delta
+		c[0] += c[1] * delta
+	for i in range(_coins.size() - 1, -1, -1):
+		var c: Array = _coins[i]
+		if c[2] > 0.0 and c[0].y > _tray_rect().end.y - 8.0:
+			_coins.remove_at(i)
+			_tray += 1
+			money += 1.0
+			Sfx.play("coin", -12.0, randf_range(0.9, 1.3))
+
+
+func _exit_tree() -> void:
+	_napit.release_all()
+
+
+## Alarivin napit.
+func _press_bet() -> void:
+	if _phase != "idle" and _phase != "win":
+		return
+	_bet = _bet % 5 + 1
+	_msg = "PANOS %d €" % _bet if _phase == "idle" else _msg
+	Sfx.play("pickup", -12.0, 1.2)
+
+
+func _press_play() -> void:
+	match _phase:
+		"idle", "win":
+			_deal()
+		"hold":
+			_draw_cards()
+
+
+func _press_double() -> void:
+	if _phase != "win":
+		return
+	if not _can_double():
+		comment.emit("Voitto on liian suuri tuplattavaksi.")
+		return
+	_dbl_ask = true
+	_msg = "PIENI VAI ISO?"
+	Sfx.play("pickup", -12.0, 1.4)
+
+
+func _press_guess(g: String) -> void:
+	if _phase == "win" and _can_double():
+		_double(g)
+
+
+func _layout_buttons() -> void:
+	var o := _origin()
+	var busy := _closing or _phase == "draw" or _phase == "tupla"
+	var win := _phase == "win" and not busy
+	var dbl := win and _can_double()
+	var defs := [
+		["TUPLAUS", Color(1.0, 0.45, 0.1), dbl, win, _press_double],
+		["PIENI", Color(1.0, 0.45, 0.1), dbl and _dbl_ask, dbl, _press_guess.bind("pieni")],
+		["ISO", Color(1.0, 0.45, 0.1), dbl and _dbl_ask, dbl, _press_guess.bind("suuri")],
+		["PANOS", Color(0.25, 0.6, 1.0), not busy and (_phase == "idle" or _phase == "win"), false, _press_bet],
+		["PELAA", Color(0.25, 0.85, 0.3), not busy, _phase == "idle" or _phase == "win", _press_play],
+	]
+	_napit.list.clear()
+	for i in defs.size():
+		var d: Array = defs[i]
+		var b := {"r": Rect2(o + Vector2(10.0 + i * 180.0, 620.0), Vector2(130, 48)), "label": d[0], "col": d[1], "lit": d[2],
+			"blink": d[3]}
+		if not busy:
+			b["call"] = d[4]
+		if d[0] == "PANOS":
+			b["sub"] = "%d €" % _bet
+		_napit.list.append(b)
 
 
 func _eur(v: float) -> String:
@@ -312,7 +428,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if _done or _phase != "hold":
+	if _done or _closing:
+		return
+	if _napit.input(event, _k) or _phase != "hold":
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		for i in 5:
@@ -330,8 +448,17 @@ func _process(delta: float) -> void:
 	_root.queue_redraw()
 	_flash = maxf(0.0, _flash - delta)
 	MG.sparks_step(_sparks, delta)
+	_coin_step(delta)
 	for i in 5:
 		_reveal[i] = minf(1.0, _reveal[i] + delta * 4.0)
+	_layout_buttons()
+	if _closing:
+		_closing_t += delta
+		# Kolikot ovat tarjottimella (tai kärsivällisyys loppui): peli päättyy.
+		if _coins.is_empty() or _closing_t > 8.0:
+			_close_now()
+		_keys.set_text("")
+		return
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
 		if _phase == "tupla" or _phase == "draw":
 			return
@@ -362,7 +489,9 @@ func _process(delta: float) -> void:
 				_resolve()
 		"win":
 			if Input.is_action_just_pressed("interact"):
-				_collect()
+				_deal()
+			elif Input.is_action_just_pressed("forward"):
+				_press_double()
 			elif _can_double() and Input.is_action_just_pressed("left"):
 				_double("pieni")
 			elif _can_double() and Input.is_action_just_pressed("right"):
@@ -371,19 +500,19 @@ func _process(delta: float) -> void:
 			_card_t += delta
 			if _card_t > 1.1:
 				_double_result()
-	_info.text = "POKERI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
+	_info.text = "POKERI · Rahaa %s €%s" % [_eur(money), "  ·  Voitot %s €" % _eur(_bank + _win) if _bank + _win > 0.0 else ""]
 	match _phase:
 		"idle":
-			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
+			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta ja ota voitot   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
 				Settings.cap("back"), Settings.cap("mount")])
 		"hold":
 			_keys.set_text("1–5 / klikkaus: PIDÄ   %s vaihda loput   J ohje" % Settings.cap("interact"))
 		"win":
 			if _can_double():
-				_keys.set_text("%s voitto talteen   %s PIENI (A–6)   %s SUURI (8–K)   punainen 7 = voitot talteen" % [
-					Settings.cap("interact"), Settings.cap("left"), Settings.cap("right")])
+				_keys.set_text("%s jaa uusi (voitto kertyy)   %s tuplaus   %s PIENI (A–6)   %s ISO (8–K)   punainen 7 = voitot kertyvät   %s lopeta ja ota voitot" % [
+					Settings.cap("interact"), Settings.cap("forward"), Settings.cap("left"), Settings.cap("right"), Settings.cap("mount")])
 			else:
-				_keys.set_text("%s voitto talteen (liian suuri tuplattavaksi)" % Settings.cap("interact"))
+				_keys.set_text("%s jaa uusi (voitto kertyy, liian suuri tuplattavaksi)   %s lopeta ja ota voitot" % [Settings.cap("interact"), Settings.cap("mount")])
 		_:
 			_keys.set_text("")
 
@@ -405,11 +534,11 @@ func _draw_root() -> void:
 	MG.wood(_root, Rect2(Vector2.ZERO, sz), Color(0.28, 0.17, 0.1), 90.0, 3, false)
 	MG.glow(_root, Vector2(sz.x * 0.5, sz.y * 0.45), 560.0, Color(0.2, 0.9, 0.5, 0.3 + 0.1 * sin(_t * 2.0)))
 	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.0, 0.0, 0.05, 0.25))
-	_k = minf(1.0, (sz.y - 120.0) / 700.0)
+	_k = minf(1.0, (sz.y - 120.0) / 830.0)
 	_root.draw_set_transform_matrix(Transform2D(0.0, Vector2(_k, _k), 0.0, Vector2.ZERO))
 	var o := _origin()
 	# Kaappi.
-	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 700))
+	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 830))
 	MG.box(_root, cab, Color(0.62, 0.1, 0.07), 20, 14, MG.OUTLINE, 3)
 	MG.grad_rect(_root, Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), Color(0.08, 0.08, 0.1), Color(0.18, 0.16, 0.14))
 	_root.draw_string(font, cab.position + Vector2(0, 54), "♣ POKERI · COINLINE CASINO", HORIZONTAL_ALIGNMENT_CENTER, cab.size.x, 36,
@@ -426,10 +555,36 @@ func _draw_root() -> void:
 	_root.draw_string(font, pn.position + Vector2(14, 38), "RAHAA %s €" % _eur(money), HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(1.0, 0.3, 0.2))
 	_root.draw_string(font, pn.position + Vector2(260, 38), msg, HORIZONTAL_ALIGNMENT_CENTER, 400, 26, Color(0.4, 1.0, 0.35))
 	_root.draw_string(font, pn.position + Vector2(690, 38), "PANOS %d €" % _bet, HORIZONTAL_ALIGNMENT_RIGHT, 196, 26, Color(1.0, 0.9, 0.4))
+	# Alarivi: napit tummassa upotuksessa (kuten oikean pokeriautomaatin alapaneeli) ja kolikkotarjotin.
+	MG.box(_root, Rect2(o + Vector2(-4, 608), Vector2(908, 76)), Color(0.14, 0.13, 0.14), 8, 0, Color(0.38, 0.36, 0.34), 2)
+	_napit.draw(_root, font, _t)
+	_draw_tray(font)
+	for c in _coins:
+		if c[2] >= 0.0:
+			MG.ball(_root, c[0], 10.0, Color(0.92, 0.78, 0.35), 0.6)
 	MG.sparks_draw(_root, _sparks)
 	if _phase == "tupla" or (_phase == "win" and _card > 0 and _card_t > 0.0):
 		_draw_double_card(o + Vector2(980, 330), font)
 	_root.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+func _tray_rect() -> Rect2:
+	return Rect2(_origin() + Vector2(290, 696), Vector2(320, 30))
+
+
+func _draw_tray(font: Font) -> void:
+	var r := _tray_rect()
+	MG.box(_root, r.grow(5), Color(0.25, 0.25, 0.28), 10, 0, MG.OUTLINE, 2)
+	MG.grad_rect(_root, r, Color(0.7, 0.72, 0.76), Color(0.4, 0.42, 0.46))
+	for k in mini(_tray, 40):
+		var p := r.position + Vector2(r.size.x / 2.0 + ((k * 37) % 120 - 60) * 2.0, r.size.y - 8 - (k / 8) * 4)
+		var pts := PackedVector2Array()
+		for j in 14:
+			pts.append(p + Vector2(cos(TAU * j / 14.0) * 10.0, sin(TAU * j / 14.0) * 3.5))
+		_root.draw_colored_polygon(pts, Color(0.88, 0.74, 0.32))
+	if _tray > 0:
+		_root.draw_string(font, r.position + Vector2(r.size.x + 14, 22), "Tarjottimella %d €" % _tray, HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
+			Color(1, 0.92, 0.6))
 
 
 func _draw_paytable(r: Rect2, font: Font) -> void:
