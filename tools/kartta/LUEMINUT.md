@@ -44,7 +44,7 @@ matalikot (MTK 38700) ja vesikivet (38511) on painettu pinnan lähelle.
 | Tiedosto | Sisältö |
 |---|---|
 | `maasto.bin` | `ONM2`; lähiruudukko (1001², 2 m, ±1000 m) ja kaukoruudukko (641², 16 m, ±5120 m): kummastakin `u32 n, f32 askel, f32 puolikas, f32[n²] korkeus, u8[(n−1)²] pintaluokka` |
-| `puut.bin` | `ONP2`; puut järjestyksessä kaukolohko (512 m) → laji → lähilohko (128 m), lohkotaulukot (alku, määrä) ja kaksi datatekstuuria: RGBAF (x, y, z, pituus) ja RGBA8 (latvuksen säde × 40, laji, kaksi satunnaislukua) |
+| `puut.bin` | `ONP3`; harvennetut puut järjestyksessä kaukolohko (512 m) → laji → keskilohko (128 m) → lähilohko (32 m), lohkotaulukot (alku, määrä), korttilohkojen puumäärät (uint16) ja kaksi datatekstuuria: RGBAF (x, y, z, pituus) ja RGBA8 (latvuksen säde × 40, laji, kaksi satunnaislukua) |
 | `kohteet.json` | rakennukset (tyyppi, laserkorkeus, pohja), tiet ja polut (luokka, nimi, päällyste), lammet (pinta, reuna), kivet, vesikivet, matalikot, tervahaudat, linjataulut, veneenlaskupaikat, puomit, paikannimet, metatiedot |
 | `kartta_lahi.png`, `kartta_koko.png` | karttakuvat tutkaan ja M-karttaan (1 m/px lähialue, 8 m/px koko alue) |
 

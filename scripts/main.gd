@@ -407,14 +407,18 @@ func _process(delta: float) -> void:
 	if world.trees != null:
 		world.trees.update_around(player.global_position)
 	var night := 1.0 - smoothstep(-5.0, 3.0, sun.altitude)
-	if world.mokki != null:
-		world.mokki.set_lamp(night)
-	if world.happy != null:
-		world.happy.set_lamp(night)
-	if world.satama != null:
-		world.satama.set_lamp(night)
+	# Valot päivitetään vain, kun yön aste on muuttunut (hidas muutos, ei tarvetta joka frame).
+	if absf(night - _night_set) > 0.002 or (night != _night_set and (night == 0.0 or night == 1.0)):
+		_night_set = night
+		if world.mokki != null:
+			world.mokki.set_lamp(night)
+		if world.happy != null:
+			world.happy.set_lamp(night)
+		if world.satama != null:
+			world.satama.set_lamp(night)
+		if car != null:
+			car.set_night(night)
 	if car != null:
-		car.set_night(night)
 		_ride_check()
 	if _nap_t > 0.0:
 		_nap_t -= delta
@@ -1511,6 +1515,11 @@ func _apply_settings() -> void:
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
 	# Näkyvyysetäisyys: usva ja kameran kaukoraja (cam_ctl.gd) yhdessä; täydellä 9 km on entiset 250–5500 m.
 	var far: float = Settings.view_far()
+	# Varjokartan tarkkuus ja pehmennys laadun mukaan (kallis suurella laadulla).
+	RenderingServer.directional_shadow_atlas_set_size([2048, 2048, 4096, 8192][q], true)
+	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW,
+		RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM,
+		RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM][q])
 	_env.fog_depth_begin = 250.0 * far / 9000.0
 	_env.fog_depth_end = 5500.0 * far / 9000.0
 	_fps_label.visible = Settings.get_v("show_fps")
@@ -1616,12 +1625,21 @@ func in_cutscene() -> bool:
 	return saapuminen.active or kannit.active or loppu.active or _nap_t > 0.0
 
 
+var _night_set := -1.0  # viimeksi valoihin asetettu yön aste
+var _near_pos := Vector3(INF, INF, INF)
+var _near_name := {}
+
+
 func _update_hud() -> void:
 	if not _hud.visible:
 		return
 	var p := player.global_position
 	_point_to_stash(p)
-	var near: Dictionary = world.nearest_name(Vector2(p.x, p.z))
+	# Lähin paikannimi haetaan vasta, kun pelaaja on liikkunut muutaman metrin.
+	if p.distance_squared_to(_near_pos) > 9.0:
+		_near_pos = p
+		_near_name = world.nearest_name(Vector2(p.x, p.z))
+	var near: Dictionary = _near_name
 	var where: String = near.name if near.dist < 450.0 else "Äpätti"
 	if player.boat != null:
 		where += " · soutamassa"

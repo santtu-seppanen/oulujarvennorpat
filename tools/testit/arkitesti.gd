@@ -5,7 +5,7 @@ extends SceneTree
 ##   pöytään istuva juo kupin. Muut eivät osaa keittää.
 ## - Mustikat: metsässä mättäitä; kourallisia syömällä Santun kaari pitenee, mutta jää Markon kaaren alle.
 ## - Kätköosoitin: kompassi näyttää lähimmän kätkön (saunan takana tai rannan rinteessä).
-## - Päikkärit vain klo 15-18; välianimaatiossa porukan oikeat hahmot (Santtu, Marko, Jaakko) nukkumassa,
+## - Päikkärit vain klo 15-18 ja vasta tarinan toisena päivänä (testi ajaa 8.7.); välianimaatiossa porukan oikeat hahmot (Santtu, Marko, Jaakko) nukkumassa,
 ##   päikkärien jälkeen Jukka huutaa kahville, ja klo 16 porukka lähtee päikkäreille.
 ## - Saunan lämmitys: halot halkovajasta kiukaaseen, sammunut tuli jäähdyttää saunan, tietokone hakee haloja.
 
@@ -67,13 +67,13 @@ func _process(delta: float) -> bool:
 				p.promille = 1.9  # alle konttauskunnon rajan (kannit.gd TRIGGER 2,0)
 				p.stamina = 20.0
 				_put(p, d)
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 12, 0)
 				next()
 		1:
 			if t > 0.5:
 				var early: Dictionary = main._interaction()
 				check(not early.has("cb") and str(early.get("text", "")).contains("klo 15–18"), "ennen klo 15 ei päikkäreitä: %s" % early.get("text", ""))
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 15, 30)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 15, 30)
 				var it: Dictionary = main._interaction()
 				check(str(it.get("text", "")).contains("päikkärit"), "päikkärikehote: %s" % it.get("text", ""))
 				it.cb.call()
@@ -90,7 +90,7 @@ func _process(delta: float) -> bool:
 					if (e[0] as Label).text.begins_with("Jukka:"):
 						called = true
 				check(called and main.kahvi.kupit >= 4, "Jukka huutaa kahville, kupit pöydässä (%d)" % main.kahvi.kupit)
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)  # loput testistä päivällä, ei päikkäreitä
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 12, 0)  # loput testistä päivällä, ei päikkäreitä
 				main.choose_character(3)  # Jukka
 				next()
 		3:

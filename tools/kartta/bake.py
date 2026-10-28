@@ -541,17 +541,22 @@ def main():
     h00, h10, h01, h11 = A[j0, i0], A[j0, i0 + 1], A[j0 + 1, i0], A[j0 + 1, i0 + 1]
     ay = np.where(u + v <= 1.0, h00 + (h10 - h00) * u + (h01 - h00) * v,
                   h11 + (h01 - h11) * (1 - u) + (h10 - h11) * (1 - v)) - level
-    # Järjestys: kaukolohko (512 m), laji, lähilohko (128 m): kumpikin lohko ja laji on yhtenäinen väli.
-    FC, NC = 512.0, 128.0
+    # Harvennus leivotaan dataan: joka toinen puu jää (sama sääntö kuin tools/kartta/puut_v3.py). Järjestys: kaukolohko
+    # (512 m), laji, keskilohko (128 m), lähilohko (32 m, 4 x 4 keskilohkon sisällä): jokainen lohkotaso ja laji on
+    # yhtenäinen väli.
+    FC, NC, SUB = 512.0, 128.0, 32.0
     nf, nn = int(FAR_HALF * 2 / FC), int(FAR_HALF * 2 / NC)
-    fi = np.clip(((ax + FAR_HALF) // FC).astype(int), 0, nf - 1)
-    fj = np.clip(((az + FAR_HALF) // FC).astype(int), 0, nf - 1)
-    ni = np.clip(((ax + FAR_HALF) // NC).astype(int), 0, nn - 1)
-    nj = np.clip(((az + FAR_HALF) // NC).astype(int), 0, nn - 1)
-    order_ = np.lexsort((nj * nn + ni, asp, fj * nf + fi))
+    ax, ay, az, ah, asp, crown = [q[::2] for q in (ax, ay, az, ah, asp, crown)]
+    si = np.clip(((ax + FAR_HALF) // SUB).astype(int), 0, nn * 4 - 1)
+    sj = np.clip(((az + FAR_HALF) // SUB).astype(int), 0, nn * 4 - 1)
+    ni, nj = si // 4, sj // 4
+    fi, fj = ni // 4, nj // 4
+    sub = (sj % 4) * 4 + (si % 4)
+    order_ = np.lexsort((sub, nj * nn + ni, asp, fj * nf + fi))
     ax, ay, az, ah, asp, crown = ax[order_], ay[order_], az[order_], ah[order_], asp[order_], crown[order_]
     fkey = (fj * nf + fi)[order_]
     nkey = (nj * nn + ni)[order_]
+    sub = sub[order_]
     far_tab = np.zeros((nf * nf, 5, 2), np.uint32)
     near_tab = np.zeros((nn * nn, 5, 2), np.uint32)
     for tab, key in ((far_tab, fkey), (near_tab, nkey)):
@@ -562,6 +567,8 @@ def main():
         k = comb[starts]
         tab[k // 5, k % 5, 0] = starts
         tab[k // 5, k % 5, 1] = counts
+    sub_tab = np.zeros((nn * nn, 5, 16), "<u2")
+    np.add.at(sub_tab, (nkey, asp, sub), 1)
     W = 2048
     Hh = (len(ax) + W - 1) // W
     t0 = np.zeros((Hh * W, 4), "<f4")
@@ -572,9 +579,10 @@ def main():
     t1[:len(ax), 2] = rng.integers(0, 256, len(ax))
     t1[:len(ax), 3] = rng.integers(0, 256, len(ax))
     with open(os.path.join(OUT, "puut.bin"), "wb") as f:
-        f.write(b"ONP2" + struct.pack("<IIIffII", len(ax), W, Hh, FC, NC, nf, nn) + struct.pack("<f", FAR_HALF))
+        f.write(b"ONP3" + struct.pack("<IIIffII", len(ax), W, Hh, FC, NC, nf, nn) + struct.pack("<f", FAR_HALF))
         f.write(far_tab.tobytes())
         f.write(near_tab.tobytes())
+        f.write(sub_tab.tobytes())
         f.write(t0.tobytes())
         f.write(t1.tobytes())
     print("puut.bin: %d puuta (%s)" % (len(ax), ", ".join("%s %d" % (n, (asp == k).sum())

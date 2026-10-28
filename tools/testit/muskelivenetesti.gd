@@ -9,6 +9,7 @@ var main: Node3D
 var fails := 0
 var frames := 0
 var step := 0
+var peak := 0.0
 var ts := 0
 var M: GDScript
 var Hb: GDScript
@@ -81,8 +82,10 @@ func _process(_d: float) -> bool:
 				Input.action_press("forward")
 				next()
 		2:
+			# Kaasulla venettä ehtii ajaa rantaan asti, joten vauhti mitataan huippuarvona (ei ajan lopussa).
+			peak = maxf(peak, vn.speed)
 			if t > 240:
-				check(vn.speed > 8.0, "kaasu vie vauhtiin (%.1f m/s)" % vn.speed)
+				check(peak > 8.0, "kaasu vie vauhtiin (huippu %.1f m/s)" % peak)
 				check(vn.global_position.distance_to(vn.moorings[0].pos) > 10.0, "vene on ajanut satamasta pois")
 				check(main.player.global_position.distance_to(vn.to_global(Vene.SEAT)) < 1.5, "kuljettaja pysyy penkillä")
 				Input.action_release("forward")

@@ -1,7 +1,7 @@
 # Oulujärven norpat
 
 3D-peli Oulujärven rannalla Äpätissä (Vaala). Maailma on tehty oikeasta kartta-aineistosta: maaston
-muodot, rantaviiva, lammet, suot, hiekkarannat, tiet ja polut, rakennukset ja noin 700 000 puuta ovat oikeilla
+muodot, rantaviiva, lammet, suot, hiekkarannat, tiet ja polut, rakennukset ja noin 350 000 puuta (laserkeilauksen puustosta puolet) ovat oikeilla
 paikoillaan. Pelin perusmekaniikka (hahmo, kävely, juoksu, kamera, kosketusohjaimet, äänet, asetukset ja valikot)
 on otettu Normipäivä Saloisissa -pelistä.
 
@@ -105,7 +105,7 @@ kantavat ne terassille ja kaikki heittävät vaatteet pois; kiuas jää sammuksi
 
 ## Pankkiautomaatti, yöunet ja saunan sytytys
 
-- **Pankkiautomaatti** (`happybeach.gd` `_atm`, `baari.gd` `atm_withdraw`): Happy Beachin tien puoleisessa seinässä oven oikealla puolella. E antaa 20 € pelirahaa (pajatso, hedelmäpeli, pokeri) kerran päivässä.
+- **Pankkiautomaatti** (`happybeach.gd` `_atm`, `baari.gd` `atm_withdraw`): Happy Beachin itäpäädyn seinässä kulman takana piilossa tieltä. E antaa 20 € pelirahaa (pajatso, hedelmäpeli, pokeri) kerran päivässä.
 - **Yöunet oodin jälkeen** (`oodi.gd` -> `main.gd` `go_to_bed`): kun oodi on laulettu, tietokoneen hahmot kävelevät ylämökkiin nukkumaan ja pelaaja saa yöversion nukkumisesta (`paikkarit.gd`, 16 s): kamera kulkee viiden kuvan läpi ovelta sänkyjen väliin, nukkujiin ja ikkunalle, yöpöydän lamppu sammuu ja huone jää kuutamon varaan. Herätessä kello on 7.00 (ei verkkopelissä), kunto täynnä ja humala poissa. Huoneessa on vaaleansininen puolipaneeli ja valkoiseksi maalattu hirsiyläosa, lankkulattia, kattopalkit, ovi metsän puoleisella seinällä ikkunaa vastapäätä, ikkunassa oikea järvinäkymä (SubViewport, kamera mökin ulkopuolella), kahden hengen sänky, vuodesohva ja Jukan nukkumapaikka lattialla (vain yöllä), yöpöytä, hylly ja kuvat.
 - **Saunan tuli** sammuu nyt: tietokone hakee haloja vasta, kun kiuas on sammunut ja sauna jäähtynyt alle 60 asteen, joten pelaaja ehtii sytyttää tulen minipelillä (sytytys tarjolla, kun tulta on alle yhden halon verran jäljellä).
 - **Häviöruudulla** vain E aloittaa uuden pelin. Testi: `tools/testit/yotesti.gd`.
@@ -341,10 +341,12 @@ aurinko koskettaa horisonttia klo 23.24 suunnassa 334° (luode-pohjoinen), kuten
 Auringonpaiste on mallinnettu ohuella tilavuususvalla (keski- ja korkea grafiikka, Forward+): latvusten välistä
 paistava aurinko näkyy ilmassa valokiiloina, ja ilta-aurinko hehkuu kultaisena.
 
-Metsä on harvennettu puoleen laserkeilauksen puustosta (`scripts/trees.gd`, `THIN`). Soratiet (Äpätintie)
+Metsä on harvennettu puoleen laserkeilauksen puustosta jo datassa (`tools/kartta/bake.py`, muunnos vanhasta datasta `tools/kartta/puut_v3.py`), joten harvennetut puut eivät kuormita piirtoa. Soratiet (Äpätintie)
 on piirretty omalla varjostimella (`shaders/road.gdshader`): harmaanruskeaa mursketta ja pikkukiviä
 kohokuvioineen, renkaiden tiivistämät tummemmat urat, kupera ajorata ja ruohoiset pientareet; ajourilla
 ruohokaista urien välissä.
+
+Puiden piirto (`scripts/trees.gd`): kaukotaso 512 m, keskitaso 128 m ja korttilatvukset (kuusella kaksi tarkkuutta, 40 m:n rajalla) 32 m lohkoina, jotta moottori jättää kaukaiset lohkot kokonaan piirtämättä; rungot törmäävät vain pelaajan 12 metrin sisällä olevien puiden osalta 48 sylinterin poolista. Testi: `tools/testit/puutesti.gd`.
 
 ## Kartta
 
