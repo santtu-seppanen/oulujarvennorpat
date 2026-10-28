@@ -307,8 +307,10 @@ func _ready() -> void:
 
 func _start_play() -> void:
 	state = "play"
-	_hud.visible = true
-	player.activate_camera()
+	# Valikon sulkeva saapumiskohtaus on jo piilottanut HUDin; kohtaus palauttaa sen itse lopussa.
+	_hud.visible = not in_cutscene()
+	if not in_cutscene():
+		player.activate_camera()
 
 
 ## Valikon kutsu, kun alkuvalikko suljetaan.
