@@ -101,7 +101,7 @@ Oulujärvelle terassilla auringon laskiessa. Trailerin ääninä on vain biisi (
 sanat ja tyylikehotteen Popeda-henkiselle suomirock-kappaleelle; `tools/traileri/kokoa.sh` liittää kappaleen videoon).
 
 **Saapumiskohtaus:** uuden pelin alussa (valikko: Aloita peli) norpat ajavat torstai-iltana mökin pihaan (sauna on kylmä), nostavat kaljakorit takakontista,
-kantavat ne terassille, Jukka panee saunan lämpiämään ja kaikki heittävät vaatteet pois. E tai välilyönti ohittaa.
+kantavat ne terassille ja kaikki heittävät vaatteet pois; kiuas jää sammuksiin, ja tulen pelaaja sytyttää itse. E tai välilyönti ohittaa.
 
 ## Pankkiautomaatti, yöunet ja saunan sytytys
 

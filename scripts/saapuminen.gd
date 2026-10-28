@@ -1,6 +1,6 @@
 extends Node
 ## Saapumiskohtaus: neljä norppaa ajaa mökin pihaan, nostaa kaljakorit takakontista, kantaa ne ylämökin kautta
-## terassille, Jukka panee saunan lämpiämään ja kaikki heittävät vaatteet pois uikkareilleen. Näytetään uuden pelin
+## terassille ja kaikki heittävät vaatteet pois uikkareilleen. Näytetään uuden pelin
 ## alussa (menu.gd) ja trailerin alkuna (tools/traileri). Kohtaus käyttää omia hahmoja (looks.gd) ja piilottaa
 ## pelin hahmot siksi aikaa; lopuksi oikeat hahmot ilmestyvät terassille samoille paikoille uikkareissa.
 ##
@@ -62,7 +62,7 @@ func start() -> void:
 	active = true
 	_t = 0.0
 	_saved_t = game.sun.t_utc
-	# Mökille tullaan torstai-iltana (klo 18), ja sauna on kylmä; Jukka panee sen lämpiämään.
+	# Mökille tullaan torstai-iltana (klo 18), ja sauna on kylmä; pelaaja sytyttää sen itse.
 	var lt: Dictionary = game.sun.local()
 	_cut_t = _saved_t + float((18 * 60) - (int(lt.hour) * 60 + int(lt.minute))) * 60.0
 	game.sauna.fire = 0.0
@@ -218,29 +218,12 @@ func _step_phase(delta: float) -> void:
 				_go("lasku")
 		"lasku":
 			if _pt > 1.6:
-				# Jukka saunalle, muut odottavat terassin reunalla.
-				var sauna_door: Vector3 = game.world.mokki.points["sauna_ovi"]
-				_walk_to(_actors[3], game.world.mokki.route(_actors[3].node.global_position, "sauna_ovi"), WALK)
-				for k in 3:
+				# Kaikki terassin reunalle; saunan kiuas jää kylmäksi.
+				for k in 4:
 					_walk_to(_actors[k], [_lineup(k)], WALK)
-				_actors[3].state = "sauna"
-				_sauna_door = sauna_door
 				_go("sauna")
 		"sauna":
-			var j: Dictionary = _actors[3]
-			if j.state == "sauna" and _is_idle(j):
-				j.state = "sisalla"
-				j.node.visible = false
-				Sfx.play("door", -6.0)
-				_pt = 0.0
-			elif j.state == "sisalla" and _pt > 1.8:
-				game.sauna.ignite(3, 4, 1.0, false)
-				Sfx.play("door_close", -6.0)
-				j.state = "ulos"
-				j.node.visible = true
-				_walk_to(j, game.world.mokki.route(_sauna_door, "kulku") + [_lineup(3)], WALK)
-			elif j.state == "ulos" and _is_idle(j):
-				j.state = "valmis"
+			if _all_idle():
 				for a in _actors:
 					_face_lake(a)
 				_go("riisu")
@@ -253,9 +236,6 @@ func _step_phase(delta: float) -> void:
 		"loppu":
 			if _pt > 1.4:
 				_end()
-
-
-var _sauna_door := Vector3.ZERO
 
 
 func _rear() -> Vector3:
@@ -468,9 +448,6 @@ func _camera() -> void:
 		"lasku", "sauna":
 			from = y(-9.5, 8.5, Mokki.DY + 1.6)
 			at = y(-3.5, 2.4, Mokki.DY + 0.9)
-			if phase == "sauna" and not _actors.is_empty() and _actors[3].state in ["sisalla", "ulos"]:
-				from = y(3.5, 9.0, Mokki.DY + 1.8)
-				at = y(-0.5, -4.2, Mokki.DY + 3.4)
 		"riisu", "loppu":
 			var k := clampf(_pt / 8.0, 0.0, 1.0)
 			from = y(-5.4, 10.5 - 2.0 * k, Mokki.DY + 1.5)
