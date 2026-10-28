@@ -834,7 +834,7 @@ func _interior() -> void:
 	_box(Vector3(-10.18, f + 1.3, 11.7), Vector3(0.04, 0.4, 0.55), Color(0.3, 0.9, 0.4), false)
 	_box(Vector3(-10.18, f + 0.9, 11.7), Vector3(0.04, 0.12, 0.4), Color(0.95, 0.8, 0.2), false)
 	# Väki: Sinikka baaritiskillä, pöytäseurue ikkunapöydässä ja kaksi korttipelaajaa.
-	sinikka = _npc(Looks.SINIKKA, P(-1.0, f, 11.1), 0.0, "Idle")
+	sinikka = _npc(Looks.sinikka_seura(), P(-1.0, f, 11.1), 0.0, "Idle")
 	# Pöytäseurue (Siitarin romaniseurueen mallit: naisilla samettihameet, miehillä tummat puvut) ikkunapöydässä.
 	var skirt := Color(0.04, 0.04, 0.05)
 	var seurue_looks := [
