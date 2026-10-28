@@ -22,7 +22,7 @@ const PRESETS := [
 	["Juhannusaatto klo 22.00", 6, 19, 22, 0],
 	["Elokuun ilta 4.8. klo 19.30", 8, 4, 19, 30],
 	["Nyt (laitteen kello)", 0, 0, 0, 0],
-	["Mökkiviikonloppu to–su (tarina): torstai klo 16", -1, 0, 16, 0],
+	["Mökkiviikonloppu to–su (tarina): torstai klo 18", -1, 0, 18, 0],
 ]
 ## Valikon oletus: tarina (torstai–sunnuntai, tehtävät joka päivä, tarina.gd).
 const STORY_PRESET := 4

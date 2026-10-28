@@ -4,7 +4,7 @@ extends Node
 ## heittely, aurinkoon ja Happy Beachille autolla – ja joka päivä päikkärit ylämökissä klo 15–18 (Jukka ei nuku
 ## päikkäreitä vaan keittää kahvit). Tehtävät riippuvat hahmosta (Marko paistaa pyttipannua, Jukka keittää kahvit).
 ##
-## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 12. Päivä vaihtuu
+## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 18. Päivä vaihtuu
 ## keskiyöllä: edellisen päivän tulos ilmoitetaan ja uuden päivän tehtävät tulevat näkyviin. Sunnuntaina klo 21
 ## viikonloppu päättyy: lopputulos näytetään ja peli jatkuu vapaana. J piilottaa ja näyttää tehtävälistan.
 ##

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Tarinan testi (headless): godot --headless --fixed-fps 60 --path . -s tools/testit/tarinatesti.gd
-## - Valikon oletus on tarina: torstai klo 12, tehtävät hahmon mukaan (Jukka keittää kahvit, Marko paistaa).
+## - Valikon oletus on tarina: torstai klo 18, tehtävät hahmon mukaan (Jukka keittää kahvit, Marko paistaa).
 ## - Tehtävät kuittautuvat vain kerran ja vain oikeana päivänä; päikkärit (heräämisestä) ja kätkö, halot ja huussi.
 ## - Päivä vaihtuu keskiyöllä uusiin tehtäviin, ja sunnuntaina klo 21 viikonloppu päättyy.
 
@@ -48,7 +48,7 @@ func _process(delta: float) -> bool:
 				check(ta.active == false, "tarina ei ole päällä muilla alkuhetkillä")
 				main.sun.start_preset(main.Sun.STORY_PRESET)
 				var lt: Dictionary = main.sun.local()
-				check(ta.active and lt.weekday == 4 and lt.hour == 12, "tarina alkaa torstaina klo 12 (viikonpäivä %d, klo %d)" % [lt.weekday, lt.hour])
+				check(ta.active and lt.weekday == 4 and lt.hour == 18, "tarina alkaa torstaina klo 18 (viikonpäivä %d, klo %d)" % [lt.weekday, lt.hour])
 				check(not _ids(0).has("paikkarit") and not _ids(0).has("aamupala") and not _ids(0).has("kahvi"), "Santtun torstai: ei päikkäreitä, pyttipannun syöntiä eikä kahvinkeittoa %s" % [_ids(0)])
 				check(_ids(1).has("paikkarit") and _ids(1).has("aamupala"), "Santtun perjantai: päikkärit ja pyttipannun syönti %s" % [_ids(1)])
 				main.choose_character(3)
