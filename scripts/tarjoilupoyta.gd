@@ -85,13 +85,13 @@ func _process(_delta: float) -> void:
 	if lt.hour == 12 and _day12 != day:
 		_day12 = day
 		game.kokkaus.add(4)
-		game.chat.ai_say(_marko_index(), BREAKFAST_LINE)
-		game.toast("Marko on paistanut aamupalaksi pyttipannua: tarjoilupöydällä (Q syö).", 5.0)
+		if not game.at_beach(): game.chat.ai_say(_marko_index(), BREAKFAST_LINE)
+		if not game.at_beach(): game.toast("Marko on paistanut aamupalaksi pyttipannua: tarjoilupöydällä (Q syö).", 5.0)
 	elif lt.hour == 20 and _day20 != day:
 		_day20 = day
 		add_steaks(4)
-		game.chat.ai_say(_marko_index(), STEAK_LINE)
-		game.toast("Marko grillasi pihvit grillikatoksessa: tarjoilupöydällä (Q syö).", 5.0)
+		if not game.at_beach(): game.chat.ai_say(_marko_index(), STEAK_LINE)
+		if not game.at_beach(): game.toast("Marko grillasi pihvit grillikatoksessa: tarjoilupöydällä (Q syö).", 5.0)
 
 
 ## Pihvejä pöydälle (Markon grillaama tai tietokoneen Markon tekemä).

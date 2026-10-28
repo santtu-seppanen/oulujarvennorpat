@@ -230,7 +230,7 @@ moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Tes
 
 ## Tarina: mökkiviikonloppu torstaista sunnuntaihin
 
-Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 18 (`scripts/tarina.gd`). Joka päivä on omat
+Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 16 (`scripts/tarina.gd`). Joka päivä on omat
 tehtävät hahmon mukaan, ja ne näkyvät vasemmalla (J piilottaa): torstaina halot, kätkö, sauna, uinti, huussi; perjantaina
 pöydän pelit, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, kätkön haku, Happy Beach (baari ja karaoke) ja
 auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Spartan pinkiponki (rantatennis)** vaatii torstaina 30 lyöntiä

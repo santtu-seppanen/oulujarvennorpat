@@ -4,7 +4,7 @@ extends Node
 ## heittely, aurinkoon ja Happy Beachille autolla – ja joka päivä päikkärit ylämökissä klo 15–18 (Jukka ei nuku
 ## päikkäreitä vaan keittää kahvit). Tehtävät riippuvat hahmosta (Marko paistaa pyttipannua, Jukka keittää kahvit).
 ##
-## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 18. Päivä vaihtuu
+## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 16. Päivä vaihtuu
 ## keskiyöllä: edellisen päivän tulos ilmoitetaan ja uuden päivän tehtävät tulevat näkyviin. Sunnuntaina klo 21
 ## viikonloppu päättyy: lopputulos näytetään ja peli jatkuu vapaana. J piilottaa ja näyttää tehtävälistan.
 ##
@@ -36,7 +36,7 @@ const DAYS := [
 ]
 
 ## Joka päivä samat: ruoka ja kahvi, päikkärit, sekä Spartan pinkiponki ja amerikanpallo ennätystavoitteella.
-## "not_day": päivät, jolloin tehtävää ei ole: torstaina tullaan mökille vasta klo 18, joten pyttipannu (klo 12–14) ja päikkärit
+## "not_day": päivät, jolloin tehtävää ei ole: torstaina tullaan mökille vasta klo 16, joten pyttipannu (klo 12–14) ja päikkärit
 ## (klo 15–18, alkavat vasta perjantaina) jäävät pois.
 const COMMON := [
 	{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"], "not_day": [0]},

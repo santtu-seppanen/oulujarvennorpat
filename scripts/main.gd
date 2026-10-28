@@ -644,6 +644,8 @@ func _coffee_shout() -> int:
 			j = i
 	if j < 0:
 		return -1
+	if at_beach():
+		return j  # Happy Beachilla mökin kahvihuuto ei kuulu
 	chat.show_message(j, COFFEE_LINES[day % 3])
 	if j != player_index:
 		toast("Jukka huutaa kahville: kupit alamökin keittiön pöydässä.", 4.0)
@@ -655,6 +657,8 @@ func _nap_call() -> void:
 	var lt: Dictionary = sun.local()
 	if sun.after_first_day() and lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day:
 		_nap_day = lt.day
+		if at_beach():
+			return  # mökin päikkäriviesti ei kuulu Happy Beachille
 		var t := "Kello on neljä: porukka lähtee päikkäreille ylämökkiin."
 		if Porukka.CREW[player_index].name == "Jukka":
 			t += " Jukka keittää sillä aikaa kahvit."
@@ -666,6 +670,8 @@ func _nap_call() -> void:
 ## Ylämökkiin nukkumaan: hahmo sisään, välianimaatio mökin sisältä (norpat nukkumassa). Herätessä kunto on
 ## täynnä ja humala laskenut.
 func _nap(night := false, send := true) -> void:
+	if at_beach():
+		return  # Happy Beachiltä ei hypätä mökille
 	end_activity()
 	if send:
 		mp.send({"t": "uni", "y": night})  # kaverit seuraavat mukana (kuten autossa)
@@ -705,10 +711,17 @@ func _nap(night := false, send := true) -> void:
 ## Oodin jälkeen (oodi.gd) koko porukka ylämökkiin yöunille: tietokoneen hahmot kävelevät sinne, pelaaja nukkuu
 ## välianimaation ajan ja herää aamulla.
 func go_to_bed() -> void:
+	if at_beach():
+		return
 	if state != "play" or _nap_t > 0.0 or not _can_act() or car.passenger != null or muskelivene.passenger != null:
 		_crew_to_bed(true)
 		return
 	_nap(true, false)  # jokainen kone aloittaa oodin lopussa itse, viestiä ei tarvita
+
+
+## Pelaaja on Happy Beachillä (alue, ravintola ja terassi): ei oodia, ei päikkäreitä eikä yöunia mökille.
+func at_beach() -> bool:
+	return Happybeach.in_camp(player.global_position)
 
 
 ## Tietokoneen hahmot ylämökkiin: yöllä kaikki (myös Jukka), päivällä kaikki paitsi Jukka.
@@ -724,7 +737,7 @@ func _crew_to_bed(night: bool) -> void:
 
 ## Toinen pelaaja meni päikkäreille tai yöunille: oma pelaaja seuraa mukana, jos pystyy.
 func _remote_nap(night: bool) -> void:
-	if state != "play" or _nap_t > 0.0:
+	if state != "play" or _nap_t > 0.0 or at_beach():
 		return
 	if not night and Porukka.CREW[player_index].name == "Jukka":
 		_crew_to_bed(false)  # Jukka ei nuku päikkäreitä, vaan keittää kahvit

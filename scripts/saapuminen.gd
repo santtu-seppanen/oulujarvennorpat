@@ -39,7 +39,7 @@ var _crates: Array[Node3D] = []
 var _props: Array = []  # lentävät vaatteet {node, v, spin, landed}
 var _driver: CharacterBody3D
 var _saved_t := 0.0
-var _cut_t := 0.0  # kohtauksen kellonaika (pelin päivän klo 18), kun sun_time on tyhjä
+var _cut_t := 0.0  # kohtauksen kellonaika (pelin päivän klo 16), kun sun_time on tyhjä
 var _own_layer: CanvasLayer
 var _own_fade: ColorRect
 var _own_cam := false
@@ -62,9 +62,9 @@ func start() -> void:
 	active = true
 	_t = 0.0
 	_saved_t = game.sun.t_utc
-	# Mökille tullaan torstai-iltana (klo 18), ja sauna on kylmä; pelaaja sytyttää sen itse.
+	# Mökille tullaan torstai-iltapäivänä (klo 16), ja sauna on kylmä; pelaaja sytyttää sen itse.
 	var lt: Dictionary = game.sun.local()
-	_cut_t = _saved_t + float((18 * 60) - (int(lt.hour) * 60 + int(lt.minute))) * 60.0
+	_cut_t = _saved_t + float((16 * 60) - (int(lt.hour) * 60 + int(lt.minute))) * 60.0
 	game.sauna.fire = 0.0
 	game.sauna.temp = game.sauna.COLD_AIR
 	_shown = false

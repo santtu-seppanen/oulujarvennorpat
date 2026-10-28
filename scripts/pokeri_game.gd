@@ -7,7 +7,7 @@ extends CanvasLayer
 ## (vasen = pieni, oikea = suuri), mutta punainen seiska päättää tuplauksen ja voitot saa pitää.
 ## E jakaa ja vaihtaa; voittoa ei makseta erikseen, vaan se kertyy koneeseen, kun seuraava käsi jaetaan. F / Esc lopettaa:
 ## kone maksaa kertyneet voitot kolikoina tarjottimelle (kuten hedelmäpeli). Koko peli toimii myös hiirellä: kortit ja
-## PIDÄ-napit sekä alarivin napit TUPLAUS, PIENI, ISO, PANOS ja PELAA (mg_napit.gd). finished(money): rahat pelin jälkeen.
+## PIDÄ-napit sekä alarivin napit TUPLAUS, PIENI, ISO, PANOS, PELAA ja LOPETA (mg_napit.gd). finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
 signal comment(text: String)
@@ -379,6 +379,11 @@ func _press_double() -> void:
 	Sfx.play("pickup", -12.0, 1.4)
 
 
+func _press_quit() -> void:
+	if _phase != "tupla" and _phase != "draw":
+		_finish()
+
+
 func _press_guess(g: String) -> void:
 	if _phase == "win" and _can_double():
 		_double(g)
@@ -395,11 +400,12 @@ func _layout_buttons() -> void:
 		["ISO", Color(1.0, 0.45, 0.1), dbl and _dbl_ask, dbl, _press_guess.bind("suuri")],
 		["PANOS", Color(0.25, 0.6, 1.0), not busy and (_phase == "idle" or _phase == "win"), false, _press_bet],
 		["PELAA", Color(0.25, 0.85, 0.3), not busy, _phase == "idle" or _phase == "win", _press_play],
+		["LOPETA", Color(0.9, 0.2, 0.15), not busy, false, _press_quit],
 	]
 	_napit.list.clear()
 	for i in defs.size():
 		var d: Array = defs[i]
-		var b := {"r": Rect2(o + Vector2(10.0 + i * 180.0, 620.0), Vector2(130, 48)), "label": d[0], "col": d[1], "lit": d[2],
+		var b := {"r": Rect2(o + Vector2(10.0 + i * 148.0, 620.0), Vector2(124, 48)), "label": d[0], "col": d[1], "lit": d[2],
 			"blink": d[3]}
 		if not busy:
 			b["call"] = d[4]
@@ -532,7 +538,7 @@ func _draw_root() -> void:
 	var sz := _root.size
 	var font := ThemeDB.fallback_font
 	MG.wood(_root, Rect2(Vector2.ZERO, sz), Color(0.28, 0.17, 0.1), 90.0, 3, false)
-	MG.glow(_root, Vector2(sz.x * 0.5, sz.y * 0.45), 560.0, Color(0.2, 0.9, 0.5, 0.3 + 0.1 * sin(_t * 2.0)))
+	MG.glow(_root, Vector2(sz.x * 0.5, sz.y * 0.4), 520.0, Color(1.0, 0.4, 0.5, 0.35 + 0.15 * sin(_t * 3.0)))
 	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.0, 0.0, 0.05, 0.25))
 	_k = minf(1.0, (sz.y - 120.0) / 830.0)
 	_root.draw_set_transform_matrix(Transform2D(0.0, Vector2(_k, _k), 0.0, Vector2.ZERO))
@@ -541,20 +547,32 @@ func _draw_root() -> void:
 	var cab := Rect2(o + Vector2(-50, -90), Vector2(1000, 830))
 	MG.box(_root, cab, Color(0.62, 0.1, 0.07), 20, 14, MG.OUTLINE, 3)
 	MG.grad_rect(_root, Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), Color(0.08, 0.08, 0.1), Color(0.18, 0.16, 0.14))
-	_root.draw_string(font, cab.position + Vector2(0, 54), "♣ POKERI · COINLINE CASINO", HORIZONTAL_ALIGNMENT_CENTER, cab.size.x, 36,
-		Color(1.0, 0.8, 0.2))
+	_draw_marquee(Rect2(cab.position + Vector2(10, 10), Vector2(cab.size.x - 20, 60)), font)
 	_draw_paytable(Rect2(o + Vector2(0, -10), Vector2(900, 208)), font)
 	for i in 5:
 		_draw_card(i, font)
-	# Alapaneeli.
+	# Alapaneeli: LED-näytöt (rahat, viesti, panos) kuten hedelmäpelissä; voitto ja tuplaus vilkkuvat.
 	var pn := Rect2(o + Vector2(0, 548), Vector2(900, 58))
-	MG.solid(_root, pn, Color(0.2, 0.2, 0.24))
+	MG.solid(_root, pn, Color(0.2, 0.2, 0.22))
 	var msg := _msg
-	if _phase == "win" and int(_t * 3.0) % 2 == 0:
-		msg = "TUPLAA?"
-	_root.draw_string(font, pn.position + Vector2(14, 38), "RAHAA %s €" % _eur(money), HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(1.0, 0.3, 0.2))
-	_root.draw_string(font, pn.position + Vector2(260, 38), msg, HORIZONTAL_ALIGNMENT_CENTER, 400, 26, Color(0.4, 1.0, 0.35))
-	_root.draw_string(font, pn.position + Vector2(690, 38), "PANOS %d €" % _bet, HORIZONTAL_ALIGNMENT_RIGHT, 196, 26, Color(1.0, 0.9, 0.4))
+	var blink := int(_t * 3.0) % 2 == 0
+	var msg_col := Color(0.4, 1.0, 0.35)
+	if _phase == "win":
+		msg = "TUPLAA?" if blink and _can_double() else _msg
+		msg_col = Color(1.0, 0.9, 0.3) if blink else Color(0.4, 1.0, 0.35)
+	elif _phase == "hold" and blink:
+		msg = ""
+	var led := Rect2(pn.position + Vector2(10, 8), Vector2(220, 42))
+	MG.box(_root, led, Color(0.08, 0.02, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
+	_root.draw_string(font, led.position + Vector2(8, 14), "RAHAA", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.8))
+	_root.draw_string(font, led.position + Vector2(0, 36), "%s €" % _eur(money), HORIZONTAL_ALIGNMENT_CENTER, led.size.x, 26, Color(1.0, 0.25, 0.15))
+	var mbox := Rect2(pn.position + Vector2(244, 8), Vector2(412, 42))
+	MG.box(_root, mbox, Color(0.02, 0.06, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
+	_root.draw_string(font, mbox.position + Vector2(0, 31), msg, HORIZONTAL_ALIGNMENT_CENTER, mbox.size.x, 26, msg_col)
+	var pbox := Rect2(pn.position + Vector2(670, 8), Vector2(220, 42))
+	MG.box(_root, pbox, Color(0.08, 0.02, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
+	_root.draw_string(font, pbox.position + Vector2(8, 14), "PANOS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.8))
+	_root.draw_string(font, pbox.position + Vector2(0, 36), "%d €" % _bet, HORIZONTAL_ALIGNMENT_CENTER, pbox.size.x, 26, Color(1.0, 0.9, 0.4))
 	# Alarivi: napit tummassa upotuksessa (kuten oikean pokeriautomaatin alapaneeli) ja kolikkotarjotin.
 	MG.box(_root, Rect2(o + Vector2(-4, 608), Vector2(908, 76)), Color(0.14, 0.13, 0.14), 8, 0, Color(0.38, 0.36, 0.34), 2)
 	_napit.draw(_root, font, _t)
@@ -566,6 +584,21 @@ func _draw_root() -> void:
 	if _phase == "tupla" or (_phase == "win" and _card > 0 and _card_t > 0.0):
 		_draw_double_card(o + Vector2(980, 330), font)
 	_root.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## Valaistu otsikkopaneeli kuten hedelmäpelissä: reunoilla juoksevat lamput, voitosta kaikki lamput vilkkuvat.
+func _draw_marquee(r: Rect2, font: Font) -> void:
+	MG.box(_root, r, Color(0.15, 0.05, 0.3), 12, 0, Color(0.95, 0.8, 0.3), 4)
+	MG.grad_rect(_root, r.grow(-8), Color(0.95, 0.35, 0.15), Color(0.6, 0.08, 0.2))
+	MG.glow(_root, r.get_center(), r.size.x * 0.3, Color(1.0, 0.95, 0.6, 0.4))
+	for k in 36:
+		var x := r.position.x + 14.0 + k * (r.size.x - 28.0) / 35.0
+		var on := int(_t * 6.0 + k) % 4 < 2 or _flash > 0.0
+		_root.draw_circle(Vector2(x, r.position.y + 8), 4.0, Color(1.0, 0.95, 0.5) if on else Color(0.45, 0.3, 0.1))
+		_root.draw_circle(Vector2(x, r.end.y - 8), 4.0, Color(1.0, 0.95, 0.5) if not on else Color(0.45, 0.3, 0.1))
+	var tp := Vector2(r.position.x, r.get_center().y + 14)
+	_root.draw_string_outline(font, tp, "♣ POKERI · COINLINE CASINO ♣", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 34, 10, Color(0.3, 0.02, 0.05))
+	_root.draw_string(font, tp, "♣ POKERI · COINLINE CASINO ♣", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 34, Color(1.0, 0.92, 0.3))
 
 
 func _tray_rect() -> Rect2:

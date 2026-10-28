@@ -17,12 +17,15 @@ extends CanvasLayer
 ## Siimahuijaus (Q, kerran päivässä, jos repussa on virveli tai onki): siima solmitaan kolikkoon, ja rakoon mennyt
 ## kolikko nykäistään (Q) takaisin ylös ja uudestaan raon läpi, kunnes siimaleikkuri katkaisee siiman tai isäntä
 ## näkee (caught: main.gd heittää ulos). Ohi mennyt siimakolikko vedetään takaisin käteen.
-## Kone skaalautuu matalampaan ikkunaan. F / Esc lopettaa. finished(money, pot): rahat ja varanto pelin jälkeen.
+## Kone skaalautuu matalampaan ikkunaan. F / Esc lopettaa.
+## Koko peli toimii myös hiirellä: koneen vasemman puolen napit painavat samoja toimintoja kuin näppäimet (mg_napit.gd;
+## kolikon jännitys ja peukalotuki pysyvät päällä, kunnes hiiren nappi nousee). finished(money, pot): rahat ja varanto pelin jälkeen.
 
 signal finished(money: float, pot: int)
 signal comment(text: String)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Napit := preload("res://scripts/mg_napit.gd")
 
 const PRICE := 1.0
 const G := 900.0           # painovoima, px/s²
@@ -147,6 +150,7 @@ var _tied := false         # pelissä oleva kolikko on siimassa
 var _yanks := 0
 var _yank_cup := -1        # siimakolikko raossa: Q nykäisee sen takaisin ylös
 var _yank_t := 0.0
+var _napit := Napit.new()
 var _pin_hit := {}         # jousitapin joustoanimaatio: tappi -> [jäljellä s, siirtymä]
 
 
@@ -160,8 +164,11 @@ func _ready() -> void:
 	_root = Control.new()
 	_root.anchor_right = 1.0
 	_root.anchor_bottom = 1.0
-	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.draw.connect(_draw_root)
+	_root.gui_input.connect(func(e: InputEvent) -> void:
+		if not _done:
+			_napit.input(e, _scale))
 	add_child(_root)
 	_info = _label(24, 30.0, false)
 	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
@@ -192,15 +199,21 @@ func _label(size: int, y: float, bottom: bool) -> Label:
 	return l
 
 
+func _exit_tree() -> void:
+	_napit.release_all()
+
+
 func _process(delta: float) -> void:
 	if _done:
 		return
+	_napit.tick()
 	_t += delta
 	var sz := _root.size
 	_scale = minf(1.0, (sz.y - MARGIN_TOP - MARGIN_BOTTOM) / CONTENT_H)
 	_virt = sz / _scale
 	var spare := (sz.y - MARGIN_TOP - MARGIN_BOTTOM) / _scale - CONTENT_H
 	_board = Rect2(Vector2(_virt.x / 2.0 - BW / 2.0 - 30.0, MARGIN_TOP / _scale + spare / 2.0 + FRAME_TOP), Vector2(BW, BH))
+	_layout_buttons()
 	_root.queue_redraw()
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	_hit_t = maxf(0.0, _hit_t - delta)
@@ -240,6 +253,33 @@ func _process(delta: float) -> void:
 		_keys.set_text("Kolikko lentää...   %s tönäise konetta (TILT!)   %s lopeta   J ohje" % [Settings.cap("kick"), Settings.cap("mount")])
 	else:
 		_keys.set_text("Kolikko matkalla...   %s lopeta   J ohje" % Settings.cap("mount"))
+
+
+## Hiirinapit koneen vasemmalla puolella: jokainen painaa saman toiminnon kuin näppäimensä.
+func _layout_buttons() -> void:
+	var x := maxf(10.0, _board.position.x - FRAME - 160.0)
+	var y := _board.position.y
+	var flying := _coin_state == "free"
+	var loaded := _coin_state == "ready"
+	var idle := _coin_state == ""
+	var can_insert := idle and coins >= 1 and money >= PRICE
+	var tie := siima and not siima_used and not _tied
+	var defs := [
+		["NAPSAUTA" if loaded else "KOLIKKO", "pidä = voima" if loaded else "%s €" % _eur(PRICE), Color(0.95, 0.75, 0.2), "interact",
+			loaded or can_insert, loaded or can_insert, loaded],
+		["PEUKALO", "tärinä pois", Color(0.6, 0.9, 0.6), "jump", loaded, false, true],
+		["SAATTO", "jarruta", Color(0.6, 0.8, 1.0), "back", loaded, false, false],
+		["MAKSUVIPU", "%d" % _pending_total(), Color(0.25, 0.85, 0.3), "forward", idle and _pending_total() > 0, idle and _pending_total() > 0, false],
+		["VAIHTO", "2 € → 2 × 1 €", Color(0.25, 0.6, 1.0), "right", idle and money - coins >= 2.0 - 0.001, false, false],
+		["SIIMA", "kolikkoon" if tie else "nykäise", Color(0.85, 0.85, 0.9), "drink", (idle and _yank_cup >= 0) or tie, false, false],
+		["TÖNÄISE", "TILT-riski", Color(1.0, 0.45, 0.1), "kick", flying, false, false],
+		["LOPETA", "", Color(0.9, 0.2, 0.15), "mount", true, false, false],
+	]
+	_napit.list.clear()
+	for i in defs.size():
+		var d: Array = defs[i]
+		_napit.list.append({"r": Rect2(Vector2(x, y + 20.0 + i * 66.0), Vector2(150, 52)), "label": d[0], "sub": d[1], "col": d[2],
+			"action": d[3], "lit": d[4], "blink": d[5], "hold": d[6]})
 
 
 func _eur(v: float) -> String:
@@ -730,6 +770,7 @@ func _draw_root() -> void:
 			_draw_coin(p[0], COIN_R)
 	MG.sparks_draw(_root, _sparks)
 	_draw_meter(cab, o, font)
+	_napit.draw(_root, font, _t)
 	if _pop_t > 0.0:
 		var s := 64 if _pop.begins_with("+14") or _pop == "KIINNI!" else 48
 		var al := clampf(_pop_t / 0.4, 0.0, 1.0)

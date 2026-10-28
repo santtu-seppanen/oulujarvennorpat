@@ -125,9 +125,9 @@ func _process(delta: float) -> bool:
 				var dw: Vector2 = main.world.happy.cw_door("terassi")
 				p.global_position = Vector3(dw.x, main.world.happy.pad_y + 0.2, dw.y)
 				p.velocity = Vector3.ZERO
-				# Lauantai klo 21 (to-su viikonloppu alkaa torstaista: torstai klo 18 + 2 vrk + 3 h; ravintola auki 20-02).
+				# Lauantai klo 21 (to-su viikonloppu alkaa torstaista: torstai klo 16 + 2 vrk + 5 h; ravintola auki 20-02).
 				main.sun.start_preset(main.Sun.STORY_PRESET)
-				main.sun.t_utc += 2.0 * 86400.0 + 9.0 * 3600.0
+				main.sun.t_utc += 2.0 * 86400.0 + 5.0 * 3600.0
 				next()
 		4:
 			if t > 0.5:
