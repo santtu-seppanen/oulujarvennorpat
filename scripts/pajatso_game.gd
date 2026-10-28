@@ -999,6 +999,8 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 	var half := func(c: Vector2, r: float) -> PackedVector2Array:  # kyljen ulkopuolelle jäävä osa
 		var pts := PackedVector2Array()
 		var t := acos(clampf((x - c.x) / r, -1.0, 1.0))  # kaari, joka jää kyljen ulkopuolelle
+		if t < 0.05:  # kiekko kokonaan kyljen sisällä: ei piirrettävää (suppea monikulmio ei triangulaatiossa kelpaa)
+			return pts
 		for k in 33:
 			var a := -t + 2.0 * t * k / 32.0
 			pts.append(Vector2(maxf(x, c.x + cos(a) * r), c.y + sin(a) * r))
@@ -1012,10 +1014,18 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 		_root.draw_circle(Vector2(x, y + sy), 2.0, Color(0.45, 0.46, 0.5))
 		_root.draw_line(Vector2(x - 1.5, y + sy - 1.0), Vector2(x + 1.5, y + sy + 1.0), Color(0.2, 0.2, 0.22), 1.0)
 	_root.draw_rect(Rect2(Vector2(x - 1.5, y - R - 1), Vector2(3, R * 2.0 + 2)), Color(0.05, 0.05, 0.06))
-	_root.draw_colored_polygon(half.call(dc + Vector2(3, 4), R), Color(0, 0, 0, 0.35))  # varjo seinällä
-	_root.draw_colored_polygon(half.call(dc, R), Color(0.62, 0.63, 0.67))
-	_root.draw_colored_polygon(half.call(dc + Vector2(-1.5, -1.5), R - 4.0), Color(0.86, 0.87, 0.9))  # kasvo
-	_root.draw_colored_polygon(half.call(dc + Vector2(-3, -5), R - 12.0), Color(0.98, 0.98, 1.0, 0.8))  # kiilto
+	var pg1: PackedVector2Array = half.call(dc + Vector2(3, 4), R)
+	if pg1.size() >= 3:
+		_root.draw_colored_polygon(pg1, Color(0, 0, 0, 0.35))  # varjo seinällä
+	var pg2: PackedVector2Array = half.call(dc, R)
+	if pg2.size() >= 3:
+		_root.draw_colored_polygon(pg2, Color(0.62, 0.63, 0.67))
+	var pg3: PackedVector2Array = half.call(dc + Vector2(-1.5, -1.5), R - 4.0)
+	if pg3.size() >= 3:
+		_root.draw_colored_polygon(pg3, Color(0.86, 0.87, 0.9))  # kasvo
+	var pg4: PackedVector2Array = half.call(dc + Vector2(-3, -5), R - 12.0)
+	if pg4.size() >= 3:
+		_root.draw_colored_polygon(pg4, Color(0.98, 0.98, 1.0, 0.8))  # kiilto
 	for k in 26:  # pykälöity reuna
 		var a := TAU * (k + 0.5) / 26.0
 		var d := Vector2(cos(a), sin(a))
