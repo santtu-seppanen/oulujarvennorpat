@@ -42,6 +42,7 @@ var azimuth := 0.0   # astetta pohjoisesta myötäpäivään
 var sun_dir := Vector3.UP  # suunta aurinkoon pelin kehyksessä (x itään, z etelään)
 var max_shadow := 180.0
 var shadows_allowed := true
+var first_day := 0  # alkupäivän järjestysnumero (päiviä epookista); päikkärit vasta seuraavana päivänä
 var story := false  # valittu alkuhetki on tarinan alku (PRESETS: kuukausi -1 = seuraava torstai)
 
 var _sky_t := 0.0
@@ -66,6 +67,7 @@ func start_preset(i: int) -> void:
 	else:
 		var y: int = Time.get_datetime_dict_from_system().year
 		t_utc = _local_to_utc(y, p[1], p[2], p[3], p[4])
+	first_day = int(t_utc + utc_offset(t_utc) * 3600) / 86400
 	_today_cache.clear()
 	_update(true)
 	restarted.emit()
@@ -104,6 +106,11 @@ static func _local_to_utc(y: int, mo: int, d: int, h: int, mi: int) -> float:
 	var t := Time.get_unix_time_from_datetime_dict({"year": y, "month": mo, "day": d, "hour": h, "minute": mi, "second": 0})
 	t -= 3 * 3600.0
 	return t - (utc_offset(t) - 3) * 3600.0
+
+
+## Onko alkupäivä jo ohi (päikkärit alkavat vasta toisena päivänä, tarinassa perjantaina).
+func after_first_day() -> bool:
+	return int(t_utc + utc_offset(t_utc) * 3600) / 86400 > first_day
 
 
 ## Paikallinen aika sanakirjana (year, month, day, hour, minute).

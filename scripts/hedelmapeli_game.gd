@@ -4,7 +4,7 @@ extends CanvasLayer
 ## mansikka; määrät rullittain kuten alkuperäisessä), yksi voittolinja keskellä ja panos 1, 2 tai 3 € (W/S). Kolme samaa maksaa
 ## taulukon mukaan, ja mikä tahansa kolmen hedelmän yhdistelmä (myös marjat ja mansikka) maksaa 2. Hävityn kierroksen jälkeen
 ## rullia voi lukita (1, 2, 3), mutta ei kahdesti peräkkäin: "lukitse aina kaksi samaa". Tuplausta ei ole.
-## E pelaa, voiton jälkeen E vie voiton talteen. F / Esc lopettaa (voitto talteen). finished(money): rahat pelin jälkeen.
+## E pelaa. Voitot kertyvät koneeseen ja peli jatkuu, kunnes lopetetaan (F / Esc): silloin kone maksaa kertyneet voitot ulos. finished(money): rahat pelin jälkeen.
 
 signal finished(money: float)
 signal comment(text: String)
@@ -45,7 +45,7 @@ var _stopped: Array[bool] = [true, true, true]
 var _locked: Array[bool] = [false, false, false]
 var _lock_ok := false            # lukitus sallittu (edellinen kierros hävisi eikä ollut lukittu)
 var _was_locked := false
-## Vaihe: "idle" (odottaa panosta), "spin", "win" (voitto odottaa talteenottoa).
+## Vaihe: "idle" (odottaa panosta), "spin". _win = koneeseen kertyneet voitot, jotka maksetaan lopettaessa.
 var _phase := "idle"
 var _spin_t := 0.0
 var _win := 0.0
@@ -58,6 +58,8 @@ var _coins: Array = []           # tarjottimelle putoavat kolikot [paikka, nopeu
 var _tray := 0
 var _msg := ""
 var _btn_flash := ""
+var _closing := false            # voitot putoavat tarjottimelle ennen sulkeutumista
+var _closing_t := 0.0
 
 
 func _ready() -> void:
@@ -125,6 +127,12 @@ func _process(delta: float) -> void:
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	MG.sparks_step(_sparks, delta)
 	_coin_step(delta)
+	if _closing:
+		_closing_t += delta
+		# Kolikot ovat tarjottimella (tai kärsivällisyys loppui): peli päättyy.
+		if _coins.is_empty() or _closing_t > 8.0:
+			_close_now()
+		return
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
 		if _phase == "spin":
 			return
@@ -151,16 +159,11 @@ func _process(delta: float) -> void:
 				_play()
 		"spin":
 			_spin_step(delta)
-		"win":
-			if Input.is_action_just_pressed("interact"):
-				_collect()
-	_info.text = "HEDELMÄPELI · Rahaa %s €%s" % [_eur(money), "  ·  Voitto %s €" % _eur(_win) if _win > 0.0 else ""]
+	_info.text = "HEDELMÄPELI · Rahaa %s €%s" % [_eur(money), "  ·  Voitot %s €" % _eur(_win) if _win > 0.0 else ""]
 	match _phase:
 		"idle":
-			_keys.set_text("%s pelaa (%d €)   %s/%s panos%s   %s lopeta   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
+			_keys.set_text("%s pelaa (%d €)   %s/%s panos%s   %s lopeta ja ota voitot   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
 				Settings.cap("back"), "   [1] [2] [3] lukitse rulla" if _lock_ok else "", Settings.cap("mount")])
-		"win":
-			_keys.set_text("%s voitot talteen" % Settings.cap("interact"))
 		_:
 			_keys.set_text("")
 
@@ -232,14 +235,15 @@ func _resolve() -> void:
 	var a := _sym(0)
 	var b := _sym(1)
 	var c := _sym(2)
-	_win = float(line_win(a, b, c, _bet))
+	var w := float(line_win(a, b, c, _bet))
+	_win += w
 	_locked = [false, false, false]
-	if _win > 0.0:
-		_phase = "win"
+	if w > 0.0:
+		_phase = "idle"
 		_lock_ok = false
 		_flash = 1.5
-		_msg = "VOITTO %s €" % _eur(_win)
-		if _win >= 10.0 * _bet:
+		_msg = "VOITTO %s €" % _eur(w)
+		if w >= 10.0 * _bet:
 			Sfx.play("win", -4.0)
 			MG.sparks_burst(_sparks, _reel_rect(1).get_center(), Color(1.0, 0.85, 0.2), 50)
 			comment.emit("Kolme %s! Koneen valot vilkkuu ja koko baari kuulee." % NAMES[a].to_lower() if a == b and b == c else
@@ -255,18 +259,11 @@ func _resolve() -> void:
 			comment.emit("Kaksi samaa! Lukitse ne (1 2 3) ja yritä kolmatta.")
 
 
-func _collect() -> void:
-	_pay(_win)
-	_win = 0.0
-	_phase = "idle"
-	_msg = "PANOS %d €" % _bet
-
-
 func _pay(amount: float) -> void:
 	var n := int(amount)
 	for k in n:
 		_coins.append([_tray_rect().get_center() + Vector2(randf_range(-40, 40), -150.0), Vector2(randf_range(-60, 60), randf_range(-120, 0)),
-			-k * 0.07])
+			-k * minf(0.07, 2.5 / n)])
 	money += amount - n  # sentit suoraan
 
 
@@ -286,10 +283,20 @@ func _coin_step(delta: float) -> void:
 			Sfx.play("coin", -12.0, randf_range(0.9, 1.3))
 
 
+## Lopetus: kertyneet voitot putoavat ensin tarjottimelle, sitten peli sulkeutuu.
 func _finish() -> void:
-	if _win > 0.0:
-		money += _win
-	money += _coins.size()
+	if _win >= 1.0:
+		_pay(_win)
+		_win = 0.0
+		_closing = true
+		_msg = "VOITOT ULOS"
+		_phase = "idle"
+		return
+	_close_now()
+
+
+func _close_now() -> void:
+	money += _win + _coins.size()
 	_coins.clear()
 	_done = true
 	finished.emit(money)
@@ -397,7 +404,7 @@ func _draw_paytable(r: Rect2, font: Font) -> void:
 		var col := i % 2
 		var row := i / 2
 		var p := r.position + Vector2(12 + col * 250, 10 + row * 34)
-		var lit: bool = _phase == "win" and _sym(0) == order[i] and _sym(1) == order[i] and _sym(2) == order[i] and int(_flash * 8.0) % 2 == 0
+		var lit: bool = _flash > 0.0 and _sym(0) == order[i] and _sym(1) == order[i] and _sym(2) == order[i] and int(_flash * 8.0) % 2 == 0
 		if lit:
 			MG.box(_root, Rect2(p - Vector2(4, 2), Vector2(240, 32)), Color(1.0, 0.85, 0.2, 0.5), 6)
 		for k in 3:
@@ -453,8 +460,6 @@ func _draw_panel(r: Rect2, font: Font) -> void:
 	var msg := Rect2(r.position + Vector2(180, 12), Vector2(r.size.x - 194, 44))
 	MG.box(_root, msg, Color(0.02, 0.06, 0.02), 4, 0, Color(0.4, 0.4, 0.42), 2)
 	var mtxt := _msg
-	if _phase == "win" and int(_t * 3.0) % 2 == 0:
-		mtxt = "TALTEEN?"
 	_root.draw_string(font, msg.position + Vector2(0, 32), mtxt, HORIZONTAL_ALIGNMENT_CENTER, msg.size.x, 26, Color(0.4, 1.0, 0.35))
 	# Napit: lukot, panos, PELAA / TALTEEN.
 	var y := r.position.y + 92
@@ -466,8 +471,7 @@ func _draw_panel(r: Rect2, font: Font) -> void:
 	_root.draw_string(font, bp.position + Vector2(0, 14), "PANOS", HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 12, Color(0.8, 0.8, 0.8))
 	_root.draw_string(font, bp.position + Vector2(0, 44), "%d €" % _bet, HORIZONTAL_ALIGNMENT_CENTER, bp.size.x, 30,
 		Color(1.0, 0.85, 0.2))
-	_button(Vector2(r.end.x - 60, y), 32.0, "TALTEEN" if _phase == "win" else "PELAA",
-		Color(0.9, 0.2, 0.15) if _phase == "win" else Color(0.25, 0.8, 0.3), _phase in ["idle", "win"], font)
+	_button(Vector2(r.end.x - 60, y), 32.0, "PELAA", Color(0.25, 0.8, 0.3), _phase == "idle", font)
 
 
 func _button(c: Vector2, rad: float, text: String, col: Color, lit: bool, font: Font) -> void:

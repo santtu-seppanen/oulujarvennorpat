@@ -316,7 +316,9 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		for i in 5:
-			if _card_rect(i).has_point(event.position / _k):
+			var br := _card_rect(i)
+			br.size.y += 90.0
+			if br.has_point(event.position / _k):
 				_toggle(i)
 				return
 
@@ -375,7 +377,7 @@ func _process(delta: float) -> void:
 			_keys.set_text("%s jaa (%d €)   %s panos +   %s panos −   %s lopeta   J ohje" % [Settings.cap("interact"), _bet, Settings.cap("forward"),
 				Settings.cap("back"), Settings.cap("mount")])
 		"hold":
-			_keys.set_text("[1]–[5] / klikkaus pitää kortin   %s vaihda loput   J ohje" % Settings.cap("interact"))
+			_keys.set_text("1–5 / klikkaus: PIDÄ   %s vaihda loput   J ohje" % Settings.cap("interact"))
 		"win":
 			if _can_double():
 				_keys.set_text("%s voitto talteen   %s PIENI (A–6)   %s SUURI (8–K)   punainen 7 = voitot talteen" % [
@@ -477,15 +479,23 @@ func _draw_card(i: int, font: Font) -> void:
 	_draw_card_marks(i, r, font)
 
 
-## Kortin alla: PIDÄ-kyltti (pidetyille, kortin ollessa kortti-alueen ja alapaneelin välissä), valintakehys ja numero.
+## Kortin alla: PIDÄ-painike (palaa pidetylle kortille) ja valintakehys.
 func _draw_card_marks(i: int, r: Rect2, font: Font) -> void:
-	if _held[i] and _phase != "idle":
-		var sg := Rect2(r.position + Vector2(CARD_W / 2.0 - 50, CARD_H + 14), Vector2(100, 36))
-		MG.sign(_root, sg, "PIDÄ", Color(0.75, 0.1, 0.06), Color(1, 0.95, 0.8), 24, Color(0.95, 0.8, 0.3))
 	if _phase == "hold" and i == _cursor:
 		_root.draw_rect(r.grow(6), Color(0.4, 1.0, 0.5, 0.9), false, 4.0)
-	_root.draw_string(font, r.position + Vector2(0, CARD_H + 78), "[%d]" % (i + 1), HORIZONTAL_ALIGNMENT_CENTER, CARD_W, 18,
-		Color(0.85, 0.85, 0.9))
+	# Oikean pokeriautomaatin suorakulmainen painike tummassa upotuksessa: palaa kirkkaana pidetylle kortille.
+	var c := r.position + Vector2(CARD_W / 2.0, CARD_H + 56.0)
+	var lit := _held[i] and _phase != "idle"
+	var col := Color(0.95, 0.2, 0.12) if lit else Color(0.5, 0.09, 0.07)
+	if lit:
+		MG.glow(_root, c, 70.0, Color(1.0, 0.3, 0.15, 0.5))
+	MG.box(_root, Rect2(c - Vector2(64, 30), Vector2(128, 60)), Color(0.1, 0.09, 0.09), 8, 0, Color(0.38, 0.36, 0.34), 2)
+	var bt := Rect2(c - Vector2(56, 22), Vector2(112, 44))
+	MG.box(_root, bt, col.darkened(0.4), 6, 0, MG.OUTLINE, 2)
+	MG.box(_root, Rect2(bt.position, Vector2(bt.size.x, bt.size.y - 6)), col, 6)
+	_root.draw_rect(Rect2(bt.position + Vector2(6, 4), Vector2(bt.size.x - 12, 5)), Color(1, 1, 1, 0.28 if lit else 0.12))
+	_root.draw_string(font, bt.position + Vector2(0, 28), "PIDÄ", HORIZONTAL_ALIGNMENT_CENTER, bt.size.x, 20,
+		Color(1.0, 0.95, 0.8) if lit else Color(0.9, 0.7, 0.6))
 
 
 ## Maa piirretään käsin: 0 pata, 1 hertta, 2 ruutu, 3 risti. s = mittakaava (1 = 30 px).

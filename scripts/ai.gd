@@ -210,6 +210,8 @@ func wake_up() -> void:
 static func nap_hours(s: Node) -> bool:
 	if s == null:
 		return true
+	if not s.after_first_day():
+		return false
 	var h: int = s.local().hour
 	return h >= 15 and h < 18
 
@@ -222,7 +224,7 @@ static func night_hours(s: Node) -> bool:
 ## Klo 16 aikoihin porukka juttelee päikkäreistä ja lähtee ylämökkiin nukkumaan; Jukka keittää kahvit.
 func _nap_time() -> void:
 	var lt: Dictionary = sun.local() if sun != null else {}
-	if lt.is_empty() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
+	if lt.is_empty() or not sun.after_first_day() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
 		return
 	if activity in ["kortit", "nuotio", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
 			or _state == "hidden" or body.boat != null:
@@ -263,11 +265,6 @@ func _choose() -> void:
 			continue  # ylämökissä nukutaan päikkäreitä vain klo 15-18
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
-	# Kiuas on sammunut ja sauna jäähtynyt: joku hakee haloja halkovajasta. Ennen sitä tuli saa sammua, jotta
-	# pelaaja ehtii sytyttää sen itse minipelillä.
-	if mokki.fire_left <= 0.0 and mokki.sauna_temp < 60.0:
-		w["lammitys"] = 6.0
-		total += 6.0
 	var r := rng.randf() * total
 	for a in w:
 		r -= w[a]

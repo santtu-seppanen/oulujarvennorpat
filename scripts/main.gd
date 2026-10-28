@@ -651,7 +651,7 @@ func _coffee_shout() -> int:
 ## Klo 16 aikoihin porukka lähtee päikkäreille (ai.gd): kerran päivässä ilmoitus pelaajalle.
 func _nap_call() -> void:
 	var lt: Dictionary = sun.local()
-	if lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day:
+	if sun.after_first_day() and lt.hour == 16 and lt.minute < 10 and _nap_day != lt.day:
 		_nap_day = lt.day
 		var t := "Kello on neljä: porukka lähtee päikkäreille ylämökkiin."
 		if Porukka.CREW[player_index].name == "Jukka":
@@ -936,6 +936,8 @@ func _interaction() -> Dictionary:
 		if Ai.night_hours(sun):
 			return {"text": "E: yöunille ylämökkiin (koko porukka seuraa, aamu klo 7)", "cb": func() -> void: _nap(true)}
 		if not Ai.nap_hours(sun):
+			if not sun.after_first_day():
+				return {"text": "Päikkärit alkavat vasta perjantaina. Yöunet klo 0–5."}
 			return {"text": "Päikkärit nukutaan klo 15–18 ja yöunet klo 0–5 (nyt klo %02d.%02d)" % [sun.local().hour, sun.local().minute]}
 		return {"text": "E: päikkärit ylämökissä", "cb": func() -> void: _nap()}
 	if tarjoilu.near(player.global_position) and player.boat == null:

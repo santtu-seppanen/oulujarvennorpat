@@ -9,97 +9,91 @@ const Ui := preload("res://scripts/ui.gd")
 
 ## id -> [otsikko, ohjeteksti (BBCode)].
 const TEXTS := {
-	"pajatso": ["PAJATSO", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saa euron kolikko putoamaan voittorakoon. Keskirako [b]14 €[/b] on vaikein, reunoilla maksetaan 2–3 € tai panos takaisin (R).
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• [b]E[/b]: kolikko lyöntipaikalle. Pidä pohjassa, niin voima kasvaa; päästä irti, niin kolikko lentää.
-• [b]Välilyönti[/b] pohjassa: peukalotuki (ei tärinää, voima kasvaa hitaammin). [b]S[/b]: snaiffaus.
-• [b]K[/b]: tönäise konetta lennon aikana. Liian kova tönäisy = TILT ja ulos!
-• [b]W[/b]: maksuvipu, kun kolikko on rakoon mennyt.
-• [b]D[/b]: vaihtokoneella kahden euron kolikko kahdeksi euroksi.
-
-[b]F[/b] / [b]Esc[/b] lopettaa, rahat jäävät taskuun."""],
-	"hedelma": ["HEDELMÄPELI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Saa keskilinjalle kolme samaa tai kolme hedelmää.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• [b]W / S[/b]: panos 1–3 €. [b]E[/b]: pyöräytä.
-• Häviön jälkeen [b]1[/b], [b]2[/b], [b]3[/b] lukitsee rullan seuraavaksi kierrokseksi (ei kahta kierrosta peräkkäin).
-• Voitolla [b]E[/b] vie voiton talteen. Tuplausta ei ole.
-
-[color=#ffd23a][b]Voitot (panos 1 €)[/b][/color]
-RAY 30 · apila/meloni 20 · päärynä/rypäle 12 · luumu/appelsiini 10 · tähti 4 · mitkä tahansa kolme hedelmää 2.
-
-[b]F[/b] / [b]Esc[/b] lopettaa."""],
-	"pokeri": ["POKERI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Jokeripokeri: viisi korttia, jokeri on villi. Pienin voitto on kaksi paria.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• [b]W / S[/b]: panos 1–5 €. [b]E[/b]: jaa viisi korttia.
-• [b]1–5[/b] tai klikkaus: pidä kortti (PIDÄ). [b]E[/b]: vaihda loput kerran.
-• Voitolla [b]E[/b] vie talteen tai [b]A[/b] = PIENI (A–6), [b]D[/b] = SUURI (8–K) tuplaa. Seiska: musta vie voiton, punainen päättää tuplauksen.
-
-[color=#ffd23a][b]Voitot (× panos)[/b][/color]
-Viitoset 50 · Värisuora 50 · Neloset 25 · Täyskäsi 10 · Väri 6 · Suora 4 · Kolmoset 2 · Kaksi paria 1.
-
-Vinkki: pidä jokeri aina. [b]F[/b] / [b]Esc[/b] lopettaa."""],
-	"karaoke": ["KARAOKE", """[color=#ffd23a][b]Tavoite[/b][/color]
-Paina nuotit oikeaan aikaan. Tarkka osuma antaa enemmän pisteitä.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• [b]↑ ↓[/b] ja [b]E[/b]: valitse kappale.
-• Nuotit tulevat neljää kaistaa alas: paina [b]A S K L[/b] (tai nuolet), kun nuotti on osumalinjalla.
-• Pitkässä nuotissa pidä näppäin pohjassa loppuun.
-• Peräkkäiset osumat nostavat kerrointa, huti katkaisee putken. Humala sotkee ajoitusta.
-
-[b]F[/b] / [b]Esc[/b] lopettaa."""],
-	"tanssi": ["TANSSILATTIA", """[color=#ffd23a][b]Tavoite[/b][/color]
-Paina nuolta, kun se osuu osumalinjalle.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• Neljä kaistaa: [b]A S W D[/b] tai nuolinäppäimet.
-• Neljä osumaa putkeen nostaa kerrointa (×1,0 → ×1,6). Huti katkaisee putken.
-• Sinikan kanssa tulos paranee, mutta liika flirttailu saa vaimon soittamaan!
-
-[b]F[/b] / [b]Esc[/b] lopettaa."""],
-	"trivia": ["YSÄRITRIVIA", """[color=#ffd23a][b]Tavoite[/b][/color]
-Ensimmäinen, jolla on neljä kiilaa (aihepiiriä kuudesta), voittaa.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• Omalla vuorolla [b]Enter[/b], kirjoita vastaus chattiin ja Enter uudelleen. Aikaa 45 s. [b]E[/b] ohittaa.
-• Oikein: kiila ja uusi kysymys. Väärin: vuoro siirtyy.
-• Pikkuvirheet kirjoitusasussa eivät haittaa.
-
-[b]W[/b] nousee pöydästä."""],
-	"afrikka": ["AFRIKAN TÄHTI", """[color=#ffd23a][b]Tavoite[/b][/color]
-Löydä Afrikan tähti kaupunkien kiekoista ja vie se ensimmäisenä Tangeriin tai Kairoon.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• Vuorolla valitse valikosta ([b]↑ ↓[/b], [b]E[/b] tai numero; myös klikkaus): [i]Heitä noppa[/i], [i]Lennä[/i] (300 £) tai kaupungissa [i]Osta kiekko[/i] (100 £).
-• Maatie: ilmainen, noppa kertoo askelet. Meritie: 100 £ sataman lähdöstä. Voit pysähtyä kesken.
-• Kiekko: tyhjä · topaasi +300 £ · smaragdi +600 £ · rubiini +1000 £ · rosvo vie kaikki rahat · hevosenkenkä (käy tähden sijaan, kun tähti on löytynyt) · [b]Afrikan tähti[/b].
-• Erikoispaikat: Kapkaupunki +500 £ ensimmäiselle · Accra tuplaa jalokiven · Lagos: myrsky kolmeksi vuoroksi · Pyhä Helena ja Saharan autiomaa: vapaa vasta nopalla 1 tai 2.
-• Aloitusraha 300 £.
-
-[b]F[/b] nousee pöydästä, [b]J[/b] avaa ohjeen."""],
-	"muistelu": ["MUISTATKO KUN", """[color=#ffd23a][b]Tavoite[/b][/color]
-Nuotiolla kerrotaan neljä ysärimuistoa. Vastauksesi muuttavat illan tunnelmaa, mikä näkyy aamun mainepisteissä.
-
-[color=#ffd23a][b]Näin pelaat[/b][/color]
-• [b]E[/b] jatkaa tarinaa.
-• Vastaus: [b]↑ ↓[/b] ja [b]E[/b], tai [b]1[/b] [b]2[/b] [b]3[/b] / klikkaus.
-• Kannustus ja vitsit nostavat tunnelmaa, piikittely laskee.
-
-[b]F[/b] poistuu nuotiolta valinnoissa, [b]W[/b] muulloin."""],
-	"kortit": ["KORTTIPELIT", """[color=#ffd23a][b]Ristiseiska[/b][/color]
-Laske kortit riveihin seiskasta alkaen; ristiseiskan saanut aloittaa. Pelaa jatko, jos voit. Ässä ja kuningas antavat lisävuoron. Jos et voi, edellinen antaa sinulle kortin. Ensin tyhjäksi voittaa, muut saavat pisteen jokaisesta kortista.
-
-[color=#ffd23a][b]Tuppi[/b][/color]
-Neljä pelaajaa, vastapelaajat ovat pari. Tarjouskortti: punainen = rami, musta = nolo. Maata on tunnustettava, ässä vie. Ensin 52 pisteeseen voittaa.
+	"pajatso": ["PAJATSO", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Kolikko voittorakoon. Keskellä [b]14 €[/b], reunoilla 2–3 € tai panos takaisin (R).
 
 [color=#ffd23a][b]Ohjaus[/b][/color]
-[b]Välilyönti[/b] jakaa, klikkaus pelaa kortin, [b]A/D[/b] katsoo ympärille, [b]E[/b] ylhäältä. [b]W[/b] nousee pöydästä."""],
+[b]E[/b] kolikko lyöntipaikalle, pohjassa voima kasvaa, irti = lento
+[b]Välilyönti[/b] peukalotuki · [b]S[/b] snaiffaus
+[b]K[/b] tönäise (liian kova = TILT) · [b]W[/b] maksuvipu
+[b]D[/b] vaihtokone: 2 € kolikko kahdeksi euroksi
+
+[b]F[/b] / [b]Esc[/b] lopettaa[/center]"""],
+	"hedelma": ["HEDELMÄPELI", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Kolme samaa tai kolme hedelmää keskilinjalle.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]W / S[/b] panos 1–3 € · [b]E[/b] pyöräytä
+Häviön jälkeen [b]1 2 3[/b] lukitsee rullan (ei kahdesti peräkkäin)
+Voitot kertyvät koneeseen ja maksetaan, kun lopetat.
+
+[color=#ffd23a][b]Voitot (panos 1 €)[/b][/color]
+RAY 30 · apila/meloni 20 · päärynä/rypäle 12 · luumu/appelsiini 10 · tähti 4 · mitkä tahansa kolme hedelmää 2
+
+[b]F[/b] / [b]Esc[/b] lopettaa ja ottaa voitot[/center]"""],
+	"pokeri": ["POKERI", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Viisi korttia, jokeri villi. Pienin voitto: kaksi paria.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]W / S[/b] panos 1–5 € · [b]E[/b] jaa
+[b]1–5[/b] tai klikkaus: PIDÄ · [b]E[/b] vaihda loput
+Voitolla [b]E[/b] talteen tai [b]A[/b] PIENI (A–6) / [b]D[/b] SUURI (8–K) tuplaa
+Musta seiska vie voiton, punainen päättää tuplauksen
+
+[color=#ffd23a][b]Voitot (× panos)[/b][/color]
+Viitoset 50 · Värisuora 50 · Neloset 25 · Täyskäsi 10 · Väri 6 · Suora 4 · Kolmoset 2 · Kaksi paria 1
+
+[b]F[/b] / [b]Esc[/b] lopettaa[/center]"""],
+	"karaoke": ["KARAOKE", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Paina nuotit osumalinjalla: tarkka osuma antaa enemmän pisteitä.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]↑ ↓[/b] + [b]E[/b] kappale · [b]A S K L[/b] (tai nuolet) nuotit
+Pitkässä nuotissa pidä pohjassa. Putki nostaa kerrointa, huti katkaisee. Humala sotkee ajoitusta.
+
+[b]F[/b] / [b]Esc[/b] lopettaa[/center]"""],
+	"tanssi": ["TANSSILATTIA", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Paina nuolta, kun se osuu osumalinjalle.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]A S W D[/b] tai nuolet · neljä osumaa putkeen nostaa kerrointa (×1,0 → ×1,6)
+Sinikan kanssa tulos paranee, mutta liika flirttailu saa vaimon soittamaan!
+
+[b]F[/b] / [b]Esc[/b] lopettaa[/center]"""],
+	"trivia": ["YSÄRITRIVIA", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Ensimmäinen, jolla on neljä kiilaa (kuudesta aihepiiristä), voittaa.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+Omalla vuorolla [b]Enter[/b], vastaus chattiin, Enter. Aikaa 45 s, [b]E[/b] ohittaa.
+Oikein: kiila. Väärin: vuoro siirtyy. Pikkuvirheet sallitaan.
+
+[b]W[/b] nousee pöydästä[/center]"""],
+	"afrikka": ["AFRIKAN TÄHTI", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Löydä Afrikan tähti kiekoista ja vie se ensimmäisenä Tangeriin tai Kairoon.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+Vuorolla valitse ([b]↑ ↓[/b], [b]E[/b], numero tai klikkaus): [i]Heitä noppa[/i], [i]Lennä[/i] (300 £) tai [i]Osta kiekko[/i] (100 £)
+Meritie 100 £. Aloitusraha 300 £.
+Kiekot: topaasi +300 · smaragdi +600 · rubiini +1000 · rosvo vie kaiken · hevosenkenkä · tähti
+Kapkaupunki +500 ensimmäiselle · Accra tuplaa jalokiven · Lagos: myrsky · Pyhä Helena ja Sahara: vapaa nopalla 1–2
+
+[b]F[/b] nousee pöydästä[/center]"""],
+	"muistelu": ["MUISTATKO KUN", """[center][color=#ffd23a][b]Tavoite[/b][/color]
+Nuotiolla neljä ysärimuistoa. Vastauksesi muuttavat illan tunnelmaa ja aamun mainepisteitä.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]E[/b] jatkaa · vastaus [b]↑ ↓[/b] + [b]E[/b], [b]1 2 3[/b] tai klikkaus
+Kannustus nostaa tunnelmaa, piikittely laskee.
+
+[b]F[/b] poistuu nuotiolta valinnoissa, [b]W[/b] muulloin[/center]"""],
+	"kortit": ["KORTTIPELIT", """[center][color=#ffd23a][b]Ristiseiska[/b][/color]
+Laske kortit riveihin seiskasta, ristiseiska aloittaa. Ässä ja kuningas = lisävuoro. Ei voi pelata: edellinen antaa kortin. Ensin tyhjäksi voittaa.
+
+[color=#ffd23a][b]Tuppi[/b][/color]
+Neljä pelaajaa, vastapelaajat pari. Punainen tarjouskortti = rami, musta = nolo. Maa tunnustettava, ässä vie. Ensin 52 pisteeseen.
+
+[color=#ffd23a][b]Ohjaus[/b][/color]
+[b]Välilyönti[/b] jakaa · klikkaus pelaa · [b]A/D[/b] katsoo ympärille · [b]E[/b] ylhäältä · [b]W[/b] nousee[/center]"""],
 }
 signal closed
 
@@ -122,20 +116,42 @@ func _ready() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(dim)
-	var box := Ui.panel(self, "center", 860.0)
+	var box := Ui.panel(self, "center", 720.0)
 	_panel = box.get_parent()
-	_title = Ui.label(box, "", 28, Ui.YELLOW)
+	# Pajatson kaappi: punainen lakkapinta, kultareunus ja musta LED-otsikkokyltti.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.5, 0.05, 0.07, 0.96)
+	sb.border_color = Color(0.95, 0.78, 0.25)
+	sb.set_border_width_all(5)
+	sb.set_corner_radius_all(22)
+	sb.shadow_size = 18
+	sb.shadow_color = Color(1.0, 0.75, 0.2, 0.35)
+	for side in ["left", "right", "top", "bottom"]:
+		sb.set("content_margin_" + side, 20)
+	_panel.add_theme_stylebox_override("panel", sb)
+	var plate := PanelContainer.new()
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.04, 0.03, 0.05)
+	psb.border_color = Color(0.7, 0.7, 0.75)
+	psb.set_border_width_all(2)
+	psb.set_corner_radius_all(8)
+	psb.content_margin_top = 6
+	psb.content_margin_bottom = 6
+	plate.add_theme_stylebox_override("panel", psb)
+	box.add_child(plate)
+	_title = Ui.label(plate, "", 30, Ui.YELLOW)
 	_body = RichTextLabel.new()
 	_body.bbcode_enabled = true
 	_body.scroll_active = true
 	_body.fit_content = false
-	_body.custom_minimum_size = Vector2(820, 470)
+	_body.custom_minimum_size = Vector2(680, 400)
 	_body.add_theme_font_size_override("normal_font_size", 21)
 	_body.add_theme_font_size_override("bold_font_size", 21)
+	_body.add_theme_color_override("default_color", Color(1.0, 0.96, 0.85))
 	_body.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(_body)
-	_foot = Ui.label(box, "E / Enter / klikkaus: valmis   ·   ↑ ↓ vierittää   ·   J avaa ohjeen pelissä milloin tahansa", 15,
-		Color(0.8, 0.8, 0.85))
+	_foot = Ui.label(box, "E / klikkaus: sulje   ·   ↑ ↓ vierittää   ·   J: ohje", 15,
+		Color(1.0, 0.85, 0.5))
 
 
 func has_text(id: String) -> bool:
@@ -156,11 +172,11 @@ func open(id: String, on_close := Callable()) -> void:
 	_seen[id] = true
 	_cb = on_close
 	var t: Array = TEXTS[id]
-	_title.text = "OHJE · %s" % t[0]
+	_title.text = "★ %s ★" % t[0]
 	_body.text = t[1]
 	_body.scroll_to_line(0)
 	var vp := get_viewport().get_visible_rect().size
-	_body.custom_minimum_size.y = clampf(vp.y - 230.0, 240.0, 520.0)
+	_body.custom_minimum_size.y = clampf(vp.y - 260.0, 240.0, 440.0)
 	visible = true
 	CamCtl.free_mouse = true
 
