@@ -335,13 +335,15 @@ func _physics_process(delta: float) -> void:
 		if ph < -0.1 or Terrain.is_water(probe.x, probe.z) or (ph - Terrain.h(p.x, p.z)) * signf(speed) / reach > 0.75:
 			speed = 0.0
 	velocity = Vector3(fwd.x, 0.0, fwd.z) * speed
+	var before := global_position
 	move_and_slide()
 	if get_slide_collision_count() > 0:
-		var along := Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
-		if absf(along) < absf(speed) * 0.6:
-			speed = along * 0.5
-		if absf(speed) > 3.0:
-			Sfx.play_on(self, "rattle_hard", -6.0)
+		# Törmäys: vauhti on todellinen eteneminen (Jolt voi jättää nopeuden päälle, vaikka auto ei liiku).
+		var moved := (global_position - before).dot(fwd) / maxf(delta, 0.001)
+		if absf(moved) < absf(speed) * 0.6:
+			if absf(speed) > 3.0:
+				Sfx.play_on(self, "rattle_hard", -6.0)
+			speed = moved * 0.5
 	if driver != null and game != null and game.mp.online():
 		_send_t -= delta
 		if _send_t <= 0.0:
