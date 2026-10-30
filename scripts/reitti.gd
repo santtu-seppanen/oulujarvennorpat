@@ -36,7 +36,7 @@ const K := Vector2(-586.0, -40.0)
 const A := Vector2(0.8096, 0.587)
 const N := Vector2(0.587, -0.8096)
 
-const MASK_R := 4.6  # tien raivaus ja "tiellä"-alue (m) reitin molemmin puolin
+const MASK_R := 4.2  # tien raivaus ja "tiellä"-alue (m) reitin molemmin puolin
 const CELL := 2.0
 
 static var _mask := PackedByteArray()
@@ -74,7 +74,7 @@ static func reversed() -> Array:
 ## niiden yli (auto.gd). Ennen maaston rakentamista (world.gd).
 const MOUND_FROM := 8
 const MOUND_GAP := 38.0
-const MOUND_HALF := 3.0
+const MOUND_HALF := 3.5
 
 
 static func terraform() -> void:

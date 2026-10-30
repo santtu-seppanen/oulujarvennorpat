@@ -44,6 +44,11 @@ func _initialize() -> void:
 				check(not r.give(r.turn, r.hands[r.turn][0]) or r.turn == r.giver, "vain antaja voi antaa")
 				check(r.give(p, r.bot_give(p, rng)), "anto hyväksytään")
 				gives += 1
+			# Rivin järjestys: 8 vasta 6:n ja 5 vasta 8:n jälkeen.
+			for s in 4:
+				if r.low[s] > 0:
+					check(r.low[s] >= 6 or r.high[s] >= 8 or r.low[s] == 7, "5 tai pienempi vasta 8:n jälkeen")
+					check(r.high[s] <= 7 or r.low[s] <= 6, "8 tai suurempi vasta 6:n jälkeen")
 			# Kortit säilyvät: kädet + pöydän rivit = 52.
 			var n := 0
 			for h in r.hands:
@@ -53,6 +58,9 @@ func _initialize() -> void:
 					n += r.high[s] - r.low[s] + 1
 			check(n == 52, "kortteja yhteensä 52 (nyt %d)" % n)
 		check(r.finished.size() == 4, "kaikki sijoitettu")
+		check(r.points[r.finished[0]] == 0 and r.totals[r.finished[0]] == 0, "voittaja saa 0 pistettä")
+		for p in 4:
+			check(r.points[p] == r.hands[p].size(), "pisteet = käteen jääneet kortit")
 		check(r.moves < R.MAX_MOVES, "peli päättyi sääntöjen mukaan")
 		total_moves += r.moves
 		wins[r.finished[0]] += 1

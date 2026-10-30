@@ -6,6 +6,10 @@ signal changed
 
 const PATH := "user://settings.cfg"
 const QUALITY := ["Erittäin matala", "Matala", "Keski", "Korkea"]
+## Näkyvyysetäisyys (m): kameran kaukoraja ja usva. Lyhyt etäisyys karsii kaukaisen maiseman piirtämisen kokonaan
+## (maasto, talot, 700 000 puuta), mikä keventää eniten heikoilla näytönohjaimilla; usva peittää rajan.
+const VIEW_NAMES := ["Lyhyt (800 m)", "Keski (1,6 km)", "Pitkä (3 km)", "Täysi (9 km)"]
+const VIEW_DIST := [800.0, 1600.0, 3000.0, 9000.0]
 ## Grafiikkamoottori valitaan ennen kuin skriptit ajetaan, joten se tallennetaan user://override.cfg:hen
 ## (project.godot: application/config/project_settings_override) ja vaihtuu uudelleenkäynnistyksessä.
 const OVERRIDE := "user://override.cfg"
@@ -17,6 +21,7 @@ var values := {
 	"vsync": true,
 	"quality": 3,  # 0 erittäin matala (ei auringon varjoja), 1 matala, 2 keski, 3 korkea
 	"render_scale": 1.0,
+	"view_distance": 3,  # VIEW_NAMES-indeksi
 	"fov": 70.0,
 	"show_fps": false,
 	"show_guides": false,  # leijuvat paikkojen ja hahmojen nimet (B.guide)
@@ -24,7 +29,7 @@ var values := {
 	"vol_sfx": 0.9,
 	"vol_ambience": 0.8,
 	"vol_music": 0.8,
-	"tts": true,  # puhekuplat ääneen käyttöjärjestelmän puhesynteesillä (chat.gd)
+	"tts": true,  # käsikirjoitetut repliikit ääneen: valmiit nauhoitteet (puhe.gd)
 	"vol_speech": 0.8,
 	"voice_mic": true,  # moninpelin äänilinkki: oma mikki käyttöön (aanilinkki.gd), N mykistää
 	"vol_voice": 0.9,  # muiden pelaajien puhe äänilinkissä
@@ -100,6 +105,11 @@ func save() -> void:
 	cfg.save(PATH)
 
 
+## Kameran kaukoraja valitulle näkyvyysetäisyydelle.
+func view_far() -> float:
+	return VIEW_DIST[clampi(int(values.view_distance), 0, VIEW_DIST.size() - 1)]
+
+
 func apply() -> void:
 	var win := get_window()
 	if not Engine.is_editor_hint() and DisplayServer.get_name() != "headless":
@@ -128,3 +138,19 @@ func _apply_bus(bus: String) -> void:
 		var v: float = values[BUSES[bus]]
 		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)) + BUS_TRIM.get(bus, 0.0))
 		AudioServer.set_bus_mute(i, v <= 0.001)
+
+
+## Toiminnon näppäin hakasulkeissa ohjeisiin, esim. "[E]".
+func cap(action: String, extra := "") -> String:
+	var k := ""
+	if InputMap.has_action(action):
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventKey:
+				k = OS.get_keycode_string((ev as InputEventKey).physical_keycode)
+				break
+	return "[%s]" % (k + (" / " + extra if extra != "" else ""))
+
+
+## Kahden toiminnon pari ohjeisiin, esim. "[W/S]".
+func pair(a: String, b: String) -> String:
+	return "[%s/%s]" % [cap(a).trim_prefix("[").trim_suffix("]"), cap(b).trim_prefix("[").trim_suffix("]")]

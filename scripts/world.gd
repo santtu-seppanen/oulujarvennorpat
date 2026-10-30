@@ -15,6 +15,8 @@ const Mokki := preload("res://scripts/mokki.gd")
 const Ranta := preload("res://scripts/ranta.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
+const Satama := preload("res://scripts/satama.gd")
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 
 const DATA := "res://assets/map/kohteet.json"
@@ -27,6 +29,7 @@ var data := {}
 var trees: Node3D
 var mokki: Node3D
 var ranta: Node3D  # hiekkaranta, kätköpolku ja viinakätkö (ranta.gd)
+var satama: Node3D  # Äpätin venesatama lahdessa maavallin takana (satama.gd)
 var happy: Node3D  # Camping Happy Beach leirintäalue törmällä (happybeach.gd)
 var ponds: Array = []   # [{level, poly: PackedVector2Array}]
 var names: Array = []   # [{name, p: Vector2}]
@@ -36,8 +39,22 @@ var _near_c_tex: ImageTexture
 var _far_c_tex: ImageTexture
 
 
+var _t_last := 0
+
+
+## Käynnistyksen vaiheiden kestot (godot ... -- --ajastus).
+func _ajastus(label: String) -> void:
+	if not "--ajastus" in OS.get_cmdline_user_args():
+		return
+	var now := Time.get_ticks_msec()
+	print("ajastus %-14s %5d ms  muisti %d Mt" % [label, now - _t_last, OS.get_static_memory_usage() / 1048576])
+	_t_last = Time.get_ticks_msec()
+
+
 func _ready() -> void:
+	_t_last = Time.get_ticks_msec()
 	Terrain.ensure()
+	_ajastus("maasto")
 	Mokki.terraform()
 	Ranta.terraform()
 	Rantatennis.terraform()
@@ -55,19 +72,29 @@ func _ready() -> void:
 	Reitti.add_road(data)  # Vankkuritie Happy Beachille
 	names.append({"name": "Happy Beach", "p": Reitti.K})
 	_build_terrain()
+	_ajastus("build_terrain")
 	_build_water()
+	_ajastus("build_water")
 	_build_roads()
+	_ajastus("build_roads")
 	_build_buildings()
+	_ajastus("build_buildings")
 	_build_props()
+	_ajastus("build_props")
 	_build_walls()
+	_ajastus("build_walls")
 	mokki = Mokki.new()
 	add_child(mokki)
 	ranta = Ranta.new()
 	add_child(ranta)
 	happy = Happybeach.new()
 	add_child(happy)
+	satama = Satama.new()
+	add_child(satama)
+	_ajastus("mokki,ranta,happy,satama")
 	trees = Trees.new()
 	add_child(trees)
+	_ajastus("puut")
 
 
 func start_position() -> Vector3:
@@ -234,13 +261,30 @@ func _build_water() -> void:
 
 const ROAD_STYLE := {
 	"highway": [3.7, Color(0.2, 0.2, 0.21)], "main": [3.2, Color(0.22, 0.22, 0.23)],
-	"road": [2.6, Color(0.55, 0.5, 0.42)], "drive": [1.9, Color(0.55, 0.5, 0.42)],
-	"track": [1.3, Color(0.46, 0.4, 0.3)], "path": [0.55, Color(0.42, 0.34, 0.24)],
+	"road": [3.6, Color(0.55, 0.5, 0.42)], "drive": [2.8, Color(0.55, 0.5, 0.42)],
+	"track": [1.7, Color(0.46, 0.4, 0.3)], "path": [0.55, Color(0.42, 0.34, 0.24)],
 	"cycleway": [1.25, Color(0.24, 0.24, 0.25)],
 }
 
 
+## Tiet lasketaan GDScriptillä (sekunti ja yli), joten valmis mesh tallennetaan levyvälimuistiin (user://cache) avaimella,
+## joka riippuu teistä, maastosta ja tien poikkileikkauksesta; jos jokin muuttuu, lasketaan uudelleen.
+const ROADS_VERSION := 3
+
+
 func _build_roads() -> void:
+	var key := "%d-%d-%d-%d" % [ROADS_VERSION, str(data.roads).hash(), hash(Terrain.near.heights), hash(Terrain.far.heights)]
+	var meshes := MeshBundle.get_or_make("tiet", key, func() -> Array[ArrayMesh]:
+		var out: Array[ArrayMesh] = [_roads_mesh()]
+		return out)
+	var mi := MeshInstance3D.new()
+	mi.mesh = meshes[0]
+	mi.material_override = B.shader_mat("res://shaders/road.gdshader")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
+func _roads_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var lim: float = Terrain.far.half
@@ -265,30 +309,30 @@ func _build_roads() -> void:
 				var p1 := a.lerp(b, float(s + 1) / segs)
 				_road_quad(st, p0, p1, nrm, w, col)
 	st.generate_normals()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = B.shader_mat("res://shaders/road.gdshader")
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
+	return st.commit()
 
 
-## Tien pala: reunat (UV.x 0) ja keskiviiva (UV.x 1), jokainen piste maaston pinnasta hieman koholla; sora- ja
-## asfalttitie kupera (keskeltä korkeampi, vesi valuu reunoille).
+## Tien pala: reunat (UV.x 0) ja keskiviiva (UV.x 1). Sora- ja asfalttitie on kupera: poikkileikkaus on kolmessa
+## vaiheessa (reuna, ojan puoleinen luiska, ajorata), keskeltä korkeampi, jotta vesi valuu reunoille, ja reunoilla
+## ajorata painuu hieman maastoon (piennar). Jokainen piste on maaston pinnasta hieman koholla.
 func _road_quad(st: SurfaceTool, p0: Vector2, p1: Vector2, nrm: Vector2, w: float, col: Color) -> void:
-	var crown := 0.05 if col.a > 0.5 else 0.0
-	var v := func(p: Vector2, u: float) -> void:
+	var crown := 0.11 if col.a > 0.5 else 0.0
+	# Poikkileikkauksen pisteet: [etäisyys keskeltä (osuus leveydestä), UV.x, korkeuslisä].
+	var prof := [[1.0, 0.0, 0.0], [0.82, 0.18, 0.03], [0.5, 0.5, 0.7], [0.0, 1.0, 1.0]]
+	var v := func(p: Vector2, side: float, k: int) -> void:
+		var e: Array = prof[k]
+		var q := p + nrm * w * side * float(e[0])
 		st.set_color(col)
-		st.set_uv(Vector2(u, 0))
-		st.add_vertex(Vector3(p.x, Terrain.h(p.x, p.y) + 0.05 + crown * u, p.y))
+		st.set_uv(Vector2(e[1], 0))
+		st.add_vertex(Vector3(q.x, Terrain.h(q.x, q.y) + 0.04 + crown * float(e[2]), q.y))
 	for side: float in [-1.0, 1.0]:
-		var e0 := p0 + nrm * w * side
-		var e1 := p1 + nrm * w * side
-		v.call(p0, 1.0)
-		v.call(e0, 0.0)
-		v.call(e1, 0.0)
-		v.call(p0, 1.0)
-		v.call(e1, 0.0)
-		v.call(p1, 1.0)
+		for k in prof.size() - 1:
+			v.call(p0, side, k)
+			v.call(p0, side, k + 1)
+			v.call(p1, side, k)
+			v.call(p0, side, k + 1)
+			v.call(p1, side, k + 1)
+			v.call(p1, side, k)
 
 
 # --- Rakennukset ----------------------------------------------------------------------------------------------

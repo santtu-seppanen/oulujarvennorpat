@@ -155,6 +155,8 @@ func _on_join(_id: int) -> void:
 	if net.is_host():
 		_send_roster()
 		_send_time()
+		game.nuotio.send_state()  # liittyjä saa nuotion ja kiukaan tulen tilan
+		game.sauna.send_state()
 
 
 func _on_leave(id: int) -> void:

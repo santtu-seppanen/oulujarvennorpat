@@ -4,7 +4,7 @@ extends Node
 ## heittely, aurinkoon ja Happy Beachille autolla – ja joka päivä päikkärit ylämökissä klo 15–18 (Jukka ei nuku
 ## päikkäreitä vaan keittää kahvit). Tehtävät riippuvat hahmosta (Marko paistaa pyttipannua, Jukka keittää kahvit).
 ##
-## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 12. Päivä vaihtuu
+## Valikon oletusajankohta "Mökkiviikonloppu" (sun.gd STORY_PRESET) alkaa torstaina klo 16. Päivä vaihtuu
 ## keskiyöllä: edellisen päivän tulos ilmoitetaan ja uuden päivän tehtävät tulevat näkyviin. Sunnuntaina klo 21
 ## viikonloppu päättyy: lopputulos näytetään ja peli jatkuu vapaana. J piilottaa ja näyttää tehtävälistan.
 ##
@@ -14,68 +14,79 @@ extends Node
 const Reitti := preload("res://scripts/reitti.gd")
 const Porukka := preload("res://scripts/porukka.gd")
 const Sun := preload("res://scripts/sun.gd")
+const Happybeach := preload("res://scripts/happybeach.gd")
 
 const DAY_NAMES := ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"]
 const DAY_COUNT := 4
-const END_HOUR := 21  # viimeisenä päivänä viikonloppu päättyy tähän kellonaikaan
+## Happy Beachin tehtävät: kun porukka on rannalla, mökin tehtävät ovat tauolla, ja päinvastoin.
+const BEACH_TASKS := ["happy", "baari", "laulu", "tanssi"]
+const RECORD_LOSS := 10  # mainepisteet, kun päivän ennätystavoite jää rikkomatta
+const END_HOUR := 18  # viimeisenä päivänä viikonloppu päättyy tähän kellonaikaan
 
-## Päivät: nimi, otsikko, johdanto ja tehtävät. Tehtävä: id, text, valinnaisesti only (vain nämä hahmot),
-## except (ei nämä hahmot), min (löylypisteet).
+## Päivät: nimi, otsikko ja johdanto sekä montako tehtävää arvotaan poolista (picks).
 const DAYS := [
-	{
-		"title": "Saapuminen",
-		"intro": "Porukka saapuu Äpättiin viikonlopuksi. Mökki herätetään henkiin: halot, sauna ja ensimmäiset löylyt.",
-		"tasks": [
-			{"id": "halot", "text": "Lämmitä sauna: halot halkovajasta kiukaaseen"},
-			{"id": "katko", "text": "Hae ensimmäinen kylmä olut saunan takaa kätköltä"},
-			{"id": "sauna", "text": "Saunomaan: yli 20 löylypistettä", "min": 20},
-			{"id": "uinti", "text": "Pulahda järveen"},
-			{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"]},
-			{"id": "kahvi", "text": "Keitä pannukahvit alamökin liedellä (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
-			{"id": "huussi", "text": "Käy huussissa"},
-		],
-	},
-	{
-		"title": "Mökkiarkea",
-		"intro": "Perjantai: mökkiarkea. Kahvit ja pyttipannu, korttia pöydässä, rantatennistä ja mustikoita metsässä.",
-		"tasks": [
-			{"id": "poyta", "text": "Istu alamökin pöytään ja pelaa ristiseiskaa tai tuppea"},
-			{"id": "pytti", "text": "Paista pyttipannu (Markon erikoisuus)", "only": ["Marko"]},
-			{"id": "kahvi", "text": "Keitä aamukahvit (Jukan erikoisuus, korvaa päikkärit)", "only": ["Jukka"]},
-			{"id": "tennis", "text": "Rantatennis ylämökin edessä: pidä pallo ilmassa 5 lyöntiä"},
-			{"id": "mustikat", "text": "Syö mustikoita metsässä (suihku paranee)"},
-			{"id": "rinne", "text": "Virtsaa rinteeseen pitkospuiden alusta"},
-			{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"]},
-			{"id": "sauna", "text": "Saunomaan: yli 20 löylypistettä", "min": 20},
-		],
-	},
-	{
-		"title": "Retkipäivä",
-		"intro": "Lauantai: retkipäivä! Veneellä viinakätkölle, jalkapalloa vedessä ja illalla autolla Happy Beachille (baari on auki klo 21 asti).",
-		"tasks": [
-			{"id": "retki", "text": "Tutkimusmatka: souda kumiveneellä viinakätkölle (veneessä Q)"},
-			{"id": "heittely", "text": "Heitä amerikkalaista jalkapalloa vedessä (3 heittoa)"},
-			{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"]},
-			{"id": "kahvi", "text": "Keitä pannukahvit (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
-			{"id": "happy", "text": "Aja autolla Happy Beachille (G: automaattiajo)"},
-			{"id": "baari", "text": "Osta olut Happy Beachin baarista"},
-			{"id": "takaisin", "text": "Aja takaisin mökille"},
-			{"id": "aurinko", "text": "Katso auringonlasku laiturilta tai etuterassilta"},
-		],
-	},
-	{
-		"title": "Lähtöpäivä",
-		"intro": "Sunnuntai: viimeinen päivä. Uinti, saunan viimeiset löylyt ja päikkärit – klo 21 lähdetään.",
-		"tasks": [
-			{"id": "uinti", "text": "Viimeinen uinti järvessä"},
-			{"id": "poyta", "text": "Viimeinen korttipeli pöydässä"},
-			{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"]},
-			{"id": "kahvi", "text": "Keitä viimeiset pannukahvit (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
-			{"id": "halot", "text": "Lisää halot kiukaaseen: sauna lämpimänä seuraaville"},
-			{"id": "sauna", "text": "Viimeiset löylyt: yli 30 löylypistettä", "min": 30},
-			{"id": "katko", "text": "Lähtöolut kätköltä"},
-		],
-	},
+	{"title": "Saapuminen", "picks": 5,
+		"intro": "Porukka saapuu Äpättiin viikonlopuksi. Mökki herätetään henkiin: sauna, uinti ja ensimmäiset kylmät."},
+	{"title": "Mökkiarkea", "picks": 5,
+		"intro": "Perjantai: mökkiarkea. Kahvit ja pyttipannu, tehtäviä arvotaan pitkin päivää – ja keskiyöllä oodi."},
+	{"title": "Retkipäivä", "picks": 2,
+		"intro": "Lauantai: retkipäivä! Veneellä viinakätkölle ja illalla autolla Happy Beachille (baari on auki joka päivä klo 20–02)."},
+	{"title": "Lähtöpäivä", "picks": 4,
+		"intro": "Sunnuntai: viimeinen päivä. Päikkärit, saunan viimeiset löylyt ja halaukset – klo 18 lähdetään."},
+]
+
+## Joka päivä samat: ruoka ja kahvi, päikkärit, sekä Spartan pinkiponki ja amerikanpallo ennätystavoitteella.
+## "not_day": päivät, jolloin tehtävää ei ole: torstaina tullaan mökille vasta klo 16, joten pyttipannu (klo 12–14) ja päikkärit
+## (klo 15–18, alkavat vasta perjantaina) jäävät pois.
+const COMMON := [
+	{"id": "pytti", "text": "Paista aamupalaksi pyttipannu klo 12–14 (Markon erikoisuus)", "only": ["Marko"], "not_day": [0]},
+	{"id": "grilli", "text": "Grillaa pihvit klo 20–22 grillikatoksessa (vain Marko grillaa)", "only": ["Marko"]},
+	{"id": "aamupala", "text": "Syö Michelin Markon pyttipannua tarjoilupöydältä (Q, klo 12 jälkeen)", "except": ["Marko"], "not_day": [0]},
+	{"id": "pihvi", "text": "Syö Michelin Markon grillipihvi tarjoilupöydältä (Q, klo 20 jälkeen)", "except": ["Marko"]},
+	{"id": "kahvijuonti", "text": "Juo kuppi Barista Salosen pannukahvia keittiön sivutasolta (E)", "except": ["Jukka"], "not_day": [0]},
+	{"id": "paikkarit", "text": "Päikkärit ylämökissä klo 15–18", "except": ["Jukka"], "not_day": [0]},
+	{"id": "kahvi", "text": "Keitä pannukahvit alamökin liedellä (Jukka ei nuku päikkäreitä)", "only": ["Jukka"]},
+	{"id": "tennis", "text": "", "record": "tennis"},
+	{"id": "heittely", "text": "", "record": "heittely"},
+]
+## Ennätystavoitteet: aloitusennätys, ja joka päivä tehtävä on rikkoa se (uusi ennätys on seuraava tavoite).
+const RECORD_START := {"tennis": 20, "heittely": 8}
+const RECORD_NAME := {"tennis": "Spartan pinkiponki: lyöntiä ilmassa", "heittely": "Amerikanpalloa vedessä: heittoa putkeen"}
+## Arvottava pooli: jokaiselle päivälle arvotaan picks kappaletta (eri päiville eri tehtäviä).
+const POOL := [
+	{"id": "halot", "text": "Lämmitä sauna: halot halkovajasta kiukaaseen"},
+	{"id": "sauna", "text": "Saunomaan: yli 20 löylypistettä", "min": 20},
+	{"id": "katko", "text": "Hae kylmä olut saunan takaa kätköltä"},
+	{"id": "uinti", "text": "Pulahda järveen"},
+	{"id": "huussi", "text": "Käy huussissa"},
+	{"id": "poyta", "text": "Istu alamökin pöytään ja pelaa ristiseiskaa tai tuppea"},
+	{"id": "mustikat", "text": "Syö mustikoita metsässä (suihku paranee)"},
+	{"id": "rinne", "text": "Virtsaa rinteeseen pitkospuiden alusta"},
+	{"id": "kaari", "text": "Komea virtsan kaari: yli 4 m rinteeseen (Marko yltää, muille mustikoista voimaa)"},
+	{"id": "aurinko", "text": "Katso auringonlasku laiturilta tai etuterassilta"},
+	{"id": "makkara", "text": "Paista täydellinen makkara nuotiolla (hiilloksella, ei liekissä)"},
+	{"id": "muistelu", "text": "Nuotiolle kuuntelemaan ja kertomaan vähintään kolme \"Muistatko kun\" -tarinaa"},
+	{"id": "trivia", "text": "Ysäritrivia keittiön pöydässä: vastaa oikein vähintään kolmeen kysymykseen"},
+	{"id": "afrikka", "text": "Pelaa Afrikan tähteä keittiön pöydässä loppuun asti (vähintään kolme omaa vuoroa)"},
+]
+## Päiväkohtaiset kiinteät tehtävät (tarinan kulku): lauantain retki ja Happy Beach, sunnuntain kätkö.
+const EXTRA := [
+	[],
+	[],
+	[
+		{"id": "retki", "text": "Tutkimusmatka: souda kumiveneellä viinakätkölle (veneessä Q)"},
+		{"id": "katkohaku", "text": "Hae viinaa tutkimusmatkan kätköltä (E olut, Q viina) – avaa oman kätkön teon"},
+		{"id": "uusikatko", "text": "Tee uusi viinakätkö lähimaastoon (E sopivassa paikassa, avautuu kätkön haun jälkeen)"},
+		{"id": "happy", "text": "Aja autolla Happy Beachille (G: automaattiajo)"},
+		{"id": "baari", "text": "Osta juoma Happy Beachin baarista (tiski sisällä tai terassilla)"},
+		{"id": "laulu", "text": "Laula karaokea Happy Beachin lavalla (E baarin sisällä)"},
+		{"id": "tanssi", "text": "Tanssi Happy Beachin tanssilattialla eurodancea vähintään 35 % (askeleet tahtiin A S W D)"},
+		{"id": "takaisin", "text": "Aja takaisin mökille"},
+	],
+	[
+		{"id": "uusikatko", "text": "Tee uusi viinakätkö lähimaastoon (jos et vielä tehnyt; avautuu tutkimusmatkan kätkön haun jälkeen)"},
+		{"id": "halaus", "text": "Lähtöhalaus: koko porukka halaamaan ennen lähtöä (klo 17 jälkeen)"},
+	],
 ]
 
 var game: Node3D
@@ -84,6 +95,7 @@ var day := 0
 var finished := false
 var done: Array = []  # päivä -> {tehtävän id: true}
 var shown := true
+var stash_unlocked := false  # oman kätkön teko avautuu, kun tutkimusmatkan kätköltä on haettu viinaa
 
 var _start_no := 0
 var _label: Label
@@ -100,6 +112,13 @@ var _prev_pissa := false
 var _prev_kupit := 0
 var _prev_annokset := 0
 var _hour_prev := -1
+
+
+var lost := false  # maine nollassa: peli hävitty (loppu.gd)
+var _was_beach := false
+var plan: Array = []  # päivä -> tehtävälista (arvotaan begin():ssä)
+var records: Dictionary = {}  # ennätystavoitteet (tennis, heittely)
+var _best: Dictionary = {}
 
 
 func _ready() -> void:
@@ -129,13 +148,15 @@ func _ready() -> void:
 	_end_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_end_label.add_theme_constant_override("outline_size", 6)
 	_end_layer.add_child(_end_label)
-	game.sun.restarted.connect(begin)
+	game.sun.restarted.connect(func() -> void:
+		game.kortit.reset_weekend()  # uusi viikonloppu: ristiseiskan pisteet alkavat nollasta
+		begin())
 	begin()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J:
-		if active and game.state == "play" and not get_tree().paused:
+		if active and game.state == "play" and not get_tree().paused and game.activity == "":  # minipelissä J on pelin ohje
 			shown = not shown
 			_dirty = true
 
@@ -143,11 +164,22 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Aloittaa tarinan alusta nykyisestä pelin hetkestä (jos valittu alkuhetki on tarina).
 func begin() -> void:
 	active = game.sun.story
+	stash_unlocked = not game.omat_katkot.spots.is_empty()
+	game.maine = 50
 	finished = false
+	lost = false
 	day = 0
+	_roll_plan()
+	records = RECORD_START.duplicate()
+	_best = {"tennis": 0, "heittely": 0}
 	done = []
 	for i in DAY_COUNT:
 		done.append({})
+	if game.muistelu != null:
+		game.muistelu.reset()  # uusi viikonloppu: nuotion tunnelmat ja trivian voitot nollille
+		game.lautapeli.reset()
+		game.afrikka.reset()
+		game.tyopuhelu.reset()
 	_start_no = _day_no()
 	_intro_day = -1
 	_t_table = 0.0
@@ -156,6 +188,14 @@ func begin() -> void:
 	_dirty = true
 	_end_layer.visible = false
 	_end_t = 0.0
+
+
+## Tutkimusmatkan kätköltä haettu viinaa: oman kätkön tekeminen avautuu.
+func unlock_stash() -> void:
+	if stash_unlocked:
+		return
+	stash_unlocked = true
+	game.toast("Oman kätkön teko avautui! Etsi sopiva paikka lähimaastosta (metsä, kallio tai aukea) ja paina E.", 7.0)
 
 
 func _day_no() -> int:
@@ -170,15 +210,39 @@ func _who() -> String:
 
 ## Päivän tehtävät pelaajan hahmolle.
 func tasks_for(d: int) -> Array:
+	if plan.is_empty():
+		_roll_plan()
 	var out: Array = []
 	var who := _who()
-	for t: Dictionary in DAYS[d].tasks:
+	for t: Dictionary in plan[d]:
 		if t.has("only") and not who in t.only:
 			continue
 		if t.has("except") and who in t["except"]:
 			continue
-		out.append(t)
+		if t.has("not_day") and d in t["not_day"]:
+			continue
+		var tt: Dictionary = t.duplicate()
+		if t.has("record"):
+			tt.text = "%s – rikota ennätys (nyt %d)" % [RECORD_NAME[t.record], int(records.get(t.record, RECORD_START[t.record]))]
+		out.append(tt)
 	return out
+
+
+## Arpoo päivien tehtävät: kiinteät, päiväkohtaiset ja poolista picks kappaletta (sauna on viimeisenä päivänä 30 pisteen).
+func _roll_plan() -> void:
+	plan = []
+	for d in DAY_COUNT:
+		var tasks: Array = COMMON.duplicate()
+		tasks.append_array(EXTRA[d])
+		var pool: Array = POOL.duplicate()
+		pool.shuffle()
+		for k in mini(int(DAYS[d].picks), pool.size()):
+			var t: Dictionary = (pool[k] as Dictionary).duplicate()
+			if t.id == "sauna" and d == DAY_COUNT - 1:
+				t.min = 30
+				t.text = "Viimeiset löylyt: yli 30 löylypistettä"
+			tasks.append(t)
+		plan.append(tasks)
 
 
 func _find(id: String) -> Dictionary:
@@ -206,7 +270,7 @@ func complete(id: String) -> void:
 	if not active or finished or game.state != "play":
 		return
 	var t := _find(id)
-	if t.is_empty() or done[day].has(id):
+	if t.is_empty() or done[day].has(id) or _paused(id):
 		return
 	done[day][id] = true
 	_dirty = true
@@ -216,6 +280,17 @@ func complete(id: String) -> void:
 	Sfx.play("win_small", -8.0)
 	if n == total:
 		game.toast("Päivän kaikki tehtävät tehty! Hyvää työtä, %s." % _who(), 6.0)
+
+
+## Pelaaja on Happy Beachin leirintäalueella tai baarissa.
+func at_beach() -> bool:
+	var p: Vector3 = game.player.global_position
+	return game.world.happy.in_pocket(p) or Happybeach.in_camp(p)
+
+
+## Tehtävä on tauolla, kun ollaan toisessa paikassa: rannalla vain rannan tehtävät, mökillä vain mökin.
+func _paused(id: String) -> bool:
+	return (id in BEACH_TASKS) != at_beach() and id != "happy" and id != "takaisin"
 
 
 ## Alamökin minipeli päättyi (main.end_activity): sauna, pyttipannu, kahvi ja korttipöytä.
@@ -229,7 +304,8 @@ func activity_ended(a: String) -> void:
 			if game.sauna.points >= need:
 				complete("sauna")
 		"kokkaus":
-			if game.kokkaus._made > 0:
+			var h: int = game.sun.local().hour
+			if game.kokkaus._made > 0 and h >= 12 and h < 14:
 				complete("pytti")
 		"kahvi":
 			if game.kahvi._made > 0:
@@ -244,9 +320,18 @@ func _process(delta: float) -> void:
 	if not active or game.state != "play":
 		_label.visible = false
 		return
+	if game.maine <= 0 and not finished and not lost:
+		lost = true
+		finished = true
+		game.loppu.start_loss()
 	if not finished:
 		_advance_day()
 		_poll(delta)
+	var here := at_beach()
+	if here != _was_beach:
+		_was_beach = here
+		_dirty = true
+		game.toast("Porukka on %s: %s tehtävät ovat tauolla." % ["Happy Beachillä" if here else "mökillä", "mökin" if here else "Happy Beachin"], 4.0)
 	if _dirty:
 		_dirty = false
 		_refresh()
@@ -262,6 +347,7 @@ func _advance_day() -> void:
 		return
 	if idx > day:
 		_day_summary(day)
+		game.muistelu.day_ended(day)
 		day = idx
 		_dirty = true
 	if _intro_day != day:
@@ -270,7 +356,15 @@ func _advance_day() -> void:
 		game.toast("%s – %s. %s" % [weekday, DAYS[day].title, DAYS[day].intro], 9.0)
 
 
+## Ennätystavoite (Spartan pinkiponki, amerikanpallo) jäi rikkomatta: 10 mainepistettä per tavoite.
+func _record_penalties(d: int) -> void:
+	for t: Dictionary in tasks_for(d):
+		if t.has("record") and not done[d].has(t.id):
+			game.lose_maine(RECORD_LOSS, "Ennätystavoite jäi rikkomatta (%s)" % RECORD_NAME[t.record].split(" (")[0].split(":")[0])
+
+
 func _day_summary(d: int) -> void:
+	_record_penalties(d)
 	var n := count_done(d)
 	var total := tasks_for(d).size()
 	var t := "%s päättyi: %d/%d tehtävää." % [DAYS[d].title, n, total]
@@ -283,6 +377,8 @@ func _day_summary(d: int) -> void:
 
 func _finish() -> void:
 	finished = true
+	if not lost and day == DAY_COUNT - 1:
+		_record_penalties(day)
 	var n := 0
 	var total := 0
 	for d in DAY_COUNT:
@@ -291,10 +387,27 @@ func _finish() -> void:
 	var ratio := float(n) / maxf(1.0, float(total))
 	var title := "Mökkimestari!" if ratio >= 0.9 else ("Hyvä viikonloppu." if ratio >= 0.6 else "Vähän jäi tekemättä – ensi kerralla.")
 	var lines: Array[String] = ["VIIKONLOPPU PÄÄTTYI", "", "Torstaista sunnuntaihin Äpätissä.", "%s: %d/%d tehtävää tehty."
-		% [_who(), n, total], title, "", "Kamat autoon, mutta peli jatkuu vapaana."]
+		% [_who(), n, total], title, ""]
+	lines.append("Maine: %d/100" % game.maine)
+	var leaders: Array = game.kortit.leaders()
+	if not leaders.is_empty():
+		var names := ", ".join(leaders.map(func(p: int) -> String: return Porukka.CREW[p].name))
+		var pts := ", ".join(range(4).map(func(p: int) -> String:
+			return "%s %d" % [Porukka.CREW[p].name, game.kortit.logic.totals[p]]))
+		lines.append("Ristiseiskan voittaja: %s (vähiten pisteitä)" % names)
+		lines.append("Pisteet: " + pts)
+		lines.append("")
+	lines.append_array(game.muistelu.ending_lines())
+	lines.append_array(game.lautapeli.ending_lines())
+	lines.append_array(game.afrikka.ending_lines())
+	lines.append_array(game.tyopuhelu.ending_lines())
+	if not game.muistelu.ending_lines().is_empty() or not game.lautapeli.ending_lines().is_empty() \
+			or not game.afrikka.ending_lines().is_empty() or not game.tyopuhelu.ending_lines().is_empty():
+		lines.append("")
+	lines.append("Kamat autoon, mutta peli jatkuu vapaana.")
 	_end_label.text = "\n".join(lines)
-	_end_layer.visible = true
-	_end_t = 20.0
+	lines.pop_front()
+	game.loppu.start_win("VIIKONLOPPU PÄÄTTYI\n" + "\n".join(lines).strip_edges())
 	Sfx.play("win", -6.0)
 	_dirty = true
 
@@ -323,11 +436,20 @@ func _poll(delta: float) -> void:
 	if game.pissa.active and not _prev_pissa:
 		complete("rinne")
 	_prev_pissa = game.pissa.active
-	# Rantatennis ja heittely.
-	if game.tennis.active and game.tennis.hits >= 5:
-		complete("tennis")
-	if game.heittely.active and game.heittely.hits >= 3:
-		complete("heittely")
+	# Rantatennis ja heittely: ennätystavoite (rikotaan joka päivä; uusi ennätys on seuraava tavoite).
+	for id: String in ["tennis", "heittely"]:
+		var g: Node3D = game.tennis if id == "tennis" else game.heittely
+		if g.active:
+			_best[id] = maxi(int(_best.get(id, 0)), int(g.hits))
+			if int(g.hits) > int(records.get(id, 0)) and not _find(id).is_empty():
+				complete(id)
+		elif int(_best.get(id, 0)) > int(records.get(id, 0)):
+			records[id] = _best[id]
+			_best[id] = 0
+			_dirty = true
+			game.toast("Uusi ennätys: %s %d!" % [RECORD_NAME[id].split(":")[0], int(records[id])], 4.0)
+		else:
+			_best[id] = 0
 	# Tutkimusmatka: perillä kätkön rannassa.
 	if game.retki.active and game.retki.state in ["perilla", "paluu"]:
 		complete("retki")
@@ -358,6 +480,10 @@ func _refresh() -> void:
 	var tasks := tasks_for(day)
 	var lines: Array[String] = ["%s · %s (%d/%d)" % [DAY_NAMES[lt.weekday].to_upper(), DAYS[day].title, count_done(day), tasks.size()]]
 	for t: Dictionary in tasks:
-		lines.append(("[x] " if done[day].has(t.id) else "[ ] ") + t.text)
+		var mark := "[x] " if done[day].has(t.id) else ("[~] " if _paused(t.id) else "[ ] ")
+		lines.append(mark + t.text + (" (tauolla)" if mark == "[~] " else ""))
+	lines.append("Maine: %d/100" % game.maine)
+	if game.muistelu.mood_line() != "":
+		lines.append(game.muistelu.mood_line())
 	lines.append("J: piilota")
 	_label.text = "\n".join(lines)

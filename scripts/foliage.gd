@@ -161,8 +161,9 @@ static func birch_crown(seed_val: int) -> ArrayMesh:
 	return st.commit()
 
 
-## Kuusi: oksakerrokset tyvestä latvaan, jokaisessa oksakortit säteittäin, kärjet roikkuvat.
-static func spruce_crown(seed_val: int) -> ArrayMesh:
+## Kuusi: oksakerrokset tyvestä latvaan, jokaisessa oksakortit säteittäin, kärjet roikkuvat. coarse > 1 harventaa
+## kerroksia (ja leventää kortteja vastaavasti) kaukaista tasoa varten.
+static func spruce_crown(seed_val: int, coarse := 1.0) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
 	var st := SurfaceTool.new()
@@ -182,9 +183,9 @@ static func spruce_crown(seed_val: int) -> ArrayMesh:
 			var center := Vector3(0, y, 0) + dir * length * 0.5
 			var side := Vector3.UP.cross(rad).normalized()
 			# Oksakortti pystytasossa (näkyy sivulta) ja toinen lähes vaakatasossa (näkyy ylhäältä).
-			_card(st, center, dir * length * 0.55, Vector3.UP.lerp(side, 0.2).normalized() * length * 0.3, side)
-			_card(st, center + Vector3(0, 0.05, 0), dir * length * 0.55, side * length * 0.32, Vector3.UP)
-		y += lerpf(0.42, 0.3, t)
+			_card(st, center, dir * length * 0.55, Vector3.UP.lerp(side, 0.2).normalized() * length * 0.3 * coarse, side)
+			_card(st, center + Vector3(0, 0.05, 0), dir * length * 0.55, side * length * 0.32 * minf(coarse, 1.4), Vector3.UP)
+		y += lerpf(0.42, 0.3, t) * coarse
 	return st.commit()
 
 

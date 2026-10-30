@@ -16,17 +16,19 @@ ALAMÖKKI
 E	istu lauteille, heitä löylyä
 E	paista pyttipannua (vain Marko), istu pöytään (ristiseiska tai tuppi)
 Välilyönti / E	korttipöydässä: jaa kortit / pöytä ylhäältä
-W / S	nouse / lopeta
+F	nouse pöydästä / lopeta toiminto
 E / Q	kätkö saunan takana rinteessä: olut / huikka viinaa
-E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen
-F	lopettaa rantatenniksen ja pallon heittelyn
+E	halkovajassa halot syliin, löylyhuoneessa halko kiukaaseen; sammunut kiuas sytytetään minipelillä
+A / D, E, P, Enter	sytytys: valitse paikka, aseta klapi / syttö, pelti auki / kiinni, tulitikku (F pois)
+E / Q	nuotiolla rannalla: paista makkaraa (A/D siirtää hiilloksella, ei liekkiin) / "Muistatko kun" -tarinat (↑/↓ tai 1/2/3 + E, F poistuu)
+Q	keittiön pöydässä: lautapelit. Ysäritrivia: vastaukset chattiin (Enter). Afrikan tähti: valikko ↑/↓ + E tai klikkaus (noppa, reitti, kiekon osto, lento). J: ohje missä tahansa pelissä (pääpelissä J piilottaa tehtävät), F nousee pöydästä
+F	lopettaa Spartan pinkiponkin ja amerikanpallon
 YLEISET
 T (pohjassa)	kelaa aikaa 20 x (pelivuorokausi on 24 min)
 M	kartta (koko 10 x 10 km alue)
 V	FPS / kolmas persoona
 Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
-Esc	taukovalikko
-R	takaisin aloituspaikalle"""
+Esc	taukovalikko"""
 
 var game: Node3D
 var _root: Control
@@ -35,6 +37,7 @@ var _box: VBoxContainer
 var _mode := ""  # main | pause
 var _menu_cam: Camera3D
 var _cam_t := 0.0
+var _music: AudioStreamPlayer  # valikon musiikki: pelin oma kappale (baari.gd SONG_PATH), jos tiedosto on olemassa
 
 
 func _ready() -> void:
@@ -56,7 +59,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _mode == "sub_pause":
 				open_pause()
 			get_viewport().set_input_as_handled()
-		elif game != null and game.state == "play" and not game.map_open():
+		elif game != null and game.state == "play" and not game.map_open() \
+				and get_tree().get_nodes_in_group("esc_lopettaa").is_empty():  # minipelin Esc lopettaa pelin
 			open_pause()
 			get_viewport().set_input_as_handled()
 
@@ -82,6 +86,7 @@ func open_main() -> void:
 		game.add_child(_menu_cam)
 	_menu_cam.current = true
 	game._hud.visible = false
+	_menu_music(true)
 	_title("OULUJÄRVEN NORPAT", "Ä P Ä T I N N I E M I  ·  V A A L A")
 	_button("Aloita peli", _choose)
 	_button("Moninpeli", _multi)
@@ -107,7 +112,26 @@ func open_pause() -> void:
 	_button("Lopeta peli", func() -> void: get_tree().quit())
 
 
+## Valikon taustamusiikki (silmukka, Music-väylä); ei tee mitään, jos kappaletiedostoa ei ole.
+func _menu_music(on: bool) -> void:
+	var path: String = game.baari.SONG_PATH
+	if on and ResourceLoader.exists(path):
+		if _music == null:
+			_music = AudioStreamPlayer.new()
+			_music.bus = "Music"
+			_music.process_mode = Node.PROCESS_MODE_ALWAYS
+			var st: AudioStreamMP3 = load(path)
+			st.loop = true
+			_music.stream = st
+			add_child(_music)
+		if not _music.playing:
+			_music.play()
+	elif _music != null:
+		_music.stop()
+
+
 func close() -> void:
+	_menu_music(false)
 	visible = false
 	get_tree().paused = false
 	game.player.controls_enabled = game.activity == ""
@@ -138,7 +162,8 @@ func _choose() -> void:
 			game.choose_character(i)
 			game.respawn()
 			game.sun.start_preset(when.selected)
-			close())
+			close()
+			game.saapuminen.start())
 		var d := _label(c.desc, 15, Color(0.85, 0.85, 0.8))
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.custom_minimum_size = Vector2(560, 0)
@@ -281,10 +306,22 @@ func _settings(from: String) -> void:
 	tabs.custom_minimum_size = Vector2(560, 380)
 	_box.add_child(tabs)
 	var g := _tab(tabs, "Grafiikka")
+	var weak := Button.new()
+	weak.text = "Heikko kone: valitse kevyimmät asetukset"
+	weak.tooltip_text = "Erittäin matala laatu, renderöintiskaala 70 % ja lyhyt näkyvyysetäisyys."
+	weak.custom_minimum_size = Vector2(0, 40)
+	weak.pressed.connect(func() -> void:
+		Settings.set_v("quality", 0)
+		Settings.set_v("render_scale", 0.7)
+		Settings.set_v("view_distance", 0)
+		_settings(from))
+	g.add_child(weak)
 	_option(g, "Laatu", Settings.QUALITY, Settings.get_v("quality"), func(i: int) -> void: Settings.set_v("quality", i))
 	_check(g, "Koko näyttö", "fullscreen")
 	_check(g, "Pystytahdistus (V-Sync)", "vsync")
 	_slider(g, "Renderöintiskaala", "render_scale", 0.5, 1.0, 0.05, "%d %%", 100.0)
+	_option(g, "Näkyvyysetäisyys (lyhyt keventää)", Settings.VIEW_NAMES, Settings.get_v("view_distance"),
+		func(i: int) -> void: Settings.set_v("view_distance", i))
 	_slider(g, "Näkökenttä (FOV)", "fov", 55.0, 95.0, 1.0, "%d°", 1.0)
 	_check(g, "Näytä FPS", "show_fps")
 	_check(g, "Näytä opasteet (paikkojen ja hahmojen nimet)", "show_guides")
@@ -301,7 +338,7 @@ func _settings(from: String) -> void:
 	_slider(a, "Tehosteet", "vol_sfx", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Ympäristö", "vol_ambience", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Musiikki", "vol_music", 0.0, 1.0, 0.05, "%d %%", 100.0)
-	_check(a, "Puhesynteesi: puhekuplat ääneen", "tts")
+	_check(a, "Puhe: nauhoitetut repliikit ääneen", "tts")
 	_slider(a, "Puhe", "vol_speech", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_check(a, "Äänilinkki: mikrofoni moninpelissä (N mykistää)", "voice_mic")
 	_slider(a, "Muiden pelaajien puhe", "vol_voice", 0.0, 1.0, 0.05, "%d %%", 100.0)

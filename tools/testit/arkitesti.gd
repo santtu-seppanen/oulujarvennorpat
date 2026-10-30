@@ -5,7 +5,7 @@ extends SceneTree
 ##   pöytään istuva juo kupin. Muut eivät osaa keittää.
 ## - Mustikat: metsässä mättäitä; kourallisia syömällä Santun kaari pitenee, mutta jää Markon kaaren alle.
 ## - Kätköosoitin: kompassi näyttää lähimmän kätkön (saunan takana tai rannan rinteessä).
-## - Päikkärit vain klo 15-18; välianimaatiossa porukan oikeat hahmot (Santtu, Marko, Jaakko) nukkumassa,
+## - Päikkärit vain klo 15-18 ja vasta tarinan toisena päivänä (testi ajaa 8.7.); välianimaatiossa porukan oikeat hahmot (Santtu, Marko, Jaakko) nukkumassa,
 ##   päikkärien jälkeen Jukka huutaa kahville, ja klo 16 porukka lähtee päikkäreille.
 ## - Saunan lämmitys: halot halkovajasta kiukaaseen, sammunut tuli jäähdyttää saunan, tietokone hakee haloja.
 
@@ -16,6 +16,7 @@ var fails := 0
 var step := 0
 var clock := 0.0
 var ts := 0.0
+var _lit := false
 var arcs := {}
 
 
@@ -63,16 +64,16 @@ func _process(delta: float) -> bool:
 				var d: Vector3 = Mokki.cabin_door()
 				var lake_side: float = Mokki.wc(Vector2(d.x, d.z)).y
 				check(lake_side < -Mokki.CABIN_HV, "ylämökin ovi metsän puolella (v %.2f)" % lake_side)
-				p.promille = 2.0
+				p.promille = 1.9  # kohtalaisessa humalassa
 				p.stamina = 20.0
 				_put(p, d)
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 12, 0)
 				next()
 		1:
 			if t > 0.5:
 				var early: Dictionary = main._interaction()
 				check(not early.has("cb") and str(early.get("text", "")).contains("klo 15–18"), "ennen klo 15 ei päikkäreitä: %s" % early.get("text", ""))
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 15, 30)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 15, 30)
 				var it: Dictionary = main._interaction()
 				check(str(it.get("text", "")).contains("päikkärit"), "päikkärikehote: %s" % it.get("text", ""))
 				it.cb.call()
@@ -83,13 +84,16 @@ func _process(delta: float) -> bool:
 		2:
 			if t > main.NAP_T + 0.5:
 				check(not p.hidden_inside and p.controls_enabled and main._nap_t <= 0.0, "heräsi päikkäreiltä")
-				check(p.stamina >= 99.0 and p.promille < 1.0, "kunto täynnä, humala laskenut (%.1f ‰)" % p.promille)
+				check(p.stamina >= 99.0 and p.promille < 0.8, "kunto täynnä, humala laskenut (%.1f ‰)" % p.promille)
+				check(main.kahvi.kupit == 0 and main._coffee_pending, "ilman keitettyä kahvia Jukka ei huuda eikä kahvia ole")
+				main.kahvi.add(4)  # tietokoneen Jukka keitti kahvit
+				main._process(0.0)
 				var called := false
 				for e in main.chat._lines:
 					if (e[0] as Label).text.begins_with("Jukka:"):
 						called = true
-				check(called and main.kahvi.kupit >= 4, "Jukka huutaa kahville, kupit pöydässä (%d)" % main.kahvi.kupit)
-				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 12, 0)  # loput testistä päivällä, ei päikkäreitä
+				check(called and main.kahvi.kupit >= 4, "Jukka huutaa kahville, kun kupit ovat pöydässä (%d)" % main.kahvi.kupit)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 12, 0)  # loput testistä päivällä, ei päikkäreitä
 				main.choose_character(3)  # Jukka
 				next()
 		3:
@@ -220,13 +224,22 @@ func _process(delta: float) -> bool:
 		16:
 			if t > 0.3:
 				var sa: Node = main.sauna
-				var it: Dictionary = main._interaction()
-				check(str(it.get("text", "")).contains("halko kiukaaseen"), "kiukaan kehote: %s" % it.get("text", ""))
-				if it.has("cb"):
+				if main.sytytys == null and not _lit:
+					# Sammunut kiuas sytytetään minipelillä: pelti auki, klapit ja syttö pyramidiksi, tikku.
+					var it: Dictionary = main._interaction()
+					check(str(it.get("text", "")).contains("sytytä tuli"), "kiukaan kehote: %s" % it.get("text", ""))
 					it.cb.call()
-					it.cb.call()
-				check(sa.fire > 250.0 and sa.carried[0] == sa.CARRY - 2, "kaksi halkoa tuleen (%.0f s)" % sa.fire)
-				next()
+					check(main.sytytys != null, "sytytysminipeli aukeaa")
+					_lit = true
+					var g: Node = main.sytytys
+					g._t = 1.0
+					g.toggle_damper()
+					for slot in [0, 2, 1, 3, 4]:
+						g.place(slot)
+					g.light()
+				elif main.sytytys == null:
+					check(sa.fire > 550.0 and sa.carried[0] == 0 and sa.damper, "sytytys onnistui: neljä halkoa palaa (%.0f s)" % sa.fire)
+					next()
 		17:
 			if t > 5.0:
 				var sa: Node = main.sauna
@@ -260,6 +273,7 @@ func _process(delta: float) -> bool:
 			for j in [1, 2, 3]:
 				var c: CharacterBody3D = main.crew[j]
 				c.brain = load("res://scripts/ai.gd").new(c, m, main.sun, main.Porukka.CREW[j].name)
+				c.brain._start("aurinko")  # satunnainen puuha (sauna, ruoka) ei saa estää päikkäreille lähtöä
 			next()
 		21:
 			if t > 4.0:

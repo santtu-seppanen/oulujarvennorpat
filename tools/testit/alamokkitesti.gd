@@ -20,6 +20,7 @@ var main: Node3D
 var Mokki: GDScript
 var fails := 0
 var step := 0
+var max_turn := 0.0
 var clock := 0.0  # pelin aika (headless --fixed-fps ajaa seinäkelloa nopeammin)
 var ts := 0.0  # vaiheen alku
 var start_rot := 0.0
@@ -93,6 +94,8 @@ func _process(delta: float) -> bool:
 				main.start_activity("sauna")
 				check(main.activity == "sauna" and p.pose.begins_with("Sitting"), "lauteilla istutaan")
 				check(p.global_position.y > Mokki.DY + 0.4, "ylälauteella (y %.2f)" % (p.global_position.y - Mokki.DY))
+				main.sauna.temp = 85.0  # lämmin sauna: löylyt eivät riipu edellisen ajon tulesta
+				main.sauna.fire = 600.0
 				main.sauna.act()
 				next()
 		4:
@@ -172,6 +175,7 @@ func _process(delta: float) -> bool:
 		13:
 			if t > 0.5:
 				check(main._interaction().get("text", "").begins_with("E: istu pöytään"), "pöytään voi istua")
+				main.kortit.kind = "ristiseiska"  # edellisen ajon tallennettu pelimuoto ei saa vaikuttaa
 				main.start_activity("kortit")
 				check(main.kokkaus.annokset == 0 and p.stamina > 99.0, "pöydässä syötiin pyttipannua")
 				check(main.kortit._ui.visible, "korttinäkymä auki")
@@ -242,13 +246,15 @@ func _process(delta: float) -> bool:
 				ts = now()
 				p.global_position = main.world.mokki.points.piha + Vector3.UP * 0.1
 				start_rot = p.rotation.y
+				max_turn = 0.0
 				p.brain = null
 				Input.action_press("forward")
 				next()
 		16:
+			max_turn = maxf(max_turn, absf(wrapf(p.rotation.y - start_rot, -PI, PI)))  # heittely on satunnaista: suurin poikkeama
 			if t > 2.5:
 				Input.action_release("forward")
-				var turn := absf(wrapf(p.rotation.y - start_rot, -PI, PI))
+				var turn := max_turn
 				print("humalassa suoraan kävellessä suunta kääntyi %.0f°" % rad_to_deg(turn))
 				check(turn > deg_to_rad(5.0), "humala heittelee ohjausta")
 				for k in 6:

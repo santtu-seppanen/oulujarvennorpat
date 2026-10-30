@@ -1,7 +1,7 @@
 # Oulujärven norpat
 
 3D-peli Oulujärven rannalla Äpätissä (Vaala). Maailma on tehty oikeasta kartta-aineistosta: maaston
-muodot, rantaviiva, lammet, suot, hiekkarannat, tiet ja polut, rakennukset ja noin 700 000 puuta ovat oikeilla
+muodot, rantaviiva, lammet, suot, hiekkarannat, tiet ja polut, rakennukset ja noin 350 000 puuta (laserkeilauksen puustosta puolet) ovat oikeilla
 paikoillaan. Pelin perusmekaniikka (hahmo, kävely, juoksu, kamera, kosketusohjaimet, äänet, asetukset ja valikot)
 on otettu Normipäivä Saloisissa -pelistä.
 
@@ -19,7 +19,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | A / D | käänny |
 | Shift | juokse (kuluttaa kuntoa), uidessa ui nopeammin |
 | Välilyönti | hyppää |
-| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää ja Q aloittaa tutkimusmatkan viinakätkölle; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen; ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; ylämökin edessä rantatennis (syötä ja lyö); vedessä alamökin edustalla amerikkalaisen jalkapallon heittely (heitä ja ota kiinni) |
+| E | nouse kumiveneeseen / veneestä; veneessä W/S soutaa, A/D kääntää ja Q aloittaa tutkimusmatkan viinakätkölle; alamökissä istu lauteille, heitä löylyä, paista pyttipannua (Marko), keitä aamukahvit (Jukka), istu pöytään; halkovajassa halot syliin ja löylyhuoneessa halko kiukaaseen (sammunut kiuas sytytetään minipelillä); ylämökin ovella päikkärit; mustikkamättäällä syö mustikoita; nuotiolla grillikatoksen takana makkaranpaisto (E) ja "Muistatko kun" -tarinat (Q); keittiön pöydässä Q: ysäritrivia; ylämökin edessä Spartan pinkiponki (syötä ja lyö); vedessä alamökin edustalla amerikanpallo (amerikkalaisen jalkapallon heittely: heitä ja ota kiinni) |
 | A / D (minipelissä) | pöydässä ja lauteilla katse kääntyy (myös hiiren oikea nappi pohjassa korttipöydässä) |
 | Q | kätköllä (saunan takana, rannan rinteessä tai tutkimusmatkan kätköllä) huikka viinaa (E = olut); huussin ovella kakkonen (E = ykkönen); veneessä tutkimusmatka viinakätkölle (uudelleen Q keskeyttää) |
 | F | lopettaa huussin minipelin, rinteeseen virtsaamisen, rantatenniksen tai pallon heittelyn |
@@ -27,8 +27,7 @@ Jaakko tai Jukka) ja ajankohta; muita ohjaa tietokone.
 | T (pohjassa) | kelaa aikaa 20-kertaisesti |
 | M | kartta: rulla zoomaa, klikkaus asettaa kohteen kompassiin ja tutkaan |
 | V | FPS / kolmas persoona |
-| R | takaisin aloituspaikalle |
-| Esc | taukovalikko ja asetukset |
+| Esc | taukovalikko ja asetukset (Grafiikka: näkyvyysetäisyys 800 m – 9 km ja "Heikko kone" -painike; testi `tools/testit/asetustesti.gd`) |
 
 Vedessä kahlataan (hidastaa syvyyden mukaan), ja yli 1,35 m syvässä uidaan. HUD näyttää lähimmän paikannimen,
 sijainnin koordinaatteina, maaston pinnan, korkeuden merenpinnasta ja vedessä syvyyden.
@@ -48,13 +47,17 @@ tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
   - Pöytään istuva syö annoksen, jolloin kunto palaa täyteen, ja juo kupin kahvia, jolloin humala laskee. Hellaa käyttää kerrallaan yksi.
   - Pöydässä pelataan ristiseiskaa (`scripts/ristiseiska.gd`) kaikki neljä yhdessä: pöydässä istuvat ihmiset pelaavat itse, muiden puolesta tietokone, ja tietokoneen hahmot kävelevät pöytään.
   - Kortit pelataan pöydälle: rivit näkyvät pöydän keskellä ja kunkin käsi kuvapuoli alaspäin hänen edessään, joten muita pelaajia voi katsella pelatessa. Oma käsi on ruudun alareunassa.
-  - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin.
+  - Säännöt: ristiseiskan saanut aloittaa; seiskan tai rivin jatkon saa pelata, ja jos voi pelata, on pelattava. Kahdeksikkoa ei saa pelata ennen kuutosta eikä vitosta ennen kahdeksikkoa (rivi etenee 7, 6, 8, 5 ja siitä vapaasti). Ässä tai kuningas antaa lisävuoron. Jos ei voi pelata, edellinen pelaaja antaa valitsemansa kortin. Peli kiertää myötäpäivään.
+  - **Pisteet:** ensimmäinen, jonka kortit loppuvat, voittaa kierroksen ja saa 0 pistettä; muut saavat yhden pisteen jokaisesta käteen jääneestä kortista. Pisteet summataan koko viikonlopun ajalta ja pidetään muistissa (`user://korttipelit.cfg`): sunnuntaina vähiten pisteitä saanut on ristiseiskan voittaja, ja tulos näkyy tarinan lopputuloksessa. Uusi viikonloppu (valikon aloitus) nollaa pisteet.
+  - **Tuppi** kiertää myös myötäpäivään. Tupin tila (pisteet ja kesken oleva jako) tallentuu jokaisen siirron jälkeen, joten jos pelaaminen lopetetaan kesken, peli jatkuu samasta kohdasta; kesken jäänyt peli odottaa, kunnes joku istuu pöytään.
 - **Oikea ovi, sauna:** pelkkä löylyhuone. Ovi on sisältä katsoen vasemmassa nurkassa ja kiuas heti oven oikealla puolella. Lauteet ovat perällä, ja niille mahtuu juuri neljä. Saunan ovelle kuljetaan katon alle jatketulla terassilla; räystäät ovat lyhyet eikä niiden alla ole tolppia.
   - **Lämmitys haloilla:** halot haetaan syliin halkovajasta (itäterassilla, E, neljä kerrallaan) ja lisätään kiukaaseen löylyhuoneessa (E kiukaan vieressä). Halko palaa 2,5 min, ja kiukaaseen mahtuu neljä. Tulen palaessa sauna lämpenee (piipusta nousee savua, luukusta hehkuu), ja sammuneena se jäähtyy; kylmässä saunassa löyly ei riitä hyviin löylyihin. Kun tuli hiipuu, saunoja muistutetaan lisäämään haloja, ja tietokoneen hahmot käyvät lämmittämässä. Moninpelissä tulen tila lähetetään muille.
+  - **Sytytys (minipeli, `scripts/sytytys_game.gd`):** jos kiuas on sammunut ja halot ovat sylissä, E kiukaan vieressä avaa pesän. Pesään asetellaan pyramidiksi syttö (tuohi ja pilkkeet) ja klapit: alariville kolme paikkaa, päälle kaksi, jotka nojaavat kahteen alapaikkaan, joten tue ensin alta. Syttö kuuluu alarivin keskelle ja klapit sen sivuille ja päälle; klapi keskellä tukkii vedon ja ylhäällä oleva syttö syttyy hitaasti. **Pelti pitää muistaa avata (P):** kiinni ollessa savu täyttää saunan parissa sekunnissa ja yritys menee pieleen, ja jos peltiä ehtii vielä kesken syttymisen avata, tuli syttyy mutta savuttaa ja palaa lyhyemmin. A/D valitsee paikan, E asettaa, Backspace ottaa viimeisen pois, R tyhjentää, Enter raapaisee tulitikun, F lopettaa. Onnistunut sytytys antaa tulen palamaan haloja vastaavan ajan (täydellä asettelulla neljä halkoa, 10 min). Pelti sulkeutuu itsestään, kun tuli sammuu. Testi: `tools/testit/sytytystesti.gd`, kuvat `tools/testit/sytytys_kuvat.gd`. Kun tuli jo palaa, halko lisätään kiukaaseen suoraan.
   - Lauteille istutaan lähimmälle vapaalle paikalle, joten jos joku jo saunoo, viereen voi istua.
   - Saunominen on minipeli: lauteilla E heittää löylyä, ja kuumuus pitää pitää hyvien löylyjen alueella.
   - Liika löyly ajaa järveen. Pulahdus järveen saunan jälkeen antaa lisäpisteet.
   - Moninpelissä löyly tuntuu kaikilla lauteilla istujilla.
+  - **Työpuhelu saunassa (`scripts/tyopuhelu.gd`), vain Jaakolle:** kun Jaakko istuu lauteilla, puhelin soi 20–50 sekunnin kuluttua, enintään kerran päivässä. E vastaa: työasiat hoituvat (mainepisteet +2), mutta löylyt pilaantuvat (löylypisteet -6, kuumuus ja löyly laskevat). Q jättää vastaamatta: löylypisteet +3, mutta esimies voi jättää ärtyneen viestin (mainepisteet -2, joka toisella kerralla). Soitto päättyy itsestään vastaamattomana 10 sekunnissa. Jos Jaakkoa ohjaa tietokone, hän vain mutisee työpuhelusta. Lopputuloksessa näkyy vastattujen ja vastaamatta jätettyjen puhelujen määrä. Testi: `tools/testit/tyopuhelutesti.gd`.
 - **Kätkö saunan takana:** piilossa havujen alla rinteessä alamökin oikealla puolella (saunan ovea katsottaessa), saunan takakulun muurin takana, on ehtymätön olut- ja viinakätkö (E olut, Q viina). Kompassin kätköosoitin näyttää lähimmän kätkön.
   - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
   - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
@@ -66,6 +69,54 @@ kohtaan.
 Testit: `tools/testit/alamokkitesti.gd`, `tools/testit/liiketesti.gd`, `tools/testit/ristiseiskatesti.gd` ja
 `tools/testit/arkitesti.gd` (päikkärit klo 15-18 ja klo 16, välianimaatio, Jukan kahvihuuto, kahvit, mustikat, kätköosoitin ja saunan
 lämmitys haloilla).
+
+## Nuotio ja ysäritrivia
+
+- **Nuotiopaikka (`scripts/nuotio.gd`):** vesirajassa mökin länsipuolella (polku hiekkarannalta) on kivikehä, hiillos, liekit ja neljä istuinhirttä (paikat `mokki.gd` `fire_seats`). Pelaaja istuu omalle hirrelleen ja tietokoneen mökkiläiset tulevat istumaan ympärille (`ai.gd` `fire`). Kartalla "Nuotiopaikka".
+  - **Makkaranpaisto (E nuotiolla, `scripts/makkara.gd`):** E pistää makkaran tikun päähän, A/D siirtää sitä nuotion yllä. Makkara kypsyy tasaisesti hiilloksella, mutta kaksi liekkiä vaeltaa nuotiossa: liekissä makkara kypsyy kovaa vauhtia ja noettuu, ja liekissä liian kauan pidetty makkara on palanut. E nostaa makkaran pois ja syö sen: raaka vie kuntoa, palanut ei hyödytä, nokinen ja vaisu on kelpo ja täydellisestä (vihreä alue, ei nokea) kunto palaa täyteen. Tarinatehtävä "makkara".
+  - **"Muistatko kun" -muistelu (Q nuotiolla, `scripts/muistelu.gd`):** illassa on neljä tarinaa. Kolme kertoo joku muu ysärimuistona (puhekuplana) ja pelaaja valitsee, miten reagoi (1/2/3 tai A/D + E), neljännen kertoo pelaaja itse ja valitsee kerrontatavan. Jokainen valinta muuttaa illan tunnelmaa (-2..+2). Illan tunnelma vaikuttaa seuraavaan aamuun keskiyöllä (hyvä ilta +2 tai +4 mainepistettä, kiusallinen -3; vaikutus kerran päivässä, joten saman illan toistaminen ei kasvata sitä), tehtävälistan "Tunnelma"-riviin sekä pelin loppuun: lopputuloksessa on nuotiotarinoiden määrä ja tunnelma, ja hyvän tunnelman viikonlopun lähtöpuheessa muistellaan tunnetuinta tarinaa. Tarinatehtävä "muistelu" (vähintään kolme tarinaa).
+- **Ysäritrivia (Q keittiön pöydässä ja valinta 1, `scripts/lautapeli.gd`):** Trivial Pursuit -tyylinen lautapeli koko porukalla (tietokoneen hahmot tulevat pöytään). Kuusi aihepiiriä (urheilu, musiikki, elokuvat ja tv, tekniikka ja pelit, Suomi ja maantieto, mökkielämä), yhteensä 37 kysymystä 90-luvulta ja mökiltä. Vuorossa oleva saa kysymyksen aihepiiristä, josta hänellä ei vielä ole kiilaa: oikea vastaus antaa kiilan ja pitää vuoron, väärä siirtää vuoron. Ensimmäinen, jolla on neljä kiilaa, voittaa. **Vastaus kirjoitetaan chattiin** (Enter; kysymykseen on 45 s, E ohittaa); ääkköset, isot kirjaimet ja taivutus (esim. "Ranskan") eivät haittaa. Tietokone vastaa muiden puolesta hahmon taidon mukaan. Pelaajan voitto antaa 3 mainepistettä, ja voittajat näkyvät lopputuloksessa. Tarinatehtävä "trivia" (vähintään kolme oikeaa vastausta). Chat-vastaukset toimivat vain paikallisesti, eli muita ihmispelaajia ei oteta vastaajiksi.
+- **Lautapelit (Q keittiön pöydässä):** Q avaa pelin valinnan (↑/↓ tai 1 = ysäritrivia, 2 = Afrikan tähti); E on edelleen korttipöytä. Tietokoneen hahmot tulevat pöytään kummassakin.
+- **Afrikan tähti (`scripts/afrikantahti.gd`):** alkuperäisen lautapelin säännöt. Kartalla (Afrikan ääriviiva) on 26 punaista ympyrää (kaupunkia) ja lähtö/maali Tangeri ja Kairo; kaupunkeja yhdistävät maatiet (ilmaiset, pisteviiva), meritiet (100 £ satamasta lähtiessä) ja lentoreitit (300 £, ei noppaa), ja autiomaareiteillä on sinirenkaisia vankipisteitä. Joka kaupungissa on sokkona sinipuolinen kiekko (tähti, 2 rubiinia, 3 smaragdia, 4 topaasia, 3 rosvoa, 5 hevosenkenkää, 8 tyhjää): sen voi ostaa 100 £:lla tai odottaa ja heittää 4–6. Topaasi +300 £, smaragdi +600 £, rubiini +1000 £, rosvo vie kaikki rahat, hevosenkenkä käy tähden asemesta vasta kun tähti on löydetty. Kapkaupunki (ensimmäinen saa 500 £), Kultarannikko (jalokivi tuplana), Lagos (tyhjä kiekko = 3 vuoroa pois), Pyhä Helena ja Saharan autiomaa (vankina, kunnes noppa 1–2). Aloitusraha 300 £; voittaa se, joka vie tähden Tangeriin tai Kairoon ensimmäisenä. Peli on valikkopohjainen: ↑/↓ (W/S) valitsee, E vahvistaa, 1–9 valitsee suoraan tai klikkaa karttaa; tietokone pelaa muut. F nousee pöydästä, J avaa ohjeen.
+- Testi: `tools/testit/nuotiotesti.gd` (makkaran kypsyminen ja palaminen, muistelun tunnelma ja päivän vaikutus, trivian vuorot ja voitto, Afrikan tähden arvonta, liikkuminen ja koko peli).
+
+## Äpätin satama ja muskelivene
+
+- **Äpätin venesatama (`scripts/satama.gd`):** Äpätin niemen länsipuolen lahdessa maavallin (niemen harjanteen) takana (n. 120 m itään ja 25 m pohjoiseen mökiltä, tien vasemmalla puolella) on oikea pienvenesatama: pitkä pääsilta T-päällä (kansi 0,75 m vedenpinnan yläpuolella), sivulaituri pienveneille, soutuveneitä ja alumiinimoottoriveneitä kiinni laitureissa ja poijuissa, rannassa punamullattu venevaja, nostoramppi, kumoon käännettyjä veneitä telineillä, tynnyreitä, polttoainepumppu, pelastusrengas, lamput (yöllä päällä) ja kyltti "ÄPÄTIN VENESATAMA". Muskeliveneen paikka on pääsillan itäkyljessä. Mökkilaituri (kansi 0,42 m) on muskeliveneelle liian matala, joten sinne ei telakoida; se jää kumiveneelle. Kartalla "Äpätin venesatama (maavallin takana)".
+- **Muskelivene (`scripts/muskelivene.gd`, toteutus Normipäivä Saloisissa -pelin muskeliveneestä):** punavalkoinen nopea moottorivene (7 x 2,4 m, perämoottori "300", rattiin kääntyvä ratti, tuulilasi, istuimet, vanavesi ja keulan roiskeet). Vene on aina jossain satamassa: aluksi Äpätin venesatamassa pääsillan kyljessä. E laiturilla veneen luona nousee kuljettajaksi (pelaaja istuu oikealle penkille), W/S kaasu ja peruutus (huippu n. 60 km/h), A/D ohjaa, V vaihtaa näkymää, ja humala heiluttaa ohjausta. Keula nousee kiihdyttäessä, vene kallistuu käännöksessä, moottoriääni seuraa vauhtia. Kompassi osoittaa toiseen satamaan. **G kytkee automaattiajon** toiseen satamaan: vene liukuu laiturista irti, ajaa A*-reittiä syvässä vedessä (rannasta ja laiturirakenteista pidetään etäisyyttä) ja telakoituu itse. Rannan esto: rungon ympärillä pitää olla 4 m syvää vettä (satamapaikan lähellä 0,8 m), joten venettä ei saa jumiin Happy Beachin matalikolle.
+  - **Vene kulkee vain syvässä vedessä** (pohja alle -0,4 m: keula, perä, kyljet ja keskipiste tarkistetaan) ja törmää laitureihin ja lohkareisiin; matalikolle ei pääse.
+  - **Veneen voi jättää vain satamaan:** E ajaessa telakoi Äpätin venesatamaan tai Happy Beachin laiturille (alle 12 m paikasta ja alle 3 m/s), vene liukuu paikalleen ja pelaaja nousee laiturille. Muualla E antaa ilmoituksen; mökkilaiturin lähellä: "Mökkilaituri on liian matala muskeliveneelle". Vene jää sinne, mihin sen jättää, eli Happy Beachin laiturilta voi ajaa takaisin Äpättiin. R tai hahmon vaihto palauttaa veneen Äpätin satamaan.
+  - **Happy Beachin laituri** (`happybeach.gd` `jetty_mooring`): venepaikka laiturin kaakkoispuolella, vesi yli 0,5 m syvää. Matka Äpätistä n. 540 m (reitti kulkee koko matkan vähintään 0,67 m syvässä vedessä, testattu).
+  - Karttamerkit: "Muskelivene" ja "Äpätin venesatama (maavallin takana)". **Moninpeli kuten auto:** kun joku nousee veneeseen, hän lähettää viestin "vene" (ajajan hahmo) ja veneen tilan 12 kertaa sekunnissa ("vene_s": paikka, suunta, nopeus, kääntönopeus); muilla koneilla vene on kaukoajettu (`remote`, liukuu verkon tilaan), ja niiden pelaaja istuu kyytiin (`board_passenger`) ja tietokoneen hahmot istuvat penkeille. Ajon päättyessä (telakointi) lähtee viesti "vene" `on: false` ja satamapaikka (`at`): vene siirtyy sinne kaikilla koneilla ja kyytiläiset nousevat laiturille. Neljä penkkiä: 0 kuljettaja, 1 kaverin penkki, 2 ja 3 takapenkki; kyytiläisten penkki on hahmon järjestys muiden kuin kuljettajan joukossa (`_boat_slot`), sama kaikilla koneilla. Toisin kuin autossa porukka istuu näkyvissä (ei piilossa). Kun porukka nousee Happy Beachin laiturille, he odottavat siellä ja palaavat pihalle, kun vene on taas Äpätin satamassa. Testi simuloi viestit (`_remote_motorboat`), kaksikoneinen testi vaatii palvelimen.
+  - `on_foot.gd`: uusi `vehicle`-tila (hahmo istuu ajoneuvon penkillä, `seat_global()`), jota vene käyttää.
+- Testi: `tools/testit/muskelivenetesti.gd` (satama ja paikat, nousu ja ajo, telakointi vain satamiin, reitti Happy Beachille syvässä vedessä, paluu).
+
+## Traileri ja traileribiisi
+
+`tools/traileri/` tekee pelikuvasta trailerin Godotin Movie Maker -tilalla (ks. `tools/traileri/LUEMINUT.md`): norpat saapuvat
+mökille torstai-iltana (saapumiskohtaus `scripts/saapuminen.gd`, sama näytetään uuden pelin alussa), ja sen jälkeen näytetään mökin
+minipelit: Spartan pinkiponki, amerikanpallo, pyttipannun paisto, virtsaaminen rinteeseen, ristiseiska, päikkärit, tutkimusmatka ja
+viinakätkön etsintä, nuotiolla istuskelu ja vihainen työpuhelu. Lopuksi neljä norppaa laulaa oodin
+Oulujärvelle terassilla auringon laskiessa. Trailerin ääninä on vain biisi (`docs/traileri/biisi.md` sisältää Suno-yhteensopivat
+sanat ja tyylikehotteen Popeda-henkiselle suomirock-kappaleelle; `tools/traileri/kokoa.sh` liittää kappaleen videoon).
+
+**Saapumiskohtaus:** uuden pelin alussa (valikko: Aloita peli) norpat ajavat torstai-iltana mökin pihaan (sauna on kylmä), nostavat kaljakorit takakontista,
+kantavat ne terassille ja kaikki heittävät vaatteet pois; kiuas jää sammuksiin, ja tulen pelaaja sytyttää itse. E tai välilyönti ohittaa.
+
+## Pankkiautomaatti, yöunet ja saunan sytytys
+
+- **Pankkiautomaatti** (`happybeach.gd` `_atm`, `baari.gd` `atm_withdraw`): Happy Beachin itäpäädyn seinässä kulman takana piilossa tieltä. E antaa 20 € pelirahaa (pajatso, hedelmäpeli, pokeri) kerran päivässä.
+- **Yöunet oodin jälkeen** (`oodi.gd` -> `main.gd` `go_to_bed`): kun oodi on laulettu, tietokoneen hahmot kävelevät ylämökkiin nukkumaan ja pelaaja saa yöversion nukkumisesta (`paikkarit.gd`, 16 s): kamera kulkee viiden kuvan läpi ovelta sänkyjen väliin, nukkujiin ja ikkunalle, yöpöydän lamppu sammuu ja huone jää kuutamon varaan. Herätessä kello on 7.00 (ei verkkopelissä), kunto täynnä ja humala poissa. Huoneessa on vaaleansininen puolipaneeli ja valkoiseksi maalattu hirsiyläosa, lankkulattia, kattopalkit, ovi metsän puoleisella seinällä ikkunaa vastapäätä, ikkunassa oikea järvinäkymä (SubViewport, kamera mökin ulkopuolella), kahden hengen sänky, vuodesohva ja Jukan nukkumapaikka lattialla (vain yöllä), yöpöytä, hylly ja kuvat.
+- **Saunan tuli** sammuu nyt: tietokone hakee haloja vasta, kun kiuas on sammunut ja sauna jäähtynyt alle 60 asteen, joten pelaaja ehtii sytyttää tulen minipelillä (sytytys tarjolla, kun tulta on alle yhden halon verran jäljellä).
+- **Häviöruudulla** vain E aloittaa uuden pelin. Testi: `tools/testit/yotesti.gd`.
+
+## Satamatie ja Happy Beachin satama
+
+- **Sataman tie:** Äpätintie ja sen jatke satamaan on raivattu puista (`satama.gd` `ROAD_LINE`, 5 m keskiviivan molemmin puolin),
+  joten autolla voi ajaa täyttä vauhtia (80 km/h) mökin ajouralta Äpätin venesatamaan. Testi: `tools/testit/satamatie_testi.gd`.
+- **Happy Beachin satama** (`happybeach.gd` `_marina`, satelliittikuvan mukaan): suorakaiteen muotoinen allas, jota rajaavat louhikkoaallonmurtajat
+  (rantapenger ja itäkärki, pohjoinen murtaja, länsimuuri; sisääntulo idässä), kaksi kelluvaa päälaituria sormilaitureineen, pysäköintialue ja nostoramppi länsipäässä, lamput ja kyltti. Muskeliveneen paikka on entisen laiturin kyljessä
+  altaassa (`MARINA_LINES` antaa automaattiajon väistöalueet).
 
 ## Huussi ja pitkospuut
 
@@ -169,7 +220,7 @@ näkyy kentän laidan taulussa. Uusi ennätys tarkoittaa, että kaikki voittivat
 Testit: `tools/testit/tennistesti.gd` (`--headless --fixed-fps 60`) ja kahden koneen
 `tools/testit/tennismoninpeli.gd` (ohjeet tiedoston alussa), kuvakaappaukset `tools/testit/tennis_kuvat.gd`.
 
-### Amerikkalaisen jalkapallon heittely vedessä
+### Amerikanpallo: amerikkalaisen jalkapallon heittely vedessä
 
 Samalla mekaniikalla (`scripts/pallopeli.gd`, yhteinen pohja rantatenniksen kanssa) heitellään amerikkalaista
 jalkapalloa vedessä alamökin edustalla, 20-30 m rannasta, jossa vettä on 0,7-1 m (`scripts/amerikanpallo.gd`).
@@ -179,10 +230,14 @@ moninpelissä pallo kulkee koneelta toiselle kuten tenniksessä. F lopettaa. Tes
 
 ## Tarina: mökkiviikonloppu torstaista sunnuntaihin
 
-Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 12 (`scripts/tarina.gd`). Joka päivä on omat
+Valikon oletusajankohta "Mökkiviikonloppu to–su (tarina)" alkaa torstaina klo 16 (`scripts/tarina.gd`). Joka päivä on omat
 tehtävät hahmon mukaan, ja ne näkyvät vasemmalla (J piilottaa): torstaina halot, kätkö, sauna, uinti, huussi; perjantaina
-pöydän pelit, rantatennis, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, jalkapallo, Happy Beach ja
-auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää
+pöydän pelit, mustikat, rinne ja Markon pyttipannu; lauantaina tutkimusmatka, kätkön haku, Happy Beach (baari ja karaoke) ja
+auringonlasku; sunnuntaina viimeiset uinnit, löylyt ja kortit. **Spartan pinkiponki (rantatennis)** vaatii torstaina 30 lyöntiä
+putkeen ja joka päivä 20 lisää (50, 70, 90); **amerikanpallo** torstaina 10 heittoa ja joka päivä 10 lisää
+(20, 30, 40). **Tutkimusmatka ja kätkön haku:** kun tutkimusmatkan kätköltä on haettu viinaa (E olut, Q viina), oman kätkön
+tekeminen avautuu (`scripts/omat_katkot.gd`): sopivassa metsän, kallion tai aukean kohdassa mökin lähellä (alle 250 m) E kaivaa uuden
+viinakätkön (enintään 6, tallentuvat). Kompassi näyttää lähimmän kätkön. Testit: `katkotesti.gd`, `korttitallennustesti.gd`. **Joka päivä päikkärit ylämökissä klo 15–18** (Jukka keittää
 kahvit sen sijaan). Päivä vaihtuu keskiyöllä (edellisen päivän tulos ilmoitetaan), ja sunnuntaina klo 21 viikonloppu päättyy
 lopputulokseen; sen jälkeen peli jatkuu vapaana. Muilla alkuhetkillä tarina ei ole päällä.
 Testi: `tools/testit/tarinatesti.gd`.
@@ -195,7 +250,28 @@ tiivistetty kävelyalueen sisälle Siperianrannan hiekkarannan törmälle (n. 70
 su suljettu; E ostaa oluen), kioski ja vastaanotto, kolme mökkiä, kolme asuntovaunua, lippu, auringonlaskupenkit, pitkospolku
 rantaan, aurinkotuolit hiekalla ja laituri. Tie Vankkuritie on rakennettu olemassa olevan polun kohdalle.
 
-Mökin pihalla odottaa farmariauto (`scripts/auto.gd`): E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
+**Ravintola** on erillinen sisätila (Normipäivän Siitarin tapaan, `scripts/happybeach.gd`, `scripts/baari.gd`): pihalla ei ole
+baaria, vaan terassin ja parkkipaikan ovella E astuu sisään (aukioloaikoina). Sisätila on oma "taskunsa" taivaalla, ja kamera
+katsoo ylhäältä. Sisällä on baaritiski ja baarimikko (tilausvalikko: olut, lonkero, siideri, viinapaukku; kahvi ja pulla sekä
+hampurilainen palauttavat kuntoa ja selvittävät), karaokelava (laulu menee osumalla E:llä tahtiin, tehtävä), tanssilattia
+diskopalloineen, **Sinikka** baaritiskillä (juttelu, drinkin tarjoaminen, yhteistanssi), pöytäseurue ja kaksi korttipelaajaa
+(juttelu, korttipelin katselu), jukeboksi (pelin musiikkikappaleet, disko pyörii musiikin ajan), pajatso, hedelmäpeli (`scripts/hedelmapeli_game.gd`, RAYn vanha kolmirullainen peli: 24 symbolia rullalla oikeine määrineen, panos 1–3 € (W/S), rullien lukitus hävityn kierroksen jälkeen, ei tuplausta) ja **pokeri** (`scripts/pokeri_game.gd`, Coinline Casino -jokeripokeri, 52 korttia ja villi jokeri: panos 1–5 € (W/S), E jakaa viisi korttia, 1–5 / klikkaus / A/D + välilyönti pitää kortin, E vaihtaa loput; pienin voittava käsi on kaksi paria, päävoitto 50 × panos viitosilla tai värisuoralla; voiton voi tuplata, jos se on enintään puolet päävoitosta: A/← = pieni, D/→ = suuri, musta seiska vie ja punainen seiska päättää tuplauksen voitot talteen) länsiseinällä rivissä pajatso, hedelmäpeli, pokeri, jukeboksi. Ovelta E poistuu ulos.
+
+**Pelien ohjeet (`scripts/ohje.gd`):** jokaisella pelillä (pajatso, hedelmäpeli, videopokeri, karaoke, tanssi, ysäritrivia, Afrikan tähti, Muistatko kun, korttipelit) on lyhyt ohjeruutu: tavoite, näppäimet ja voittotaulukko. Ohje on aina piilossa, eikä mikään peli avaa sitä itsestään: **J** avaa sen pelin aikana (sama näppäin, joka pääpelissä piilottaa tehtävälistan) ja sulkee sen. ↑↓ vierittää, E / Enter / Esc / klikkaus sulkee.
+
+**Valintalistat (`scripts/ui.gd` `pick_key`, `choice_text`, `mark`):** kaikki listat toimivat samoin: ↑ / W / ← / A edellinen, ↓ / S / → / D seuraava (kiertää), **1–9 valitsee ja vahvistaa heti**, E vahvistaa korostetun rivin, klikkaus vahvistaa, F / Esc poistuu. Korostettu rivi näkyy muodossa "> 1. teksti" ja oranssilla taustalla. Näin toimivat Afrikan tähti, Muistatko kun, lautapelivalikko, karaoken kappalelista sekä baarin tiski, jukeboksi, Sinikka ja seurue. Valintalistoissa ylös/alas-nuolet eivät lopeta peliä.
+Tanssi ja karaoke vapauttavat canvas-kerroksensa lopussa (aiemmin tanssin tausta jäi ruudulle), ja R ei vie enää kesken minipelin mökille. Testi: `tools/testit/baaritesti.gd`.
+
+**Tanssilattia (E tanssilattialla, `scripts/tanssi_game.gd`):** eurodance-rytmipeli diskopallon alla, yksin tai Sinikan kanssa (Sinikan kanssa tulos paranee 5 prosenttiyksikköä). Neljä askelkaistaa (← ↓ ↑ → eli A S W D tai nuolet): nuolet laskeutuvat osumalinjalle ja painetaan tahtiin. Biisi (138 bpm, Am–F–C–G) syntetisoidaan lennossa: jalkabasari, klappi tahdeilla 2 ja 4, ylätahdin hattu, pumppaava basso ja kertosäkeessä 16-osa-arpeggio. Osumat kasvattavat putkea ja kerrointa (×1,0 → ×1,6), huti ja väärä askel katkaisevat putken, ja humala nykii ajoitusta. 88 askelta, kesto n. 40 s; Esc / F lopettaa kesken. Pelaajan hahmo tanssii (Dance-animaatio) osumien aikana. Tulos vähintään 35 % kuittaa lauantain tarinatehtävän "tanssi". Testi: `tools/testit/tanssitesti.gd` (täydellinen tanssi, hudit, putken katkeaminen).
+
+**Ruoka ja kahvi:** Jukan pannukahvi tarjoillaan sisällä alamökin keittiön sivutasolta (E juo kupin, ei tarvitse istua).
+Markon pyttipannu tarjoillaan ulos etuterassin tarjoilupöydälle (`scripts/tarjoilupoyta.gd`), josta sitä syödään (Q); tietokoneen Marko
+tekee klo 12 aamupalaksi pyttipannun ja klo 20 pihvit grillikatoksen kaasugrillillä, ja pelaaja-Marko paistaa ja grillaa ne itse
+(`scripts/grilli.gd`; vain Marko saa grillata). Kahvista kiitellään Barista Saloselle ja ruoasta Michelin Markolle.
+
+Mökin pihalla odottaa yksityiskohtaisemmaksi mallinnettu farmariauto (`scripts/auto.gd`; ritilä, valot, peilit, sisustus, pyörien
+vanteet), joka kiihtyy tiellä 80 km/h:hon (0–80 n. 8 s; ohjaus tarkentuu vauhdissa, näkökenttä laajenee). Soratiet ovat leveämpiä ja
+kuperia (ojan puoleiset luiskat). E rattiin, porukka tulee kyytiin. W/S kaasu ja jarru, A/D ohjaa,
 välilyönti käsijarru, H torvi, V kuljettajan näkymä, **G automaattiajo** reitin päähän (n. 850 m, Äpätintietä pitkin), E ulos.
 Humalassa saa ajaa, mutta ajaminen vaikeutuu koko ajan (auto vaeltaa, ohjaus yli- ja alikorjaa, kovassa humalassa ohjaus kääntyy väärin päin; automaattiajokin heiluu). Äpätintien suoralle osuudelle on tehty soratien kumpareita, joiden yli kovaa ajettaessa auto lentää. Moninpelissä yksi nousee rattiin ja muut pelaajat sekä tietokoneen hahmot imetään kyytiin; chat (Enter) ja äänilinkki (mikki) toimivat ajon ajan, ja kuplat näkyvät auton päällä; kuski lähettää auton tilan (auto, auto_s) ja kaikki nousevat ulos, kun hän pysäyttää. Testit: `tools/testit/autotesti.gd`, `ajotesti.gd` (käsiajo näppäimillä) ja `automoninpeli.gd`.
 
@@ -208,14 +284,7 @@ lähtee, seuraava pelaaja jatkaa hostina. Keskusteluviestit (Enter) näkyvät ka
 keskusteluhistoriassa. Tietokoneen hahmojen puheet (esimerkiksi klo 16
 päikkärikutsu ja Jukan kahvihuuto) näkyvät myös kaikilla: hostin tietokone lähettää ne muille.
 
-**Puhesynteesi:** puhekuplat luetaan ääneen käyttöjärjestelmän puhesynteesillä (asetukset → Ääni → Puhesynteesi
-ja Puhe-voimakkuus). Kullakin hahmolla on oma suomenkielinen ääni, jos sellainen on asennettu (macOS:ssa
-Santtu Eddy, Marko Rocko, Jaakko Reed ja Jukka Grandpa); muuten ensimmäinen suomenkielinen ääni hahmon omalla
-äänenkorkeudella. Puhe-voimakkuuden oletus (80 %) on puhesynteesin täysi voimakkuus, ja kaukana olevan
-puhe kuuluu vain hieman hiljempaa. Taustaäänet ja efektit ovat kiinteästi 4 dB asetusta hiljempana (Settings.BUS_TRIM),
-jotta puhe erottuu; puheen tai tutkimusmatkan aikana niitä ei säädetä. Tutkimusmatkalla alun huudot luetaan ääneen ennen Vangelista, soudun aikana ei puhuta
-ääneen, ja perillä "Maata näkyvissä!" ja kaikki sen jälkeiset puheet luetaan taas ääneen. Selaimessa äänet latautuvat vasta sivun avauduttua, joten ääniä haetaan
-uudelleen, kunnes niitä löytyy (suomenkielinen ääni, jos selain tai käyttöjärjestelmä tarjoaa sellaisen).
+**Puhe:** käsikirjoitetut puhekuplat kuuluvat valmiiksi nauhoitettuina (ks. Nauhoitetut puheet; asetukset → Ääni → Puhe ja Puhe-voimakkuus). Puhe-voimakkuuden oletus on 80 %, ja kaukana olevan puhe kuuluu vain hieman hiljempaa. Taustaäänet ja efektit ovat kiinteästi 4 dB asetusta hiljempana (Settings.BUS_TRIM), jotta puhe erottuu. Tutkimusmatkalla alun huudot kuuluvat ennen Vangelista, soudun aikana ei puhuta ääneen, ja perillä "Maata näkyvissä!" ja sen jälkeiset puheet kuuluvat taas. Pelaajien kirjoittamat viestit näkyvät vain tekstinä.
 
 **Äänilinkki:** moninpelissä kaikki kuulevat toistensa mikin kuin palaverissa, kaikki yhtä kovaa
 (`scripts/aanilinkki.gd`, selaimessa `scripts/aanilinkki.js`). Mikki on auki liityttäessä, ja **N** mykistää
@@ -272,10 +341,12 @@ aurinko koskettaa horisonttia klo 23.24 suunnassa 334° (luode-pohjoinen), kuten
 Auringonpaiste on mallinnettu ohuella tilavuususvalla (keski- ja korkea grafiikka, Forward+): latvusten välistä
 paistava aurinko näkyy ilmassa valokiiloina, ja ilta-aurinko hehkuu kultaisena.
 
-Metsä on harvennettu puoleen laserkeilauksen puustosta (`scripts/trees.gd`, `THIN`). Soratiet (Äpätintie)
+Metsä on harvennettu puoleen laserkeilauksen puustosta jo datassa (`tools/kartta/bake.py`, muunnos vanhasta datasta `tools/kartta/puut_v3.py`), joten harvennetut puut eivät kuormita piirtoa. Soratiet (Äpätintie)
 on piirretty omalla varjostimella (`shaders/road.gdshader`): harmaanruskeaa mursketta ja pikkukiviä
 kohokuvioineen, renkaiden tiivistämät tummemmat urat, kupera ajorata ja ruohoiset pientareet; ajourilla
 ruohokaista urien välissä.
+
+Puiden piirto (`scripts/trees.gd`): kaukotaso 512 m, keskitaso 128 m ja korttilatvukset (kuusella kaksi tarkkuutta, 40 m:n rajalla) 32 m lohkoina, jotta moottori jättää kaukaiset lohkot kokonaan piirtämättä; rungot törmäävät vain pelaajan 12 metrin sisällä olevien puiden osalta 48 sylinterin poolista. Testi: `tools/testit/puutesti.gd`.
 
 ## Kartta
 
@@ -334,3 +405,25 @@ Data tehdään uudelleen komennolla `tools/kartta/bake.py` (ks. [tools/kartta/LU
 - MVMI-kartta-aineisto 2023 © Luonnonvarakeskus (CC BY 4.0)
 - © OpenStreetMap-tekijät (ODbL)
 - Hahmot ja animaatiot: Quaternius (CC0); äänet: OpenGameArt ja Kenney (CC0), ks. `assets/sounds/LICENSE.md`
+
+
+## Kartta ja suorituskyky
+
+Kartta (M) ja tutka näyttävät kiinnostavat kohteet (`scripts/kohteet.gd`): mökki, Happy Beach ja ravintola, laituri, kätköt (myös omat),
+rantatennis ja heittelypaikka, hiekkaranta, huussi, grillikatos, tarjoilupöytä, mustikat, auto, vene ja porukka sekä ajoreitti
+Happy Beachille ja tutkimusmatkan soutureitti; selite oikeassa alakulmassa. Käynnistystä on nopeutettu Normipäivä-pelin tapaan:
+tiet lasketaan kerran ja tallennetaan levyvälimuistiin (`scripts/mesh_bundle.gd`, `user://cache`; avain riippuu teistä ja maastosta),
+primitiivimeshit (laatikko, sylinteri, pallo) jaetaan, järjestelmäfontit ovat välimuistissa ja isot tekstit rasteroidaan pienellä
+fonttikoolla. Käynnistys ~3,7 s -> ~1,9 s (headless); vaiheiden kestot: `godot --path . -- --ajastus`.
+
+## Nuotio, tarinat ja sytytys
+- **Nuotio on aluksi sammunut:** halot halkovajasta syliin, sitten E nuotiolla käynnistää sytytysminipelin (`sytytys_game.gd`, ulkoversio ilman peltiä). Ennen sytytystä makkaraa ei paisteta eikä tarinoita kerrota. Tuli palaa noin 4 min per halko.
+- **Tarinat (Q nuotiolla)** kerrotaan vain auringonlaskun aikaan (aurinko matalalla lännessä). Ensimmäinen tarina alkaa heti, ja seuraava alkaa itsestään vastauksen jälkeen (E ohittaa odotuksen).
+- **Sauna:** lauteille ei pääse, ennen kuin kiuas on lämmin (55 °C); kylmä kiuas sytytetään saunan sytytysminipelillä.
+
+## Nauhoitetut puheet (ei puhesynteesiä pelissä)
+- Peli ei syntetisoi puhetta ajon aikana. Käsikirjoitetut repliikit (tietokoneen hahmojen jutut, nuotiotarinat, lopun kohtaukset, keskiyön oodin sanat, työpuhelu ja vaimon puhelu) on nauhoitettu valmiiksi macOS:n `say`-komennolla tiedostoihin `assets/puhe/<ääni>_<tiiviste>.ogg` (n. 650 tiedostoa, 5 Mt). `scripts/puhe.gd` soittaa ne; `scripts/chat.gd` valitsee hahmon äänen.
+- Pelaajien itse kirjoittamat viestit (chat) ja nauhoittamattomat rivit (esim. trivian vastaukset ja "Muistatko kun <tarina>") näkyvät vain tekstinä.
+- Äänet: Santtu (Eddy), Marko (Rocko, matalampi), Jaakko (Reed), Jukka (Grandpa) sekä puhelujen **esimies** (nalkuttava miesääni: korkea, nopea, vibrato ja puristus) ja **vaimo** (nalkuttava naisääni: Shelley, korkeampi ja nopeampi). Työpuhelussa esimiehen ääni soi vastattaessa (vastaajaviestinä hiljaa, jos ei vastata) ja vaimon ääni heti puhelun tullessa.
+- Oodi: jokainen sana on nauhoitettu jokaisella mökkiläisen äänellä ja soitetaan sävelen korkeudella (näytteen toistonopeus).
+- Uudet repliikit: lisää rivi pelin vakioon (`scripts/puhe_lauseet.gd` listaa vakiot) ja aja `python3 tools/puhe/nauhoita.py` (vain puuttuvat nauhoitetaan, `--kaikki` kaikki uudelleen), sitten `godot --headless --path . --import`. Vaatii macOS:n, ffmpegin ja oggencin (`brew install vorbis-tools`). Editorissa nauhoittamattomat rivit kirjataan tiedostoon `user://puhe_puuttuu.txt`. Testi: `tools/testit/puhetesti.gd`.

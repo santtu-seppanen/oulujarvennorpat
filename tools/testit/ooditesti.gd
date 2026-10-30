@@ -12,6 +12,7 @@ var fails := 0
 var step := 0
 var clock := 0.0
 var ts := 0.0
+var m0 := 0
 
 
 func _initialize() -> void:
@@ -57,7 +58,29 @@ func _process(delta: float) -> bool:
 		1:
 			if clock > 2.0:
 				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 23, 59)
-				next()
+				main.car.driver = main.player  # ajossa mökillä ei tapahdu mitään
+				m0 = main.maine
+				step = 11
+				ts = clock
+		11:
+			if o.state == "laulu" or t > 90.0:
+				check(main.travelling() and o.state == "laulu", "autolla ajaessa oodi käynnistyy (pelaaja poissa)")
+				check(o._away and o._away_text == "matkalla", "ajossa oleva lasketaan poissaolevaksi")
+				check(main.maine < m0, "missatusta oodista menetetään mainepisteitä (%d -> %d)" % [m0, main.maine])
+				main.car.driver = null
+				o._end()
+				o._day = -1
+				main.maine = m0
+				step = 12
+				ts = clock
+		12:
+			if t > 15.0:  # porukka ehtii asettua ennen toista oodia
+				main.kahvi._set_count(3)
+				main.kokkaus._set_count(2)
+				main.tarjoilu._set_steaks(4)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 7, 23, 59)
+				step = 2
+				ts = clock
 		2:
 			if o.state == "kokoontuu" or t > 10.0:
 				check(o.state == "kokoontuu", "keskiyöllä porukka kokoontuu")
@@ -100,6 +123,47 @@ func _process(delta: float) -> bool:
 		6:
 			if t > 3.0:
 				check(o.state == "", "samana yönä ei uudestaan")
+				check(main.kahvi.kupit == 0 and main.kokkaus.annokset == 0 and main.tarjoilu.pihvit == 0, "oodin jälkeen kahvit ja ruoat nollattu")
+				main.kokkaus._set_count(3)
+				main.tarjoilu.add_steaks(2)
+				check(main.kokkaus.annokset == 0 and main.tarjoilu.pihvit == 2, "pihvien tullessa pyttipannu katoaa")
+				main.tennis.session = true  # kaikki pelaamassa
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 12, 0)
+				next()
+		7:
+			if t > 2.0:
+				check(main.ball_playing() and main.kokkaus.annokset == 0, "pallopelin aikana ei tehdä ruokaa")
+				main.tennis.session = false
+				next()
+		8:
+			var mk: CharacterBody3D = main.crew[main.tarjoilu._marko_index()]
+			if mk.brain != null and (mk.brain.activity == "kokkaus" or mk.brain._want == "kokkaus") or t > 20.0:
+				check(main.kokkaus.annokset == 0, "pyttipannua ei ole ennen kuin Marko on paistanut")
+				check(mk.brain.activity == "kokkaus" or mk.brain._want == "kokkaus", "pelin loputtua Marko menee paistamaan")
+				next()
+		9:
+			if main.kokkaus.annokset > 0 or t > 150.0:
+				check(main.kokkaus.annokset > 0, "Markon paistama pyttipannu tulee pöytään (%d, %.0f s)" % [main.kokkaus.annokset, t])
+				main.kahvi._set_count(0)
+				step = 10
+				ts = clock
+		10:
+			if t > 3.0:
+				main._coffee_day = -1
+				main._coffee_call()
+				check(main._coffee_pending and main.kahvi.kupit == 0, "ilman keitettyä kahvia ei kahvia eikä huutoa")
+				main.kahvi.add(2)
+				step = 13
+				ts = clock
+		13:
+			if t > 1.0:
+				check(not main._coffee_pending and main._coffee_day == main.sun.local().day, "kun kahvia on, Jukka huutaa kahville")
+				main.tarjoilu._set_steaks(0)
+				main.sun.t_utc = main.sun._local_to_utc(2026, 7, 8, 20, 0)
+				next()
+		14:
+			if main.tarjoilu.pihvit > 0 or t > 200.0:
+				check(main.tarjoilu.pihvit > 0, "Markon grillaamat pihvit tulevat pöytään (%d, %.0f s)" % [main.tarjoilu.pihvit, t])
 				print("vikoja %d" % fails)
 				quit(1 if fails > 0 else 0)
 	return false

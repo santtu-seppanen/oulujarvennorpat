@@ -34,6 +34,7 @@ var _face := Vector3.ZERO
 var _stuck := 0.0
 var _last := Vector3.ZERO
 var _next := ""
+var _want := ""  # tarjoilupoyta.gd:n pyytämä puuha (ruoanlaitto): ohittaa muut jonossa olevat
 var _talk_t := 0.0
 var _avoid := 0.0
 var _avoid_dir := 1.0
@@ -77,7 +78,7 @@ func think(delta: float) -> void:
 	if activity == "":
 		_choose()
 	# Auringonlasku vetää laiturille (paitsi saunassa, hellalla ja korttipöydässä olevia).
-	if _sunset() and not activity in ["aurinko", "kortit", "sauna", "kokkaus", "kahvi", "oodi"] and _state != "hidden":
+	if _sunset() and not activity in ["aurinko", "kortit", "nuotio", "sauna", "kokkaus", "kahvi", "grilli", "oodi", "yo"] and _state != "hidden":
 		_start("aurinko")
 	match _state:
 		"walk":
@@ -118,6 +119,37 @@ func cards_end() -> void:
 			_done()
 
 
+## Pelaaja istuu nuotiolle (nuotio.gd): oma istuinhirsi i (mokki.fire_seats) nuotion ajaksi.
+func fire(i: int) -> void:
+	if activity == "nuotio":
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_leave_seat()
+	if _stove == name:
+		_stove = ""
+	body.pose = ""
+	body.set_hidden_inside(false)
+	_next = ""
+	activity = "nuotio"
+	_state = "walk"
+	_card_seat = mokki.fire_seats[i]
+	_set_path(mokki.route(body.global_position, "nuotio"))
+	var away: Vector3 = (_card_seat[0] - _card_seat[1]).normalized()
+	_path.append(_card_seat[0] + away * 0.45)
+
+
+func fire_end() -> void:
+	if activity == "nuotio":
+		_timer = 0.0
+		if _state != "stay":
+			_done()
+
+
+func fire_ready() -> bool:
+	return activity == "nuotio" and _state == "stay"
+
+
 ## Keskiyön oodi (oodi.gd): etuterassin kaiteelle paikalle spot laulamaan, kasvot järvelle.
 func sing(spot: Vector3) -> void:
 	if activity == "oodi":
@@ -147,20 +179,61 @@ func sing_end() -> void:
 			_done()
 
 
+## Oodin jälkeen: ylämökkiin yöunille (main.gd herättää aamulla).
+func go_to_bed() -> void:
+	if activity == "yo" or body.boat != null:
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_next = ""
+	_start("yo")
+
+
+## Seuraavaksi tehtävä (tarjoilupoyta.gd: Markon ruoanlaitto): aloitetaan, kun nykyinen puuha on ohi.
+func queue(a: String) -> void:
+	if activity != a:
+		_want = a
+
+
+## Joku muu meni päikkäreille (main.gd): mukaan ylämökkiin, paitsi Jukka (kahvit).
+func go_nap() -> void:
+	if name == "Jukka" or activity == "paikkarit" or body.boat != null or activity == "oodi":
+		return
+	if body.pose.begins_with("Sitting"):
+		body.stand_up()
+	_next = ""
+	_start("paikkarit")
+
+
+## Aamu: yöunilla olevat nousevat porrastetusti ylämökistä.
+func wake_up() -> void:
+	if activity == "yo":
+		_state = "hidden"
+		_timer = rng.randf_range(0.0, 25.0)
+		_next = "poyta"
+
+
 ## Päikkärit nukutaan klo 15-18.
 static func nap_hours(s: Node) -> bool:
 	if s == null:
 		return true
+	if not s.after_first_day():
+		return false
 	var h: int = s.local().hour
 	return h >= 15 and h < 18
+
+
+## Yöunet voi nukkua klo 0–5 (oodin jälkeen).
+static func night_hours(s: Node) -> bool:
+	return s != null and s.local().hour < 5
 
 
 ## Klo 16 aikoihin porukka juttelee päikkäreistä ja lähtee ylämökkiin nukkumaan; Jukka keittää kahvit.
 func _nap_time() -> void:
 	var lt: Dictionary = sun.local() if sun != null else {}
-	if lt.is_empty() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
+	if lt.is_empty() or not sun.after_first_day() or lt.hour != 16 or lt.minute >= 40 or _nap_day == lt.day:
 		return
-	if activity in ["kortit", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
+	if activity in ["kortit", "nuotio", "kokkaus", "kahvi", "paikkarit"] or (activity == "sauna" and _state == "stay") \
 			or _state == "hidden" or body.boat != null:
 		return
 	_nap_day = lt.day
@@ -179,6 +252,11 @@ func _sunset() -> bool:
 
 
 func _choose() -> void:
+	if _want != "":
+		var w := _want
+		_want = ""
+		_start(w)
+		return
 	if _next != "":
 		var n := _next
 		_next = ""
@@ -188,7 +266,9 @@ func _choose() -> void:
 	var w := {}
 	for a in ACTIVITIES:
 		if a == "kokkaus" and name != "Marko":
-			continue  # vain Marko osaa kokata
+			continue
+		if a == "kokkaus" and sun != null and not (sun.local().hour >= 12 and sun.local().hour < 14):
+			continue  # pyttipannu tehdään aamupalaksi klo 12–14, ei heti pelin alussa  # vain Marko osaa kokata
 		if a == "kahvi" and name != "Jukka":
 			continue  # vain Jukka keittää kahvit
 		if a in ["kokkaus", "kahvi"] and _stove != "" and _stove != name:
@@ -197,10 +277,6 @@ func _choose() -> void:
 			continue  # ylämökissä nukutaan päikkäreitä vain klo 15-18
 		w[a] = ACTIVITIES[a] * LIKES.get(name, {}).get(a, 1.0)
 		total += w[a]
-	# Kiukaan tuli hiipuu: joku hakee haloja halkovajasta.
-	if mokki.fire_left < 90.0:
-		w["lammitys"] = 6.0
-		total += 6.0
 	var r := rng.randf() * total
 	for a in w:
 		r -= w[a]
@@ -245,7 +321,7 @@ func _start(a: String) -> void:
 			goal = "katko"
 		"uinti":
 			goal = "uinti" + str(rng.randi_range(1, 3))
-		"ylamokki", "paikkarit":
+		"ylamokki", "paikkarit", "yo":
 			goal = "ylamokki_ovi"
 		"huussi":
 			goal = "huussi"
@@ -390,7 +466,7 @@ func _arrive() -> void:
 			_face = mokki.stash_pos
 			body.drink(0.0)
 			_stay_for(rng.randf_range(8.0, 16.0), "Idle_Talking")
-		"kortit":
+		"kortit", "nuotio":
 			body.sit_at(_card_seat[0], _card_seat[1])
 			_stay_for(1e9, "Sitting_Idle")
 		"oodi":
@@ -398,6 +474,8 @@ func _arrive() -> void:
 			_stay_for(1e9, "Idle_Talking")
 		"ylamokki":
 			_hide(rng.randf_range(25.0, 60.0))
+		"yo":
+			_hide(1e9)  # nukutaan aamuun asti (main.gd herättää: wake_up)
 		"paikkarit":
 			_hide(rng.randf_range(50.0, 75.0))  # nukutaan n. tunti (pelivuorokausi 24 min)
 		"huussi":
@@ -460,6 +538,8 @@ func _done() -> void:
 		mokki.cooked.emit(rng.randi_range(2, 4))
 	elif activity == "kahvi":
 		mokki.coffee.emit(rng.randi_range(3, 4))
+	elif activity == "grilli" and name == "Marko" and sun != null and sun.local().hour >= 20 and sun.local().hour < 22:
+		mokki.grilled.emit(4)
 	if _stove == name:
 		_stove = ""
 	body.pose = ""

@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode cull_disabled;
 // Tiet ja polut maaston päällä. Verteksiväri on tien perusväri ja sen alfa tien laji: 1 asfaltti, 0,7 soratie,
 // 0,4 ajoura (ruohoinen keskikaista), 0,15 polku. UV.x: 0 reuna .. 1 keskiviiva .. 0 reuna.
 // Soratie: irtosoraa ja pikkukiviä (värivaihtelu ja kohokuvio), renkaiden tiivistämät tummemmat urat,

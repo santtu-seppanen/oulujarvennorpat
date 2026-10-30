@@ -30,6 +30,7 @@ var _potato: MultiMeshInstance3D
 var _extras: MultiMeshInstance3D
 var _pan_mat: StandardMaterial3D
 var _pile: Node3D
+var _pile_out: Node3D  # tarjoilupöydän lautaset (tarjoilupoyta.gd)
 var _sizzle: AudioStreamPlayer3D
 var _ui: CanvasLayer
 var _meter: Ui.Meter
@@ -61,6 +62,7 @@ func _ready() -> void:
 	_pile = Node3D.new()
 	_pile.position = m.plate_pos + Vector3.UP * 0.012
 	game.add_child(_pile)
+	_pile_out = game.tarjoilu.plates
 	_build_ui()
 
 
@@ -183,7 +185,7 @@ func stop(_why := "") -> void:
 
 func prompt() -> String:
 	var t: String = {"": "E: perunakuutiot pannulle", "1": "E: lisää sipuli ja makkara", "2": "E: annos lautaselle"}[_state]
-	return t + " · W: lopeta"
+	return t + " · F: lopeta"
 
 
 ## Annoksia lautaselle (paistettu tai tietokoneen Markon tekemiä).
@@ -200,14 +202,23 @@ func eat() -> void:
 	game.mp.send({"t": "pytti", "n": annokset})
 	game.player.stamina = 100.0
 	game.player.exhausted = false
-	game.toast("Söit Markon pyttipannua punajuuren ja paistetun kananmunan kanssa. Kunto täynnä!")
+	game.toast("Söit Michelin Markon pyttipannua punajuuren ja paistetun kananmunan kanssa. Kunto täynnä!")
+	game.tarina.complete("aamupala")
 	Sfx.play("pickup", -8.0)
+	if randf() < 0.6:
+		game.tarjoilu.praise(false)
 
 
 ## Annokset pöydässä: pyttipannukeko, jonka päällä paistettu kananmuna ja punajuuret vieressä.
 func _set_count(n: int) -> void:
 	annokset = n
-	for ch in _pile.get_children():
+	for root: Node3D in [_pile, _pile_out]:
+		if root != null:
+			_fill_pile(root)
+
+
+func _fill_pile(root: Node3D) -> void:
+	for ch in root.get_children():
 		ch.queue_free()
 	var food := StandardMaterial3D.new()
 	food.albedo_color = GOLDEN
@@ -221,19 +232,19 @@ func _set_count(n: int) -> void:
 	for k in annokset:
 		var a := k * 2.4
 		var o := Vector3(cos(a), 0, sin(a)) * (0.035 * sqrt(k)) + Vector3.UP * floorf(k / 4.0) * 0.025
-		_part(B.sphere(0.06, 10), food, o, Vector3(1.0, 0.35, 1.0))
-		_part(B.cyl(0.035, 0.035, 0.006, 14), white, o + Vector3.UP * 0.022)
-		_part(B.sphere(0.012, 8), yolk, o + Vector3(0.004, 0.026, 0.0))
-		_part(B.boxm(Vector3(0.02, 0.012, 0.02)), beet, o + Vector3(0.05, 0.004, 0.02))
+		_part(root, B.sphere(0.06, 10), food, o, Vector3(1.0, 0.35, 1.0))
+		_part(root, B.cyl(0.035, 0.035, 0.006, 14), white, o + Vector3.UP * 0.022)
+		_part(root, B.sphere(0.012, 8), yolk, o + Vector3(0.004, 0.026, 0.0))
+		_part(root, B.boxm(Vector3(0.02, 0.012, 0.02)), beet, o + Vector3(0.05, 0.004, 0.02))
 
 
-func _part(mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE) -> void:
+func _part(root: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.position = pos
 	mi.scale = scl
-	_pile.add_child(mi)
+	root.add_child(mi)
 
 
 func _sizzle_on(on: bool) -> void:

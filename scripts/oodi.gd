@@ -6,18 +6,21 @@ extends Node
 ##   (assets/music/oodi_saestys.ogg, lasketaan valmiiksi työkalulla tools/oodimusiikki.gd tämän tiedoston
 ##   sävelestä ja soinnuista). Säkeistöt laulavat hahmot vuorotellen, kertosäkeen kaikki: rivi näkyy
 ##   puhekuplana, ja puhesynteesi laulaa sen sana kerrallaan sävelen korkeudella (chat.gd sing).
-## - Sävel on tätä peliä varten tehty. F-duuri, 76 bpm, 4/4: alkusoitto 2 tahtia, säkeistö ja kertosäe
-##   (kumpikin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 1 min 3 s.
+## - Sävel on tätä peliä varten tehty. F-duuri, 104 bpm, 4/4: alkusoitto 2 tahtia, säkeistö ja kertosäe
+##   (kumpikin 4 riviä x 2 tahtia) ja loppusoitto 2 tahtia, n. 49 s.
 ## Moninpeli: host päättää alun ja laulun alun (viesti "oodi"), ja laulu etenee jokaisella koneella omalla
 ## kellollaan; hostin tietokone ohjaa vapaita hahmoja.
 
 const MUSIC := "res://assets/music/oodi_saestys.ogg"
-const BPM := 76.0
+const BPM := 104.0
 const INTRO := 8  # iskuja ennen ensimmäistä riviä
 const OUTRO := 8
 const LINE := 8  # iskuja riviä kohden (2 tahtia)
 const GATHER_MAX := 45.0
 const MUSIC_DB := -4.0
+const MAINE_GAIN := 20  # laulamaan osallistuvan mainepisteet joka kerta
+const MAINE_LOSS := 10  # oodin ohittavan mökkiläisen mainepisteet
+const SING_REACH := 3.0  # näin lähellä omaa paikkaa kaiteella lasketaan laulavan
 ## Melodiat riveittäin: [sävelet puolisävelaskelina F4:stä, kestot iskuina] (sana kohden yksi sävel).
 const MEL_A := [[[0, 4, 7, 9, 7], [2, 1, 2, 1, 2]], [[9, 7, 5, 4, 2], [2, 1, 2, 1, 2]], [[7, 9, 7], [3, 2, 3]],
 	[[5, 2, 0], [3, 1, 4]]]
@@ -49,6 +52,8 @@ var _t := 0.0
 var _day := -1  # yö, jona oodi on jo laulettu
 var _taken: Array = []  # tämän koneen ohjaamat laulajat (crew-indeksit)
 var _player: AudioStreamPlayer
+var _away := false  # pelaaja oli oodin alkaessa Happy Beachillä tai matkalla: ei ääntä eikä kuplia, maine vähenee
+var _away_text := ""  # missä pelaaja oli poissa (ilmoitukseen)
 var _req := false
 var _next := 0  # seuraava laulettava sana (lines() -lista)
 var _lines: Array = []
@@ -114,7 +119,7 @@ func singing() -> bool:
 func _process(delta: float) -> void:
 	if state == "":
 		var lt: Dictionary = game.sun.local()
-		if _host() and lt.hour == 0 and lt.minute < 15 and _day != lt.day and not game.retki.active:
+		if _host() and lt.hour == 0 and _day != lt.day and not game.retki.active:
 			_gather(true)
 		return
 	_t += delta
@@ -135,11 +140,15 @@ func _gather(send: bool) -> void:
 	if state != "":
 		return
 	state = "kokoontuu"
+	# Happy Beachillä tai autolla/veneellä oleville oodi ei kuulu: he eivät kuule sitä, ja mainepisteet vähenevät
+	_away = game.at_beach() or game.travelling()
+	_away_text = "Happy Beachillä" if game.at_beach() else "matkalla"
 	_t = 0.0
 	_day = game.sun.local().day
 	if send:
 		game.mp.send({"t": "oodi", "a": "alku"})
-	game.toast("Keskiyö! Porukka kokoontuu alamökin etuterassille laulamaan oodin Oulujärvelle.", 6.0)
+	if not _away:
+		game.toast("Keskiyö! Porukka kokoontuu alamökin etuterassille laulamaan oodin Oulujärvelle.", 6.0)
 	if ResourceLoader.exists(MUSIC) and ResourceLoader.load_threaded_request(MUSIC) == OK:
 		_req = true
 	if not _host():
@@ -166,7 +175,19 @@ static func _ai(b: Node) -> bool:
 	return b.brain != null and b.brain.has_method("sing")
 
 
+## Oma pelaaja on omalla paikallaan etuterassilla (oikea ihminen ei kävele itse, joten odotetaan häntä).
+func _player_there() -> bool:
+	var j: int = game.player_index
+	if game.crew_modes[j] == "ai" or game.player.boat != null or _away:
+		return true  # rannalla olevaa ei odoteta
+	var q: Vector3 = spot(j)
+	var p: Vector3 = game.player.global_position
+	return Vector2(p.x - q.x, p.z - q.z).length() < SING_REACH and absf(p.y - q.y) < 2.5
+
+
 func _all_there() -> bool:
+	if not _player_there():
+		return false
 	for j in _taken:
 		var b: CharacterBody3D = game.crew[j]
 		if not _ai(b) or not b.brain.singing_ready():
@@ -192,14 +213,33 @@ func _sing(send: bool) -> void:
 		st = load(MUSIC)
 	if st is AudioStreamOggVorbis:
 		st.loop = false
+	_settle_fame()
 	_player.stream = st
 	_player.volume_db = MUSIC_DB
-	if st != null:
+	if st != null and not _away:
 		_player.play()
+
+
+## Laulun alkaessa: mökillä laulamassa +20 mainepistettä, muualla (esim. Happy Beachillä) -10.
+func _settle_fame() -> void:
+	var j: int = game.player_index
+	var sang: bool = not _away and ((game.crew_modes[j] == "ai" and j in _taken) or (game.crew_modes[j] != "ai" and _player_there()))
+	if _away:
+		game.maine = maxi(0, game.maine - MAINE_LOSS)
+		game.toast("Keskiyö %s: oodi Oulujärvelle jäi laulamatta, mainepisteet -%d (nyt %d/100)" % [_away_text, MAINE_LOSS, game.maine], 5.0)
+	elif sang:
+		game.maine = mini(100, game.maine + MAINE_GAIN)
+		game.toast("Lauloit oodin Oulujärvelle: mainepisteet +%d (nyt %d/100)" % [MAINE_GAIN, game.maine], 5.0)
+	else:
+		game.maine = maxi(0, game.maine - MAINE_LOSS)
+		game.toast("Et ollut laulamassa oodia mökillä: mainepisteet -%d (nyt %d/100)" % [MAINE_LOSS, game.maine], 5.0)
+	game.tarina._dirty = true
 
 
 ## Sana laulajan äänellä; rivin alussa puhekupla (kertosäkeessä kaikilla).
 func _word(e: Array) -> void:
+	if _away:
+		return
 	if e[5]:
 		for j in (range(game.crew.size()) if e[6] else [e[4]]):
 			game.chat.show_message(j, e[1], false, j == e[4])
@@ -215,4 +255,11 @@ func _end() -> void:
 		if _ai(b):
 			b.brain.sing_end()
 	_taken.clear()
-	game.toast("Oodi Oulujärvelle laulettu. Hyvää yötä, norpat!", 5.0)
+	if not _away:
+		game.toast("Oodi Oulujärvelle laulettu. Hyvää yötä, norpat!", 5.0)
+	_away = false
+	# Yön yli juomattomat kahvit ja syömättömät ruoat menevät hukkaan (jokainen kone nollaa omansa).
+	game.kahvi._set_count(0)
+	game.kokkaus._set_count(0)
+	game.tarjoilu._set_steaks(0)
+	game.go_to_bed()

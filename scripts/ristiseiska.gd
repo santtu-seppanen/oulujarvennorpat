@@ -5,15 +5,20 @@ extends RefCounted
 ## Säännöt:
 ## - Kaikki kortit jaetaan neljälle, 13 kullekin. Ristiseiskan saanut aloittaa pelaamalla sen.
 ## - Pöytään saa laittaa minkä tahansa maan seiskan tai jatkaa pöydässä olevaa riviä yhdellä ylöspäin
-##   (8, 9, .. K) tai alaspäin (6, 5, .. A). Jos voi pelata, on pelattava.
+##   (8, 9, .. K) tai alaspäin (6, 5, .. A). Jos voi pelata, on pelattava. Kahdeksikkoa ei saa pelata ennen
+##   kuutosta eikä vitosta ennen kahdeksikkoa: rivi etenee 7, 6, 8, 5 ja siitä vapaasti molempiin suuntiin.
+## - Peli kiertää myötäpäivään (pelaajien indeksit pöydässä pienenevään suuntaan, ks. Korttipeli).
 ## - Ässän tai kuninkaan pelannut saa pelata heti uudestaan.
 ## - Jos ei voi pelata, edellinen pelaaja antaa hänelle valitsemansa kortin, ja vuoro siirtyy seuraavalle.
-## - Ensimmäisenä kortit loppuun pelannut voittaa. Peliä jatketaan, kunnes kortteja on enää yhdellä.
+## - Ensimmäisenä kortit loppuun pelannut voittaa kierroksen ja saa 0 pistettä; muut saavat yhden pisteen
+##   jokaisesta käteen jääneestä kortista. Pisteet summataan (totals), ja viikonlopun lopussa vähiten pisteitä
+##   saanut on ristiseiskan voittaja (tarina.gd).
 
 const SUITS := ["risti", "ruutu", "hertta", "pata"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 const CLUB7 := 6
 const MAX_MOVES := 3000  # varmuuden vuoksi: peli päättyy viimeistään tähän
+const DIR := -1  # vuoron kiertosuunta: pöydän paikat 0..3 kiertävät vastapäivään, joten myötäpäivään mennään alaspäin
 
 var n := 4
 var hands: Array = []  # pelaaja -> Array[int], järjestetty
@@ -26,6 +31,9 @@ var finished: Array = []  # pelaajat siinä järjestyksessä, kun kortit loppuiv
 var started := false  # ristiseiska pöydässä
 var last := {}  # viimeisin tapahtuma: {a: "pelasi"/"antoi", p: pelaaja, c: kortti, to: saaja}
 var moves := 0
+var totals := [0, 0, 0, 0]  # pisteet koko viikonlopulta (pienin voittaa)
+var points := [0, 0, 0, 0]  # viimeisimmän kierroksen pisteet
+var rounds := 0  # pelatut kierrokset
 
 
 static func suit(c: int) -> int:
@@ -74,6 +82,10 @@ func can_play(c: int) -> bool:
 	var r := rank(c)
 	if low[s] == 0:
 		return r == 7
+	if r == 8:
+		return high[s] == 7 and low[s] <= 6  # kahdeksikko vasta kuutosen jälkeen
+	if r == 5:
+		return low[s] == 6 and high[s] >= 8  # vitonen vasta kahdeksikon jälkeen
 	return r == low[s] - 1 or r == high[s] + 1
 
 
@@ -91,7 +103,7 @@ func active(p: int) -> bool:
 
 func next_active(p: int) -> int:
 	for k in range(1, n + 1):
-		var q := (p + k) % n
+		var q := (p + DIR * k + n * n) % n
 		if active(q):
 			return q
 	return p
@@ -99,7 +111,7 @@ func next_active(p: int) -> int:
 
 func prev_active(p: int) -> int:
 	for k in range(1, n + 1):
-		var q := (p - k + n) % n
+		var q := (p - DIR * k + n * n) % n
 		if active(q):
 			return q
 	return p
@@ -171,14 +183,25 @@ func _check_over() -> bool:
 	for p in n:
 		if active(p):
 			left.append(p)
-	if left.size() <= 1 or moves >= MAX_MOVES:
-		for p in left:
+	if finished.is_empty() and moves < MAX_MOVES:
+		return false
+	# Kierros päättyy, kun ensimmäinen on pelannut kortit loppuun (tai varmuusraja täyttyy): muut sijoitetaan
+	# käteen jääneiden korttien mukaan, ja pisteet kirjataan.
+	left.sort_custom(func(a: int, b: int) -> bool: return hands[a].size() < hands[b].size())
+	for p in left:
+		if not finished.has(p):
+			finished.append(p)
+	if finished.size() < n:
+		for p in n:
 			if not finished.has(p):
 				finished.append(p)
-		phase = "over"
-		giver = -1
-		return true
-	return false
+	for p in n:
+		points[p] = hands[p].size()
+		totals[p] += points[p]
+	rounds += 1
+	phase = "over"
+	giver = -1
+	return true
 
 
 # --- Tietokonepelaaja -----------------------------------------------------------------------------------------
@@ -233,7 +256,7 @@ func bot_give(p: int, rng: RandomNumberGenerator) -> int:
 
 func to_dict() -> Dictionary:
 	return {"h": hands, "lo": low, "hi": high, "t": turn, "ph": phase, "g": giver, "f": finished, "st": started,
-		"l": last, "m": moves}
+		"l": last, "m": moves, "to": totals, "po": points, "ro": rounds}
 
 
 func from_dict(d: Dictionary) -> void:
@@ -254,3 +277,6 @@ func from_dict(d: Dictionary) -> void:
 	for k in d.l:
 		last[k] = d.l[k] if k == "a" else int(d.l[k])
 	moves = int(d.m)
+	totals = (d.get("to", [0, 0, 0, 0]) as Array).map(func(x: Variant) -> int: return int(x))
+	points = (d.get("po", [0, 0, 0, 0]) as Array).map(func(x: Variant) -> int: return int(x))
+	rounds = int(d.get("ro", 0))

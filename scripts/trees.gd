@@ -4,9 +4,12 @@ extends Node3D
 ## latvustoon ja puulajit Luken VMI 2023 -osuuksista.
 ##
 ## Puut piirretään MultiMesheinä, mutta paikat luetaan varjostimessa datatekstuurista (tree.gdshaderinc), joten
-## GDScriptissä ei käydä puita läpi yksitellen. Kolme tasoa: lähellä korttilatvukset (foliage.gd), keskimatkalla
-## umpimuodot ja kaukana kevyet perusmuodot. Kaukotaso tehdään kerralla 512 m lohkoina, lähi- ja keskitaso
-## 128 m lohkoina pelaajan ympärille sitä mukaa kuin hän liikkuu. Rungot törmäävät pelaajan lähilohkoissa.
+## GDScriptissä ei käydä puita läpi yksitellen. Kolme tasoa: lähellä korttilatvukset (foliage.gd; kuusella kaksi
+## tarkkuutta), keskimatkalla umpimuodot ja kaukana kevyet perusmuodot. Kaukotaso tehdään kerralla 512 m lohkoina,
+## keskitaso 128 m ja korttitaso 32 m lohkoina pelaajan ympärille sitä mukaa kuin hän liikkuu. Korttitasolla on
+## pienet lohkot, koska varjostin kutistaa kauempana olevat puut vasta vertex-vaiheessa: mitä pienempi lohko, sitä
+## tiukemmin moottori jättää kaukaiset lohkot kokonaan piirtämättä. Rungot törmäävät vain pelaajan lähellä olevien
+## puiden osalta pienen törmäysmuotopoolin kautta.
 
 const Foliage := preload("res://scripts/foliage.gd")
 const B := preload("res://scripts/build.gd")
@@ -15,20 +18,25 @@ const Ranta := preload("res://scripts/ranta.gd")
 const Rantatennis := preload("res://scripts/rantatennis.gd")
 const Reitti := preload("res://scripts/reitti.gd")
 const Happybeach := preload("res://scripts/happybeach.gd")
+const Satama := preload("res://scripts/satama.gd")
 const Tutkimusmatka := preload("res://scripts/tutkimusmatka.gd")
 
 const BIN := "res://assets/map/puut.bin"
-## Metsää harvennettu: joka THIN:s puu jää (2 = puolet puista pois).
-const THIN := 2
 enum { PINE, SPRUCE, BIRCH, ASPEN, BUSH }
 const SPECIES := 5
 const NEAR_END := 95.0     # korttilatvukset tähän asti (puukohtaisesti varjostimessa)
 const MID_END := 520.0     # umpimuodot
 const FAR_END := 4200.0    # perusmuodot (usva peittää kauempana)
+const NEAR_HI_END := 40.0  # kuusen tarkka korttilatvus tähän asti, sen jälkeen harvempi (NEAR_END asti)
 const NEAR_HALF_DIAG := 91.0  # 128 m lohkon puolikas lävistäjä: lohkon näkyvyys keskipisteestä
+const CARD_CHUNK := 32.0   # korttitason lohkon koko (neljäsosa keskitason lohkosta)
+const CARD_HALF_DIAG := 23.0
 const FAR_HALF_DIAG := 363.0
-const MID_RADIUS := 600.0  # lähi- ja keskitason lohkot rakennetaan tämän säteen sisälle
-const COLLIDE_RADIUS := 1  # rungot törmäävät pelaajan lohkossa ja sen naapureissa (128 m lohkoja)
+const MID_RADIUS := 600.0  # keskitason lohkot rakennetaan tämän säteen sisälle
+const CARD_RADIUS := NEAR_END + 60.0  # korttitason lohkot rakennetaan tämän säteen sisälle
+const COLLIDE_RADIUS := 12.0  # rungot törmäävät pelaajan tätä lähempänä
+const COLLIDE_POOL := 48     # törmäysmuotoja enintään kerralla
+const COLLIDE_STEP := 1.5    # törmäysmuodot päivitetään, kun pelaaja on liikkunut näin paljon
 const MIN_COLLIDE_H := 2.5  # matalammat (pensaat, taimet) eivät törmää
 
 var count := 0
@@ -39,21 +47,28 @@ var nn := 0
 var half := 5120.0
 var far_tab := PackedInt32Array()
 var near_tab := PackedInt32Array()
+var sub_raw := PackedByteArray()  # keskilohko x laji x 16 korttilohkoa: puumäärät (uint16)
 var data_a := PackedFloat32Array()  # x, y, z, pituus
 var data_b := PackedByteArray()     # säde x40, laji, satunnainen, satunnainen
 
 var _tex_a: ImageTexture
 var _tex_b: ImageTexture
-var _meshes := {}   # "near"/"mid"/"far" -> [ArrayMesh lajia kohden]
-var _built := {}    # Vector2i lähilohko -> [MultiMeshInstance3D]
-var _bodies := {}   # Vector2i lähilohko -> StaticBody3D
+var _meshes := {}   # "near" -> [[{mesh, end}, ...] lajia kohden], "mid"/"far" -> [ArrayMesh lajia kohden]
+var _built := {}    # Vector2i korttilohko (32 m) -> [MultiMeshInstance3D]
+var _built_mid := {}  # Vector2i keskilohko (128 m) -> [MultiMeshInstance3D]
 var _queue: Array[Vector2i] = []
+var _queue_mid: Array[Vector2i] = []
 var _last_center := Vector2i(99999, 99999)
+var _last_mid := Vector2i(99999, 99999)
+var _col_body: StaticBody3D
+var _col_pool: Array[CollisionShape3D] = []
+var _col_active := 0
+var _col_last := Vector3(INF, INF, INF)
 
 
 func _ready() -> void:
 	var f := FileAccess.open(BIN, FileAccess.READ)
-	if f == null or f.get_buffer(4).get_string_from_ascii() != "ONP2":
+	if f == null or f.get_buffer(4).get_string_from_ascii() != "ONP3":
 		push_error("Puudataa ei löydy tai versio on väärä (%s): aja tools/kartta/bake.py." % BIN)
 		return
 	count = f.get_32()
@@ -66,18 +81,19 @@ func _ready() -> void:
 	half = f.get_float()
 	far_tab = f.get_buffer(nf * nf * SPECIES * 2 * 4).to_int32_array()
 	near_tab = f.get_buffer(nn * nn * SPECIES * 2 * 4).to_int32_array()
+	sub_raw = f.get_buffer(nn * nn * SPECIES * 16 * 2)
 	var raw_a := f.get_buffer(w * h * 16)
 	var raw_b := f.get_buffer(w * h * 4)
 	data_a = raw_a.to_float32_array()
 	data_b = raw_b
-	# Metsä harvennettu puoleen, ja mökkipihan rakennusten, terassien ja portaiden sekä kätkön, hiekkarannan ja
-	# tenniskentän kohdalta puut pois (matalaksi maan alle).
+	# Metsä on harvennettu jo datassa (bake.py). Mökkipihan rakennusten, terassien ja portaiden sekä kätkön,
+	# hiekkarannan ja tenniskentän kohdalta puut pois (matalaksi maan alle).
 	for i in count:
 		var x := data_a[i * 4]
 		var z := data_a[i * 4 + 2]
-		if i % THIN != 0 or (absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z)) or Ranta.clears_tree(x, z) \
+		if (absf(x) < 30.0 and absf(z) < 30.0 and Mokki.clears_tree(x, z)) or Ranta.clears_tree(x, z) \
 				or Rantatennis.clears_tree(x, z) or Tutkimusmatka.clears_tree(x, z) or Reitti.clears_tree(x, z) \
-				or Happybeach.clears_tree(x, z):
+				or Happybeach.clears_tree(x, z) or Satama.clears_tree(x, z):
 			data_a[i * 4 + 1] = -50.0
 			data_a[i * 4 + 3] = 0.01
 	raw_a = data_a.to_byte_array()
@@ -87,38 +103,59 @@ func _ready() -> void:
 	_build_far()
 
 
-## Pelaajan sijainti: rakentaa lähi- ja keskitason lohkot ympärille (muutama ruudussa) ja törmäykset.
+## Pelaajan sijainti: rakentaa korttitason (32 m) ja keskitason (128 m) lohkot ympärille ja päivittää törmäykset.
 func update_around(p: Vector3) -> void:
-	var c := Vector2i(floori((p.x + half) / near_chunk), floori((p.z + half) / near_chunk))
+	var c := Vector2i(floori((p.x + half) / CARD_CHUNK), floori((p.z + half) / CARD_CHUNK))
 	if c != _last_center:
 		_last_center = c
-		var r := int(ceil(MID_RADIUS / near_chunk))
-		var want := {}
-		for j in range(c.y - r, c.y + r + 1):
-			for i in range(c.x - r, c.x + r + 1):
-				if i < 0 or j < 0 or i >= nn or j >= nn:
-					continue
-				var k := Vector2i(i, j)
-				var mid := Vector2((i + 0.5) * near_chunk - half, (j + 0.5) * near_chunk - half)
-				if mid.distance_to(Vector2(p.x, p.z)) > MID_RADIUS + near_chunk:
-					continue
-				want[k] = true
-				if not _built.has(k) and not _queue.has(k):
-					_queue.append(k)
-		for k in _built.keys():
-			if not want.has(k):
-				for n in _built[k]:
-					n.queue_free()
-				_built.erase(k)
-		_queue = _queue.filter(func(k: Vector2i) -> bool: return want.has(k))
-		# Lähimmät ensin.
+		var r := int(ceil(CARD_RADIUS / CARD_CHUNK))
+		_queue = _want(c, r, CARD_CHUNK, CARD_RADIUS, nn * 4, _built, p)
 		_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - c).length_squared() < (b - c).length_squared())
-		_update_bodies(c)
-	for _i in 6:
+	var cm := Vector2i(floori((p.x + half) / near_chunk), floori((p.z + half) / near_chunk))
+	if cm != _last_mid:
+		_last_mid = cm
+		var r := int(ceil(MID_RADIUS / near_chunk))
+		_queue_mid = _want(cm, r, near_chunk, MID_RADIUS + near_chunk, nn, _built_mid, p)
+		_queue_mid.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - cm).length_squared() < (b - cm).length_squared())
+	# Lähimmät ensin; kortit ovat pieniä ja nopeita, joten niitä saa tehdä enemmän.
+	for _i in 8:
 		if _queue.is_empty():
 			break
 		var k: Vector2i = _queue.pop_front()
-		_built[k] = _build_near_chunk(k)
+		_built[k] = _build_card_chunk(k)
+	for _i in 2:
+		if _queue_mid.is_empty():
+			break
+		var k: Vector2i = _queue_mid.pop_front()
+		_built_mid[k] = _build_mid_chunk(k)
+	_update_collision(p)
+
+
+## Lohkot (koko size, ruudukko n x n) säteen radius sisällä: poistaa kauas jääneet valmiit lohkot built-sanakirjasta
+## ja palauttaa rakennettavat. Poistoraja on rakennusrajaa väljempi, ettei reunalla edestakaisin kulkeminen rakenna
+## lohkoja uudelleen.
+func _want(c: Vector2i, r: int, size: float, radius: float, n: int, built: Dictionary, p: Vector3) -> Array[Vector2i]:
+	var want := {}
+	var out: Array[Vector2i] = []
+	for j in range(c.y - r, c.y + r + 1):
+		for i in range(c.x - r, c.x + r + 1):
+			if i < 0 or j < 0 or i >= n or j >= n:
+				continue
+			var mid := Vector2((i + 0.5) * size - half, (j + 0.5) * size - half)
+			if mid.distance_to(Vector2(p.x, p.z)) > radius:
+				continue
+			var k := Vector2i(i, j)
+			want[k] = true
+			if not built.has(k):
+				out.append(k)
+	var keep := radius + size
+	for k: Vector2i in built.keys():
+		var mid := Vector2((k.x + 0.5) * size - half, (k.y + 0.5) * size - half)
+		if not want.has(k) and mid.distance_to(Vector2(p.x, p.z)) > keep:
+			for node in built[k]:
+				node.queue_free()
+			built.erase(k)
+	return out
 
 
 ## Lähin puu (rungon paikka) ja sen tiedot: {pos, height, species} tai tyhjä.
@@ -149,22 +186,52 @@ func _build_far() -> void:
 				add_child(mmi)
 
 
-func _build_near_chunk(k: Vector2i) -> Array:
+## Keskitason umpimuodot 128 m lohkolle. Lohkon näkyvyys on karkea rajaus; varsinainen taso valitaan puukohtaisesti
+## (lod_min/lod_max).
+func _build_mid_chunk(k: Vector2i) -> Array:
 	var out := []
 	var aabb := AABB(Vector3(k.x * near_chunk - half, -15.0, k.y * near_chunk - half), Vector3(near_chunk, 60.0, near_chunk))
 	for sp in SPECIES:
 		var r := _range(near_tab, k.y * nn + k.x, sp)
 		if r.y == 0:
 			continue
-		# Lohkon näkyvyys on karkea rajaus; varsinainen taso valitaan puukohtaisesti (lod_min/lod_max).
-		var near := _mmi(_meshes.near[sp], r, aabb)
-		near.visibility_range_end = NEAR_END + NEAR_HALF_DIAG + 10.0
-		add_child(near)
 		var mid := _mmi(_meshes.mid[sp], r, aabb)
 		mid.visibility_range_end = MID_END + NEAR_HALF_DIAG + 10.0
 		add_child(mid)
-		out.append_array([near, mid])
+		out.append(mid)
 	return out
+
+
+## Korttitason latvukset 32 m lohkolle (k on 32 m ruudukossa). Tarkka ja harva kuusi ovat omia MultiMeshejään.
+func _build_card_chunk(k: Vector2i) -> Array:
+	var out := []
+	var aabb := AABB(Vector3(k.x * CARD_CHUNK - half, -15.0, k.y * CARD_CHUNK - half), Vector3(CARD_CHUNK, 60.0, CARD_CHUNK))
+	for sp in SPECIES:
+		var r := _card_range(k, sp)
+		if r.y == 0:
+			continue
+		for lv: Dictionary in _meshes.near[sp]:
+			var near := _mmi(lv.mesh, r, aabb)
+			near.visibility_range_begin = lv.begin
+			near.visibility_range_end = lv.end + CARD_HALF_DIAG + 10.0
+			add_child(near)
+			out.append(near)
+	return out
+
+
+## Korttilohkon (32 m ruudukko) puut lajille sp: keskilohkon väli, josta lohkon osuus lasketaan edellisten lohkojen
+## määristä (puut ovat keskilohkossa korttilohkoittain järjestyksessä).
+func _card_range(k: Vector2i, sp: int) -> Vector2i:
+	var mid := Vector2i(k.x / 4, k.y / 4)
+	var r := _range(near_tab, mid.y * nn + mid.x, sp)
+	if r.y == 0:
+		return r
+	var sub := (k.y % 4) * 4 + (k.x % 4)
+	var base := (((mid.y * nn + mid.x) * SPECIES) + sp) * 32
+	var before := 0
+	for i in sub:
+		before += sub_raw.decode_u16(base + i * 2)
+	return Vector2i(r.x + before, sub_raw.decode_u16(base + sub * 2))
 
 
 ## MultiMesh, jonka kaikki instanssit ovat identiteettejä ja custom datana lohkon alku: varjostin sijoittaa
@@ -192,36 +259,55 @@ static func _buffer(n: int, base: int) -> PackedFloat32Array:
 	return b.slice(0, n * 16)
 
 
-func _update_bodies(c: Vector2i) -> void:
-	var want := {}
-	for j in range(c.y - COLLIDE_RADIUS, c.y + COLLIDE_RADIUS + 1):
-		for i in range(c.x - COLLIDE_RADIUS, c.x + COLLIDE_RADIUS + 1):
-			if i >= 0 and j >= 0 and i < nn and j < nn:
-				want[Vector2i(i, j)] = true
-	for k in _bodies.keys():
-		if not want.has(k):
-			_bodies[k].queue_free()
-			_bodies.erase(k)
-	var shape := CylinderShape3D.new()
-	shape.radius = 0.22
-	shape.height = 4.0
-	for k in want:
-		if _bodies.has(k):
-			continue
-		var body := StaticBody3D.new()
-		for sp in SPECIES:
-			if sp == BUSH:
-				continue
-			var r := _range(near_tab, k.y * nn + k.x, sp)
-			for i in range(r.x, r.x + r.y):
-				if data_a[i * 4 + 3] < MIN_COLLIDE_H:
+## Törmäysrungot: pelaajan lähellä (COLLIDE_RADIUS) olevat puut saavat sylinterin pienestä poolista, joka siirretään
+## puiden kohdalle aina kun pelaaja on liikkunut COLLIDE_STEP verran. Ei solmua per puu eikä lohkon rakennusta kerralla.
+func _update_collision(p: Vector3) -> void:
+	if p.distance_to(_col_last) < COLLIDE_STEP:
+		return
+	_col_last = p
+	if _col_body == null:
+		_col_body = StaticBody3D.new()
+		add_child(_col_body)
+		var shape := CylinderShape3D.new()
+		shape.radius = 0.22
+		shape.height = 4.0
+		for _i in COLLIDE_POOL:
+			var cs := CollisionShape3D.new()
+			cs.shape = shape
+			cs.disabled = true
+			_col_body.add_child(cs)
+			_col_pool.append(cs)
+	var x0 := clampi(floori((p.x - COLLIDE_RADIUS + half) / CARD_CHUNK), 0, nn * 4 - 1)
+	var x1 := clampi(floori((p.x + COLLIDE_RADIUS + half) / CARD_CHUNK), 0, nn * 4 - 1)
+	var z0 := clampi(floori((p.z - COLLIDE_RADIUS + half) / CARD_CHUNK), 0, nn * 4 - 1)
+	var z1 := clampi(floori((p.z + COLLIDE_RADIUS + half) / CARD_CHUNK), 0, nn * 4 - 1)
+	var found: Array[Vector4] = []  # x, y, z, etäisyys^2
+	var r2 := COLLIDE_RADIUS * COLLIDE_RADIUS
+	for j in range(z0, z1 + 1):
+		for i in range(x0, x1 + 1):
+			for sp in SPECIES:
+				if sp == BUSH:
 					continue
-				var cs := CollisionShape3D.new()
-				cs.shape = shape
-				cs.position = Vector3(data_a[i * 4], data_a[i * 4 + 1] + 2.0, data_a[i * 4 + 2])
-				body.add_child(cs)
-		add_child(body)
-		_bodies[k] = body
+				var r := _card_range(Vector2i(i, j), sp)
+				for t in range(r.x, r.x + r.y):
+					if data_a[t * 4 + 3] < MIN_COLLIDE_H:
+						continue
+					var dx := data_a[t * 4] - p.x
+					var dz := data_a[t * 4 + 2] - p.z
+					var d2 := dx * dx + dz * dz
+					if d2 < r2:
+						found.append(Vector4(data_a[t * 4], data_a[t * 4 + 1], data_a[t * 4 + 2], d2))
+	if found.size() > COLLIDE_POOL:
+		found.sort_custom(func(a: Vector4, b: Vector4) -> bool: return a.w < b.w)
+		found.resize(COLLIDE_POOL)
+	for i in found.size():
+		var cs := _col_pool[i]
+		cs.position = Vector3(found[i].x, found[i].y + 2.0, found[i].z)
+		if cs.disabled:
+			cs.disabled = false
+	for i in range(found.size(), _col_active):
+		_col_pool[i].disabled = true
+	_col_active = found.size()
 
 
 # --- Puiden mallit --------------------------------------------------------------------------------------------
@@ -289,6 +375,7 @@ func _make_meshes() -> void:
 		else:
 			trunk_m = _mat(solid, {"color": s.trunk, "foliage": false, "trunk": true}, H, R)
 		var near := []
+		var near_lo := []  # harvempi korttilatvus kauemmas (vain kuusella)
 		var mid := []
 		var far := []
 		match sp:
@@ -309,6 +396,9 @@ func _make_meshes() -> void:
 				near = [trunk, [Foliage.spruce_crown(5), Vector3.ZERO,
 					_mat(card, {"leaf_tex": spruce_tex, "color": s.crown, "sway": 0.04}, H, R)],
 					[B.cyl(0.0, 1.3, 7.6, 7), Vector3(0, 4.6, 0), inner]]
+				near_lo = [trunk, [Foliage.spruce_crown(5, 2.0), Vector3.ZERO,
+					_mat(card, {"leaf_tex": spruce_tex, "color": s.crown, "sway": 0.04}, H, R)],
+					[B.cyl(0.0, 1.3, 7.6, 7), Vector3(0, 4.6, 0), inner]]
 				mid = [trunk,
 					[B.cyl(0.0, 2.1, 3.4, 8), Vector3(0, 2.9, 0), crown_m],
 					[B.cyl(0.0, 1.65, 3.0, 8), Vector3(0, 4.6, 0), crown_m],
@@ -324,6 +414,11 @@ func _make_meshes() -> void:
 					[B.sphere(1.3, 8), Vector3(0.9, 5.1, 0.35), crown_m],
 					[B.sphere(1.25, 8), Vector3(-0.75, 6.7, -0.35), crown_m]]
 				far = [[B.cyl(0.08, 0.18, 4.5, 4), Vector3(0, 2.25, 0), trunk_m], [_flat_sphere(1.9, 2.2, 6), Vector3(0, 5.9, 0), crown_far]]
-		_meshes.near.append(_lod(_combine(near), 0.0, NEAR_END))
+		var hi_end := NEAR_END if near_lo.is_empty() else NEAR_HI_END
+		var levels := [{"mesh": _lod(_combine(near), 0.0, hi_end), "begin": 0.0, "end": hi_end}]
+		if not near_lo.is_empty():
+			levels.append({"mesh": _lod(_combine(near_lo), NEAR_HI_END, NEAR_END), "begin": NEAR_HI_END - CARD_HALF_DIAG - 10.0,
+				"end": NEAR_END})
+		_meshes.near.append(levels)
 		_meshes.mid.append(_lod(_combine(mid), NEAR_END, MID_END))
 		_meshes.far.append(_lod(_combine(far), MID_END, FAR_END))

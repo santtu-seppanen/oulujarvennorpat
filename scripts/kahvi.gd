@@ -24,6 +24,7 @@ var _made := 0
 var _pot: Node3D
 var _steam: CPUParticles3D
 var _cups: Node3D
+var _cups_out: Node3D  # sivutason kupit (keittiön työtaso)
 var _boil: AudioStreamPlayer3D
 var _ui: CanvasLayer
 var _meter: Ui.Meter
@@ -35,6 +36,12 @@ func _ready() -> void:
 	var m: Node3D = game.world.mokki
 	m.coffee.connect(func(n: int) -> void: add(n))
 	game.mp.on("kahvi", func(d: Dictionary, _from: int) -> void: _set_count(int(d.n)))
+	# Sivutason pannu (aina tasolla, ei höyryä), josta kahvi tarjoillaan sisällä; liedellä oleva pannu tehdään sen
+	# jälkeen, jotta _steam on liedellä.
+	var table_pot := _make_pot()
+	_steam.emitting = false
+	table_pot.position = m.coffee_pos + Vector3(0.0, 0.01, 0.0)
+	game.add_child(table_pot)
 	var side: Vector3 = (m.cook_face - m.cook_spot).cross(Vector3.UP).normalized()
 	_pot = _make_pot()
 	_pot.position = m.pan_pos + side * 0.24 + Vector3.UP * 0.01
@@ -43,6 +50,9 @@ func _ready() -> void:
 	_cups = Node3D.new()
 	_cups.position = m.plate_pos - side * 0.32 + Vector3.UP * 0.005
 	game.add_child(_cups)
+	_cups_out = Node3D.new()
+	_cups_out.position = m.coffee_pos + Vector3(0.28, 0.005, 0.0)
+	game.add_child(_cups_out)
 	_build_ui()
 
 
@@ -174,7 +184,7 @@ func stop(_why := "") -> void:
 func prompt() -> String:
 	var t: String = {"": "E: pannu liedelle", "vesi": "E: kahvinpurut veteen, kun vesi kiehuu",
 		"kiehuu": "E: pannu pois liedeltä, kun kahvi kiehahtaa"}[_state]
-	return t + " · W: lopeta"
+	return t + " · F: lopeta"
 
 
 ## Kuppeja pöytään (keitetty tai tietokoneen Jukan keittämä).
@@ -193,14 +203,23 @@ func drink() -> void:
 	p.stamina = 100.0
 	p.exhausted = false
 	p.promille = maxf(0.0, p.promille - SOBER)
-	game.toast("Jukan pannukahvia. Pää selkenee ja jalka nousee!", 3.0)
+	game.toast("Barista Salosen pannukahvia. Pää selkenee ja jalka nousee!", 3.0)
 	Sfx.play("glass", -10.0, 0.8)
+	game.tarina.complete("kahvijuonti")
+	if randf() < 0.6:
+		game.tarjoilu.praise(true)
 
 
 ## Kupit pöydässä: valkoiset kupit tummalla kahvilla, rivissä.
 func _set_count(n: int) -> void:
 	kupit = n
-	for ch in _cups.get_children():
+	for root: Node3D in [_cups, _cups_out]:
+		if root != null:
+			_fill_cups(root)
+
+
+func _fill_cups(root: Node3D) -> void:
+	for ch in root.get_children():
 		ch.queue_free()
 	var white := StandardMaterial3D.new()
 	white.albedo_color = Color(0.96, 0.96, 0.94)
@@ -214,7 +233,7 @@ func _set_count(n: int) -> void:
 			mi.mesh = pp[0]
 			mi.material_override = pp[1]
 			mi.position = pp[2]
-			_cups.add_child(mi)
+			root.add_child(mi)
 
 
 func _boil_on(on: bool) -> void:

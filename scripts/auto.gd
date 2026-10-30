@@ -14,6 +14,7 @@ signal arrived  # automaattiajo pääsi perille
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Reitti := preload("res://scripts/reitti.gd")
+const Satama := preload("res://scripts/satama.gd")
 const Chat := preload("res://scripts/chat.gd")
 
 const LENGTH := 4.6
@@ -21,11 +22,11 @@ const WIDTH := 1.75
 const WHEELBASE := 2.65
 const TRACK := 1.5
 const WHEEL_R := 0.33
-const MAX_SPEED := 13.0  # tiellä (m/s, n. 47 km/h)
-const OFFROAD_SPEED := 6.0
+const MAX_SPEED := 22.2  # tiellä (m/s, 80 km/h)
+const OFFROAD_SPEED := 7.0
 const REVERSE_SPEED := 3.5
-const ACCEL := 4.2
-const BRAKE := 10.0
+const ACCEL := 5.2  # alkukiihtyvyys (m/s²), pienenee vauhdin kasvaessa (0-80 km/h n. 8 s)
+const BRAKE := 11.0
 const COAST := 1.6
 const MAX_STEER := 0.55  # rad
 const AUTO_SPEED := 9.0
@@ -86,27 +87,71 @@ func _ready() -> void:
 
 func _build_model() -> void:
 	var dark := Color(0.08, 0.08, 0.09)
-	var glass := Color(0.22, 0.3, 0.36)
-	# Alakori, ikkunallinen ohjaamo ja kattolaatta (farmari: pitkä takaosa).
-	B.mesh(_body, B.boxm(Vector3(WIDTH, 0.62, LENGTH)), Vector3(0, 0.66, 0), BODY_COL)
-	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.1, 0.62, 2.9)), Vector3(0, 1.25, 0.5), glass)
-	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.06, 0.08, 3.0)), Vector3(0, 1.58, 0.5), BODY_COL)
+	var plastic := Color(0.16, 0.17, 0.18)
+	var glass := Color(0.2, 0.28, 0.34)
+	var chrome := Color(0.78, 0.8, 0.82)
+	var hw := WIDTH * 0.5
+	var hl := LENGTH * 0.5
+	# Alusta ja alakori: muovinen helmalista, maalattu korin alaosa ja vyölinjan kromilista.
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.25, 0.14, LENGTH - 0.5)), Vector3(0, 0.3, 0), dark)
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.02, 0.16, LENGTH - 0.3)), Vector3(0, 0.46, 0), plastic)
+	B.mesh(_body, B.boxm(Vector3(WIDTH, 0.4, LENGTH)), Vector3(0, 0.74, 0), BODY_COL)
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.01, 0.025, LENGTH - 0.2)), Vector3(0, 0.95, 0), chrome)
+	# Konepelti laskee etuvalojen kohdalle, ja tuulilasi on kallellaan.
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.06, 0.08, 1.35)), Vector3(0, 0.99, -1.5), BODY_COL.lightened(0.05), Vector3(6, 0, 0))
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.2, 0.04, 0.5)), Vector3(0, 1.06, -1.1), BODY_COL.darkened(0.1))  # konepellin kupu
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.12, 0.05, 0.95)), Vector3(0, 1.3, -0.62), glass, Vector3(-42, 0, 0))  # tuulilasi
 	for s: float in [-1.0, 1.0]:
-		for z: float in [-0.95, 1.95]:
-			B.mesh(_body, B.boxm(Vector3(0.08, 0.64, 0.1)), Vector3(s * (WIDTH * 0.5 - 0.07), 1.25, z), BODY_COL)
-	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.3, 0.06, 1.0)), Vector3(0, 1.0, -1.4), BODY_COL.darkened(0.1))  # konepelti
-	# Puskurit, valot ja rekisterikilvet.
-	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.16, 0.18)), Vector3(0, 0.42, -LENGTH * 0.5), dark)
-	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.16, 0.18)), Vector3(0, 0.42, LENGTH * 0.5), dark)
+		B.mesh(_body, B.boxm(Vector3(0.07, 0.07, 1.0)), Vector3(s * (hw - 0.08), 1.3, -0.62), BODY_COL, Vector3(-42, 0, 0))  # A-pilarit
+	# Ohjaamo: sivuikkunat, pilarit, takaluukku ja pitkä farmarikatto.
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.1, 0.55, 2.55)), Vector3(0, 1.28, 0.78), glass)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.06, 0.07, 2.7)), Vector3(0, 1.6, 0.72), BODY_COL)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.08, 0.06, 0.12)), Vector3(0, 1.56, -0.18), BODY_COL)  # etureunan palkki
 	for s: float in [-1.0, 1.0]:
-		B.mesh(_body, B.boxm(Vector3(0.3, 0.16, 0.06)), Vector3(s * 0.62, 0.78, -LENGTH * 0.5), Color(1.0, 0.95, 0.75))
-		B.mesh(_body, B.boxm(Vector3(0.18, 0.4, 0.06)), Vector3(s * (WIDTH * 0.5 - 0.1), 0.88, LENGTH * 0.5), Color(0.8, 0.08, 0.06))
-	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.03)), Vector3(0, 0.46, -LENGTH * 0.5 - 0.1), Color(0.95, 0.95, 0.9))
-	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.03)), Vector3(0, 0.62, LENGTH * 0.5 + 0.02), Color(0.95, 0.95, 0.9))
-	# Katonkiskot (mökkimatkan varuste).
+		for z: float in [-0.12, 0.62, 2.0]:
+			B.mesh(_body, B.boxm(Vector3(0.07, 0.6, 0.1 if z < 1.0 else 0.2)), Vector3(s * (hw - 0.07), 1.28, z), BODY_COL)
+		B.mesh(_body, B.boxm(Vector3(0.02, 0.4, 0.02)), Vector3(s * (hw + 0.005), 0.78, -0.55), dark)  # ovirako
+		B.mesh(_body, B.boxm(Vector3(0.02, 0.4, 0.02)), Vector3(s * (hw + 0.005), 0.78, 0.68), dark)
+		B.mesh(_body, B.boxm(Vector3(0.02, 0.4, 0.02)), Vector3(s * (hw + 0.005), 0.78, 1.8), dark)
+		for z: float in [-0.05, 0.75]:
+			B.mesh(_body, B.boxm(Vector3(0.05, 0.03, 0.18)), Vector3(s * (hw + 0.025), 0.9, z), chrome)  # ovenkahvat
+		# Peilit varrella A-pilarin juurella.
+		B.mesh(_body, B.boxm(Vector3(0.1, 0.03, 0.03)), Vector3(s * (hw + 0.04), 1.1, -0.82), dark)
+		B.mesh(_body, B.boxm(Vector3(0.05, 0.14, 0.22)), Vector3(s * (hw + 0.1), 1.12, -0.82), BODY_COL)
+		# Katonkiskot.
+		B.mesh(_body, B.boxm(Vector3(0.05, 0.05, 2.5)), Vector3(s * 0.55, 1.67, 0.72), chrome.darkened(0.4))
+		for z: float in [-0.35, 1.7]:
+			B.mesh(_body, B.boxm(Vector3(0.04, 0.05, 0.05)), Vector3(s * 0.55, 1.64, z), dark)
+	# Sisusta: etuistuimet, takapenkki, mittaristo ja rattipyörä lasien läpi.
+	for s: float in [-0.42, 0.42]:
+		B.mesh(_body, B.boxm(Vector3(0.44, 0.1, 0.5)), Vector3(s, 0.98, 0.0), dark)
+		B.mesh(_body, B.boxm(Vector3(0.42, 0.55, 0.1)), Vector3(s, 1.22, 0.28), dark, Vector3(-8, 0, 0))
+	B.mesh(_body, B.boxm(Vector3(1.3, 0.1, 0.5)), Vector3(0, 0.98, 1.1), dark)
+	B.mesh(_body, B.boxm(Vector3(1.3, 0.5, 0.1)), Vector3(0, 1.2, 1.38), dark)
+	B.mesh(_body, B.boxm(Vector3(1.5, 0.2, 0.35)), Vector3(0, 1.08, -0.85), plastic)
+	B.mesh(_body, B.cyl(0.17, 0.17, 0.025, 14), Vector3(-0.42, 1.2, -0.6), dark.lightened(0.1), Vector3(-65, 0, 0))
+	# Etupää: ritilä, valot, puskuri, sumuvalot ja rekisterikilpi.
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.2, 0.2)), Vector3(0, 0.46, -hl), plastic)
+	B.mesh(_body, B.boxm(Vector3(0.9, 0.16, 0.05)), Vector3(0, 0.78, -hl - 0.02), dark)  # ritilä
+	B.mesh(_body, B.boxm(Vector3(0.92, 0.025, 0.06)), Vector3(0, 0.8, -hl - 0.025), chrome)
+	B.mesh(_body, B.boxm(Vector3(0.7, 0.06, 0.05)), Vector3(0, 0.4, -hl - 0.06), dark)  # alailmanotto
 	for s: float in [-1.0, 1.0]:
-		B.mesh(_body, B.boxm(Vector3(0.05, 0.05, 2.8)), Vector3(s * 0.5, 1.66, 0.5), dark)
-	# Pyörät: etupyörillä kääntöpivotti, kaikilla pyörimissolmu (spinner) ja sylinterinä renkaat ja vanteet.
+		B.mesh(_body, B.boxm(Vector3(0.38, 0.14, 0.08)), Vector3(s * 0.66, 0.82, -hl - 0.01), Color(1.0, 0.95, 0.75))
+		B.mesh(_body, B.boxm(Vector3(0.14, 0.06, 0.08)), Vector3(s * (hw - 0.12), 0.7, -hl - 0.01), Color(1.0, 0.6, 0.1))
+		B.mesh(_body, B.cyl(0.05, 0.05, 0.04, 8), Vector3(s * 0.7, 0.42, -hl - 0.08), Color(1.0, 0.95, 0.75), Vector3(90, 0, 0))
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.02)), Vector3(0, 0.55, -hl - 0.11), Color(0.95, 0.95, 0.9))
+	# Takapää: pystysuora takaluukku, pitkät takavalot, puskuri, pakoputki ja lasinpyyhin.
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.3, 0.5, 0.06)), Vector3(0, 1.28, hl - 0.2), glass)
+	B.mesh(_body, B.boxm(Vector3(WIDTH + 0.04, 0.2, 0.22)), Vector3(0, 0.46, hl), plastic)
+	B.mesh(_body, B.boxm(Vector3(WIDTH - 0.3, 0.05, 0.1)), Vector3(0, 1.0, hl - 0.05), chrome.darkened(0.2))  # luukun kahva
+	for s: float in [-1.0, 1.0]:
+		B.mesh(_body, B.boxm(Vector3(0.14, 0.6, 0.07)), Vector3(s * (hw - 0.07), 1.0, hl), Color(0.75, 0.06, 0.05))
+		B.mesh(_body, B.cyl(0.035, 0.035, 0.25, 8), Vector3(s * 0.55, 0.25, hl + 0.05), chrome.darkened(0.3), Vector3(90, 0, 0))
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.12, 0.02)), Vector3(0, 0.64, hl + 0.12), Color(0.95, 0.95, 0.9))
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.02, 0.02)), Vector3(-0.3, 1.04, -1.05), dark, Vector3(0, 0, 8))  # pyyhkimet
+	B.mesh(_body, B.boxm(Vector3(0.5, 0.02, 0.02)), Vector3(0.2, 1.04, -1.05), dark, Vector3(0, 0, 8))
+	B.mesh(_body, B.cyl(0.008, 0.008, 0.5, 5), Vector3(0.7, 1.84, 1.8), dark, Vector3(0, 0, 0))  # antenni
+	# Pyörät: etupyörillä kääntöpivotti, kaikilla pyörimissolmu (spinner): rengas, vanne ja viisi pulttia.
 	for wz: float in [-WHEELBASE * 0.5, WHEELBASE * 0.5]:
 		for s: float in [-1.0, 1.0]:
 			var pivot := Node3D.new()
@@ -114,12 +159,19 @@ func _build_model() -> void:
 			_body.add_child(pivot)
 			var spin := Node3D.new()
 			pivot.add_child(spin)
-			B.mesh(spin, B.cyl(WHEEL_R, WHEEL_R, 0.22, 14), Vector3.ZERO, dark, Vector3(0, 0, 90))
-			B.mesh(spin, B.cyl(WHEEL_R * 0.55, WHEEL_R * 0.55, 0.24, 8), Vector3.ZERO, Color(0.7, 0.7, 0.72), Vector3(0, 0, 90))
-			B.mesh(spin, B.boxm(Vector3(0.25, 0.06, 0.06)), Vector3(s * 0.0, 0.0, 0.0), dark.lightened(0.2))
+			B.mesh(spin, B.cyl(WHEEL_R, WHEEL_R, 0.22, 16), Vector3.ZERO, dark, Vector3(0, 0, 90))
+			B.mesh(spin, B.cyl(WHEEL_R * 0.62, WHEEL_R * 0.62, 0.235, 12), Vector3.ZERO, Color(0.72, 0.73, 0.75), Vector3(0, 0, 90))
+			B.mesh(spin, B.cyl(WHEEL_R * 0.18, WHEEL_R * 0.18, 0.25, 8), Vector3.ZERO, Color(0.45, 0.46, 0.48), Vector3(0, 0, 90))
+			for k in 5:
+				var a := TAU * k / 5.0
+				B.mesh(spin, B.boxm(Vector3(0.245, 0.05, 0.05)), Vector3(0.0, sin(a) * WHEEL_R * 0.4, cos(a) * WHEEL_R * 0.4),
+					Color(0.35, 0.36, 0.38))
 			_spinners.append(spin)
 			if wz < 0.0:
 				_pivots.append(pivot)
+			# Pyöränkaaren tumma reunus korin kyljessä.
+			B.mesh(_body, B.cyl(WHEEL_R + 0.07, WHEEL_R + 0.07, 0.03, 16),
+				Vector3(s * (hw + 0.004), WHEEL_R + 0.02, wz), Color(0.03, 0.03, 0.035), Vector3(0, 0, 90))
 	# Ajovalot: kaksi kaukovaloa, päällä pimeällä (set_night).
 	for s: float in [-1.0, 1.0]:
 		var sl := SpotLight3D.new()
@@ -300,7 +352,7 @@ func _physics_process(delta: float) -> void:
 	_throttle = throttle
 	var p := global_position
 	var fwd := -global_transform.basis.z
-	var on_road := Reitti.on_route(p.x, p.z) or Terrain.surface(p.x, p.z) in [Terrain.ROAD, Terrain.FILL, Terrain.YARD]
+	var on_road := Reitti.on_route(p.x, p.z) or Terrain.surface(p.x, p.z) in [Terrain.ROAD, Terrain.FILL, Terrain.YARD] or Satama.on_road(p.x, p.z)
 	var vmax := MAX_SPEED if on_road else OFFROAD_SPEED
 	if driver == null:
 		speed = move_toward(speed, 0.0, 6.0 * delta)
@@ -310,7 +362,7 @@ func _physics_process(delta: float) -> void:
 		if speed < 0.0:
 			speed += BRAKE * delta
 		else:
-			speed += ACCEL * throttle * delta
+			speed += ACCEL * (1.0 - 0.7 * clampf(speed / MAX_SPEED, 0.0, 1.0)) * throttle * delta  # moottorin teho hiipuu vauhdissa
 	elif throttle < -0.01:
 		if speed > 0.2:
 			speed -= BRAKE * -throttle * delta
@@ -322,7 +374,7 @@ func _physics_process(delta: float) -> void:
 		speed = move_toward(speed, vmax, 7.0 * delta)
 	speed = maxf(speed, -REVERSE_SPEED)
 	# Ohjaus: kulma pienenee nopeuden mukaan, ja auto kääntyy pyöräkulman ja akselivälin mukaan.
-	var want_steer := clampf(steer, -1.0, 1.0) * MAX_STEER * (1.0 - 0.55 * clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
+	var want_steer := clampf(steer, -1.0, 1.0) * MAX_STEER * (1.0 - 0.8 * clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
 	steer_angle = move_toward(steer_angle, want_steer, 2.4 * (1.0 - 0.55 * _drunk) * delta)
 	if not _air:
 		rotation.y += speed / WHEELBASE * tan(steer_angle) * delta
@@ -364,6 +416,7 @@ func _finish(delta: float) -> void:
 	var rider: CharacterBody3D = driver if driver != null else passenger
 	if rider != null and rider.is_player:
 		var eye := global_transform * EYE
+		_cam.fov = lerpf(_cam.fov, 70.0 + 14.0 * clampf(absf(speed) / MAX_SPEED, 0.0, 1.0), 1.0 - exp(-3.0 * delta))  # vauhdin tuntu
 		CamCtl.update_camera(_cam, self, eye, 7.5, 3.2, absf(speed) > 1.0, delta, not _cam_ready)
 		_cam_ready = true
 

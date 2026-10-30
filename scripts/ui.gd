@@ -68,6 +68,38 @@ static func button(parent: Node, text: String, cb: Callable) -> Button:
 	return b
 
 
+## --- Valintalistojen yhteinen logiikka (Afrikan tähti, Muistatko kun, lautapelivalikko, karaoke, baarin valikot) ---
+## ↑ / W / ← / A: edellinen, ↓ / S / → / D: seuraava (kiertää ympäri); 1–9: valitsee ja vahvistaa heti;
+## E vahvistaa korostetun (peli kutsuu act()) ja klikkaus vahvistaa; F / Esc poistuu. Korostettu rivi: "> n. teksti".
+## Palauttaa {"sel": uusi valinta, "confirm": bool} tai tyhjän, jos näppäin ei kuulu valintaan.
+static func pick_key(event: InputEvent, sel: int, n: int) -> Dictionary:
+	if n <= 0 or not (event is InputEventKey) or not event.pressed or event.echo:
+		return {}
+	var k: int = event.physical_keycode - KEY_1
+	if k >= 0 and k < mini(n, 9):
+		return {"sel": k, "confirm": true}
+	if event.is_action_pressed("forward") or event.is_action_pressed("left"):
+		return {"sel": (sel + n - 1) % n, "confirm": false}
+	if event.is_action_pressed("back") or event.is_action_pressed("right"):
+		return {"sel": (sel + 1) % n, "confirm": false}
+	return {}
+
+
+## Valintarivin teksti: korostetulla "> ", muilla sisennys; numero kertoo pikavalintanäppäimen.
+static func choice_text(i: int, text: String, selected: bool) -> String:
+	return "%s%d. %s" % ["> " if selected else "   ", i + 1, text]
+
+
+## Korostaa valitun napin (sama väri kuin hiiren osoittama), muut normaaleiksi.
+static func mark(b: Button, selected: bool) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.85, 0.35, 0.05) if selected else Color(0.18, 0.16, 0.2)
+	sb.border_color = YELLOW if selected else Color(0.4, 0.35, 0.3)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(4)
+	b.add_theme_stylebox_override("normal", sb)
+
+
 ## Vaakapalkki vyöhykkeineen: zones = [[alku, loppu, väri], ...] välillä 0..1, osoitin kohdassa value.
 class Meter:
 	extends Control

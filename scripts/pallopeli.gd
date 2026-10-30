@@ -495,7 +495,8 @@ func _launch(by: int, to: int, p: Vector3, v: Vector3, n: int, r: int) -> void:
 	_will_hit = true
 	if _brains.has(to):
 		var tbody: CharacterBody3D = game.crew[to]
-		var chance := clampf(0.93 - tbody.promille * 0.15 - 0.03 * float(hb.promille), 0.4, 0.97)
+		# Selvin tietokoneen virhe on harvinainen, jotta pitkät rallit (tarinan tavoitteet 30-90 lyöntiä) onnistuvat.
+		var chance := clampf(0.985 - tbody.promille * 0.15 - 0.03 * float(hb.promille), 0.4, 0.995)
 		_will_hit = _rng.randf() < (ai_skill if ai_skill >= 0.0 else chance)
 	Sfx.play_on(hb, hit_sound[0], hit_sound[1], hit_sound[2])
 	if n > 1 and n % 10 == 0:

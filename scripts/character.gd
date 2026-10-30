@@ -23,7 +23,7 @@ var model: Node3D
 var body_mat: ShaderMaterial
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
-var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta] (hahmon avaruudessa)
+var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
 var _current := ""
 
 
@@ -46,7 +46,7 @@ func setup(look: Dictionary) -> void:
 	var src: StandardMaterial3D = body.mesh.surface_get_material(0)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
-		"curves": float(look.get("curves", 0.0))}
+		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0))}
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
 	body_mat.shader = load(SHADER)
@@ -61,7 +61,8 @@ func setup(look: Dictionary) -> void:
 	# Kaljamaha pehmentää superhero-lihakset kankaan alla.
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
-	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin"]:
+	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
+			"suspenders", "strap_col", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
 	if look.has("stripe_color"):
@@ -86,12 +87,40 @@ func setup(look: Dictionary) -> void:
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color)
 
+	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
+	var q: int = Settings.get_v("quality")
+	if q <= 1:
+		for gi in model.find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).visibility_range_end = [60.0, 90.0][q]
 	anim = AnimationPlayer.new()
 	model.add_child(anim)
 	anim.add_animation_library("", _library())
 	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	play("Idle", 0.0)
 	anim.seek(randf() * 2.0, true)
+
+
+## Uusi ulkonäkö paikallaan (pelaajan asun vaihto, looks.gd restyle_player): malli vaihdetaan, mutta tämä solmu,
+## sen lapset (kassit) ja luiden ohitukset ja IK-ketjut säilyvät, joten viittaukset hahmoon pysyvät voimassa.
+## Luihin kiinnitetyt (attach) lähtevät mallin mukana; kutsuja lisää ne uudelleen.
+func restyle(look: Dictionary) -> void:
+	var cur := _current
+	var spd := anim.speed_scale if anim != null else 1.0
+	var pos := anim.current_animation_position if anim != null and anim.is_playing() else 0.0
+	var layers := 0
+	for mi in model.find_children("*", "VisualInstance3D", true, false):
+		layers = (mi as VisualInstance3D).layers
+		break
+	remove_child(model)
+	model.free()
+	_current = ""
+	setup(look)
+	if layers != 0 and layers != 1:
+		for mi in model.find_children("*", "VisualInstance3D", true, false):
+			(mi as VisualInstance3D).layers = layers
+	if cur != "":
+		play(cur, 0.0, spd)
+		anim.seek(pos, true)
 
 
 func play(anim_name: String, blend := 0.2, speed := 1.0) -> void:
@@ -101,6 +130,14 @@ func play(anim_name: String, blend := 0.2, speed := 1.0) -> void:
 	_current = anim_name
 	anim.speed_scale = speed
 	anim.play(anim_name, blend)
+
+
+## Sama animaatio alusta (esim. kirveen isku uudestaan).
+func restart(anim_name: String, blend := 0.1, speed := 1.0) -> void:
+	_current = anim_name
+	anim.speed_scale = speed
+	anim.play(anim_name, blend)
+	anim.seek(0.0, true)
 
 
 func current() -> String:
@@ -122,8 +159,19 @@ func clear_overrides() -> void:
 
 ## Kaksiniveinen IK: ketju a -> b -> c (esim. reisi, sääri, jalkaterä) kurottaa c:n kohteeseen,
 ## taipuen pole-pisteen suuntaan. Kohde ja pole hahmon avaruudessa; päivitetään joka ruutu.
-func set_ik(chain: String, a: String, b: String, c: String, target: Vector3, pole: Vector3) -> void:
-	_ik[chain] = [a, b, c, target, pole]
+## twist: loppuluun (käsi, jalkaterä) lisäkierto hahmon avaruudessa ratkaisun jälkeen (esim. kämmen reiden suuntaan).
+func set_ik(chain: String, a: String, b: String, c: String, target: Vector3, pole: Vector3, twist := Basis()) -> void:
+	_ik[chain] = [a, b, c, target, pole, twist]
+
+
+## Loppuluun (käsi, jalkaterä) asento suoraan hahmon avaruudessa painolla w (0 = IK:n tulos, 1 = orient), kun
+## suhteellinen kierto (twist) vaihtelisi kyynärvarren asennon mukana. Kutsu set_ik:n jälkeen.
+func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
+	if _ik.has(chain):
+		var c: Array = _ik[chain]
+		c.resize(8)
+		c[6] = orient
+		c[7] = w
 
 
 func clear_ik() -> void:
@@ -149,9 +197,45 @@ func attach(bone: String, node: Node3D, offset: Vector3) -> BoneAttachment3D:
 	return ba
 
 
+## Kaukana tai piilossa olevat hahmot päivittyvät harvemmin (luuston animaatio ja IK ovat kalliita: kylässä on
+## 130-190 hahmoa): kertynyt aika ajetaan kerralla, joten animaatio ei hidastu. Lähellä joka ruutu.
+const LOD_STEPS := [[35.0, 1], [80.0, 2], [160.0, 4], [INF, 8]]
+static var _cam_frame := -1
+static var _cam_pos := Vector3.INF
+var _pending := 0.0
+var _phase := -1
+
+
+func _lod_interval() -> int:
+	var f := Engine.get_process_frames()
+	if f != _cam_frame:
+		_cam_frame = f
+		var cam := get_viewport().get_camera_3d()
+		_cam_pos = cam.global_position if cam != null else Vector3.INF
+	if _cam_pos == Vector3.INF:
+		return 1
+	var d := global_position.distance_to(_cam_pos)
+	for st in LOD_STEPS:
+		if d < st[0]:
+			return st[1]
+	return 8
+
+
 func _process(delta: float) -> void:
 	if anim == null:
 		return
+	_pending += delta
+	if not is_visible_in_tree():
+		_pending = minf(_pending, 2.0)  # piilossa ei päivitetä; näkyviin tullessa animaatio jatkuu luontevasti
+		return
+	var every := _lod_interval()
+	if every > 1:
+		if _phase < 0:
+			_phase = get_instance_id() % 8
+		if (Engine.get_process_frames() + _phase) % every != 0:
+			return
+	delta = _pending
+	_pending = 0.0
 	# Luut, joilla ei ole animaatioraitaa, eivät nollaudu itsestään: palautetaan lepoon ennen animaatiota.
 	for bone in _overrides:
 		var bi := skeleton.find_bone(bone)
@@ -210,6 +294,16 @@ func _apply_ik() -> void:
 		gc = skeleton.get_bone_global_pose(ic)
 		var q2 := _arc(gc.origin - gb.origin, (a + dir * d) - gb.origin)
 		_set_global_rot(ib, Basis(q2) * gb.basis)
+		var tw: Basis = c[5]
+		if tw != Basis():
+			var ts := to_skel.basis.orthonormalized()
+			gc = skeleton.get_bone_global_pose(ic)
+			_set_global_rot(ic, (ts * tw * ts.inverse()) * gc.basis)
+		if c.size() > 7 and c[6] != null and float(c[7]) > 0.0:
+			gc = skeleton.get_bone_global_pose(ic)
+			var want: Basis = to_skel.basis.orthonormalized() * (c[6] as Basis)
+			var q := gc.basis.orthonormalized().get_rotation_quaternion().slerp(want.get_rotation_quaternion(), clampf(float(c[7]), 0.0, 1.0))
+			_set_global_rot(ic, Basis(q))
 
 
 ## Asettaa luun globaalin kierron muuttamalla vain paikallista kiertoa (paikka ja mittakaava ennallaan).
@@ -277,12 +371,22 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var shaped := false
 	for k in shape:
 		shaped = shaped or absf(shape[k]) > 0.001
-	if _meshes.has(key):
-		return _meshes[key]
+	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
+	if live != null:
+		return live
+	var cache := _cache_path(key)
+	if FileAccess.file_exists(cache):
+		var cached := ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
+		if cached != null and cached.get_surface_count() == mesh.get_surface_count():
+			_meshes[key] = weakref(cached)
+			return cached
 	var out := ArrayMesh.new()
 	for s in mesh.get_surface_count():
 		var arr := mesh.surface_get_arrays(s)
 		var fmt: int = (mesh as ArrayMesh).surface_get_format(s)
+		var src_count: int = (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()  # LOD-indeksien muoto
+		if kind == "female" and shape.get("bust", 0.0) > 1.4:
+			_subdivide_bust(arr, shape.bust)
 		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
 		var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
@@ -322,12 +426,113 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		for v in verts.size():
 			rest[v] = Vector2(verts[v].x, verts[v].y)
 		arr[Mesh.ARRAY_TEX_UV2] = rest
+		if kind == "female":
+			_chest_weights(arr, skin, skel, per)
+		# CUSTOM0 = lepoasennon syvyys z ja normaalin y ja z (UV2:n ja värin A:n lisäksi): lappubikinit lasketaan
+		# vartalon pinnalla (kulma vartalon ympäri, pinnan suunta), ks. character.gdshader bikini_sd.
+		var rest3 := PackedFloat32Array()
+		rest3.resize(verts.size() * 4)
+		for v in verts.size():
+			rest3[v * 4] = verts[v].z
+			rest3[v * 4 + 1] = norms[v].y
+			rest3[v * 4 + 2] = norms[v].z
 		if shaped:
 			_reshape(arr, shape)
-		for c in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
-			arr[c] = null  # lisäkanavia ei tarvita
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
-	_meshes[key] = out
+		for c in [Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
+			arr[c] = null  # muita lisäkanavia ei tarvita
+		arr[Mesh.ARRAY_CUSTOM0] = rest3
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, src_count),
+			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT))
+	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
+	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
+	ResourceSaver.save(out, cache)
+	return out
+
+
+## Naismallin rinnat: alaosa seuraa mallissa nikamaa spine_02 ja yläosa spine_03, ja raja kulkee rintojen poikki, joten
+## asennon selkä puristaa rintoihin poimun. Rintojen alue sidotaan rintakehään (spine_03) niin, että painojen vaihto
+## tapahtuu rinnan alapuolella tasaisella kylkikaarella (y 1,17–1,25).
+static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -> void:
+	var chest := -1
+	for b in skin.get_bind_count():
+		var bn := str(skin.get_bind_name(b))
+		if bn == "":
+			bn = skel.get_bone_name(skin.get_bind_bone(b))
+		if bn == "spine_03":
+			chest = b
+	if chest < 0:
+		return
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+	var weights: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+	for v in verts.size():
+		var p := verts[v]
+		var t := smoothstep(1.17, 1.25, p.y) * (1.0 - smoothstep(1.4, 1.46, p.y)) * smoothstep(-0.02, 0.05, p.z)
+		t *= 1.0 - smoothstep(0.15, 0.2, absf(p.x))
+		if t <= 0.0:
+			continue
+		var acc := {}
+		for k in per:
+			var wk := weights[v * per + k] * (1.0 - t)
+			if wk > 0.0:
+				acc[bones[v * per + k]] = acc.get(bones[v * per + k], 0.0) + wk
+		acc[chest] = acc.get(chest, 0.0) + t
+		var keys: Array = acc.keys()
+		keys.sort_custom(func(x, y): return acc[x] > acc[y])
+		var total := 0.0
+		for k in mini(per, keys.size()):
+			total += acc[keys[k]]
+		for k in per:
+			bones[v * per + k] = keys[k] if k < keys.size() else 0
+			weights[v * per + k] = acc[keys[k]] / total if k < keys.size() else 0.0
+	arr[Mesh.ARRAY_BONES] = bones
+	arr[Mesh.ARRAY_WEIGHTS] = weights
+
+
+## Vaatemeshien levyvälimuisti: laskenta (vartalon muoto verteksi kerrallaan GDScriptillä) vei käynnistyksestä 2,7 s
+## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
+## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
+const MESH_CACHE := "user://hahmot"
+const CACHE_VERSION := 10
+static var _cache_tag := ""
+
+
+static func _cache_path(key: String) -> String:
+	if _cache_tag == "":
+		var src := FileAccess.get_file_as_string("res://scripts/character.gd")
+		_cache_tag = "v%d_%x" % [CACHE_VERSION, src.hash() & 0xffffffff]
+		# Vanhan version tiedostot pois.
+		if DirAccess.dir_exists_absolute(MESH_CACHE):
+			for f in DirAccess.get_files_at(MESH_CACHE):
+				if not f.begins_with(_cache_tag + "_"):
+					DirAccess.remove_absolute(MESH_CACHE.path_join(f))
+	return MESH_CACHE.path_join("%s_%x.res" % [_cache_tag, key.hash() & 0xffffffff])
+
+
+## Tuonnissa luodut LOD-tasot (generate_lods) alkuperäisestä pinnasta: vaatemesh pitää verteksien järjestyksen,
+## joten samat indeksilistat kelpaavat. Ilman niitä jokainen hahmo piirtyi täysin kolmioin joka etäisyydellä ja
+## jokaiseen varjokaskadiin (lavalla 2,6 M kolmiota).
+## Topologia on sama kaikilla saman mallin vartaloilla, joten indeksit puretaan kerran mallia ja pintaa kohden.
+static var _lods := {}
+
+
+static func _source_lods(kind: String, mesh: Mesh, surface: int, vert_count: int) -> Dictionary:
+	var key := "%s/%d" % [kind, surface]
+	if _lods.has(key):
+		return _lods[key]
+	var out := {}
+	var sd: Dictionary = RenderingServer.mesh_get_surface(mesh.get_rid(), surface)
+	for lod in sd.get("lods", []):
+		var data: PackedByteArray = lod.index_data
+		var idx := PackedInt32Array()
+		if vert_count <= 65535:
+			idx.resize(data.size() / 2)
+			for i in idx.size():
+				idx[i] = data.decode_u16(i * 2)
+		else:
+			idx = data.to_int32_array()
+		out[float(lod.edge_length)] = idx
+	_lods[key] = out
 	return out
 
 
@@ -343,14 +548,26 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 		var d := _shape_offset(p, shape)
 		if d.length_squared() < 1e-10:
 			continue
-		var jx := (_shape_offset(p + Vector3(h, 0, 0), shape) - _shape_offset(p - Vector3(h, 0, 0), shape)) / (2.0 * h)
-		var jy := (_shape_offset(p + Vector3(0, h, 0), shape) - _shape_offset(p - Vector3(0, h, 0), shape)) / (2.0 * h)
-		var jz := (_shape_offset(p + Vector3(0, 0, h), shape) - _shape_offset(p - Vector3(0, 0, h), shape)) / (2.0 * h)
+		# Jacobin matriisi eteenpäin erotuksin (d on jo laskettu): 4 _shape_offset-kutsua 7:n sijaan.
+		var jx := (_shape_offset(p + Vector3(h, 0, 0), shape) - d) / h
+		var jy := (_shape_offset(p + Vector3(0, h, 0), shape) - d) / h
+		var jz := (_shape_offset(p + Vector3(0, 0, h), shape) - d) / h
 		var m := Basis(Vector3(1, 0, 0) + jx, Vector3(0, 1, 0) + jy, Vector3(0, 0, 1) + jz)
 		verts[v] = p + d
 		if m.determinant() < 0.02:
-			continue  # lähes litistyvä kohta: pidetään alkuperäinen normaali
+			# Lähes litistyvä kohta: alkuperäinen normaali, paitsi rinnan pinnalla ellipsoidin normaali.
+			var bu0: float = shape.get("bust", 0.0)
+			if bu0 > 0.0:
+				var b0 := _bust(p, bu0)
+				if b0.weight > 0.0:
+					norms[v] = norms[v].lerp(b0.normal, b0.weight).normalized()
+			continue
 		norms[v] = (m.inverse().transposed() * norms[v]).normalized()
+		var bu: float = shape.get("bust", 0.0)
+		if bu > 0.0:
+			var b := _bust(p, bu)
+			if b.weight > 0.0:
+				norms[v] = norms[v].lerp(b.normal, b.weight).normalized()
 		if tans.size() >= (v + 1) * 4:
 			var t := (m * Vector3(tans[v * 4], tans[v * 4 + 1], tans[v * 4 + 2])).normalized()
 			tans[v * 4] = t.x
@@ -360,6 +577,157 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 	arr[Mesh.ARRAY_NORMAL] = norms
 	if tans.size() > 0:
 		arr[Mesh.ARRAY_TANGENT] = tans
+
+
+## Isot rinnat (bust > 1,4): pohjamallin harva verkko tihennetään rinnan alueella ennen muotoilua, muuten iso
+## ellipsoidi näkyy särmikkäänä ja lappubikinien reuna porrastuu. Kolmiot, joiden jokin kärki siirtyy rintamuodossa,
+## jaetaan keskipisteistä neljään (kahdesti); naapurikolmiot jaetaan jaettujen särmien mukaan, jottei saumaan jää rakoa.
+## Uusien pisteiden attribuutit ovat särmän päiden keskiarvoja (luupainoista vahvimmat).
+static func _subdivide_bust(arr: Array, bu: float) -> void:
+	for _pass in 2:
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		var moved := PackedByteArray()
+		moved.resize(verts.size())
+		for v in verts.size():
+			moved[v] = 1 if _bust(verts[v], bu).offset.length() > 0.002 else 0
+		var mid := {}  # särmä (pienempi, suurempi indeksi) -> uuden pisteen indeksi
+		var pairs := []
+		for t in range(0, idx.size(), 3):
+			if moved[idx[t]] + moved[idx[t + 1]] + moved[idx[t + 2]] == 0:
+				continue
+			for e in 3:
+				var a := idx[t + e]
+				var b := idx[t + (e + 1) % 3]
+				var key := Vector2i(mini(a, b), maxi(a, b))
+				if not mid.has(key):
+					mid[key] = verts.size() + pairs.size()
+					pairs.append(key)
+		if pairs.is_empty():
+			return
+		_append_midpoints(arr, pairs)
+		var out := PackedInt32Array()
+		for t in range(0, idx.size(), 3):
+			var c := [idx[t], idx[t + 1], idx[t + 2]]
+			var m := []
+			var n := 0
+			for e in 3:
+				var key := Vector2i(mini(c[e], c[(e + 1) % 3]), maxi(c[e], c[(e + 1) % 3]))
+				m.append(mid.get(key, -1))
+				n += 1 if mid.has(key) else 0
+			if n == 0:
+				out.append_array(PackedInt32Array(c))
+			elif n == 3:
+				out.append_array(PackedInt32Array([c[0], m[0], m[2], m[0], c[1], m[1], m[2], m[1], c[2], m[0], m[1], m[2]]))
+			else:
+				# Kierretään niin, että ensimmäinen jaettu särmä on c0 -> c1 (kiertosuunta säilyy).
+				var r := 0
+				while m[r] < 0:
+					r += 1
+				var c0: int = c[r]
+				var c1: int = c[(r + 1) % 3]
+				var c2: int = c[(r + 2) % 3]
+				var m0: int = m[r]
+				var m1: int = m[(r + 1) % 3]
+				var m2: int = m[(r + 2) % 3]
+				if n == 1:
+					out.append_array(PackedInt32Array([c0, m0, c2, m0, c1, c2]))
+				elif m1 >= 0:
+					out.append_array(PackedInt32Array([c0, m0, c2, m0, c1, m1, m0, m1, c2]))
+				else:  # jaetut särmät c2 -> c0 ja c0 -> c1
+					out.append_array(PackedInt32Array([c0, m0, m2, m0, c1, c2, m0, c2, m2]))
+		arr[Mesh.ARRAY_INDEX] = out
+
+
+static func _append_midpoints(arr: Array, pairs: Array) -> void:
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var n0 := verts.size()
+	var per := 0
+	if arr[Mesh.ARRAY_BONES] != null:
+		per = (arr[Mesh.ARRAY_BONES] as PackedInt32Array).size() / n0
+	for ai in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV, Mesh.ARRAY_TEX_UV2, Mesh.ARRAY_COLOR, Mesh.ARRAY_TANGENT]:
+		if arr[ai] == null:
+			continue
+		var a: Variant = arr[ai]
+		var w := 4 if ai == Mesh.ARRAY_TANGENT else 1
+		for pr: Vector2i in pairs:
+			for k in w:
+				if ai == Mesh.ARRAY_TANGENT:
+					a.append((a[pr.x * 4 + k] + a[pr.y * 4 + k]) * 0.5)
+				elif ai == Mesh.ARRAY_NORMAL:
+					a.append(((a[pr.x] + a[pr.y]) as Vector3).normalized())
+				else:
+					a.append((a[pr.x] + a[pr.y]) * 0.5)
+		arr[ai] = a
+	if per > 0:
+		var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+		var wts: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+		for pr: Vector2i in pairs:
+			var sum := {}
+			for v in [pr.x, pr.y]:
+				for k in per:
+					var wk: float = wts[v * per + k]
+					if wk > 0.0:
+						sum[bones[v * per + k]] = sum.get(bones[v * per + k], 0.0) + wk * 0.5
+			var keys := sum.keys()
+			keys.sort_custom(func(x, y): return sum[x] > sum[y])
+			var tot := 0.0
+			for k in mini(per, keys.size()):
+				tot += sum[keys[k]]
+			for k in per:
+				bones.append(keys[k] if k < keys.size() else 0)
+				wts.append(sum[keys[k]] / tot if k < keys.size() else 0.0)
+		arr[Mesh.ARRAY_BONES] = bones
+		arr[Mesh.ARRAY_WEIGHTS] = wts
+	for ai in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
+		if arr[ai] != null:
+			arr[ai] = null  # _clothed_mesh laskee omat kanavansa uudelleen
+
+
+## Rintamus (naismalli): pohjamallin pieni rinta ja sen alapuolinen poimu tasoitetaan ensin sileäksi rintakehäksi
+## (muuten poimun ääriviiva näkyy uuden muodon läpi; vain rinnan alaosassa, yläpuolella tasoitus painaisi ryppyyn), ja sen jälkeen kummankin rinnan pinta pullistetaan ellipsoidin
+## pinnalle pehmeällä maksimilla kuten maha: pyöreä ja täyteläinen muoto. Keskilinjalla puolet sulautetaan (paino
+## sivun mukaan), jolloin väliin muodostuu sileä uurre. Rintakehän etupinta mitattu pohjamallista (z ≈ 0,105 rintojen
+## alla, kaartuu taakse ylöspäin ja sivuille). Palauttaa siirtymän sekä ellipsoidin normaalin ja sen painon:
+## tasoitus litistää pinnan, joten Jacobin muunnos ei anna sille käyttökelpoista normaalia (_reshape).
+static func _bust(p: Vector3, bu: float) -> Dictionary:
+	var out := {"offset": Vector3.ZERO, "normal": Vector3.ZERO, "weight": 0.0}
+	var ax := absf(p.x)
+	var flat_w := smoothstep(1.16, 1.22, p.y) * (1.0 - smoothstep(1.33, 1.38, p.y)) * (1.0 - smoothstep(0.14, 0.18, ax)) \
+		* smoothstep(0.0, 0.04, p.z)
+	var chest := 0.108 - 3.5 * pow(maxf(0.0, p.y - 1.3), 2.0) - 12.0 * pow(maxf(0.0, ax - 0.06), 2.0)
+	var pf := p
+	pf.z = lerpf(p.z, minf(p.z, chest), flat_w)
+	for sx in [-1.0, 1.0]:
+		var side := smoothstep(-0.025, 0.025, sx * p.x)
+		if side <= 0.0:
+			continue
+		# Yli 1,4:n osa (e) kasvattaa ulkonemaa eteen eikä leveyttä: hoikalla isot rinnat (DD) ovat rintakehän levyiset
+		# ja pyöreät, eivät leviä kylkien yli. Keskipiste siirtyy hieman eteen ja alas (paino), alareunan rajaus mukana.
+		var e := maxf(bu - 1.4, 0.0)
+		var b1 := bu - e
+		var c := Vector3(sx * (0.085 - 0.006 * e), 1.295, 0.015 + 0.025 * e)
+		var r := Vector3(0.075 + 0.012 * b1 - 0.008 * e, 0.068 + 0.01 * b1 + 0.002 * e, 0.06 + 0.045 * bu)
+		var q := (pf - c) / r
+		var ln := q.length()
+		if ln > 0.001 and ln < 1.4:
+			var k := 0.14  # pehmeä siirtymä ellipsoidin pinnalta ympäröivään ihoon (terävämpi teki reunaan piikkejä)
+			var target := ln + 0.8 * k * log(1.0 + exp((1.0 - ln) / k))
+			# Etupuoli vaakasuunnassa (ei pystykomponenttia): rinnan yläreunalla q osoittaa ylös, ja pelkkä q.z / ln
+			# puolittaisi pullistuksen ja painaisi yläreunaan rypyn.
+			var face := smoothstep(-0.3, 0.3, q.z / maxf(Vector2(q.x, q.z).length(), 0.001))
+			var ymask := smoothstep(1.16, 1.22, p.y) * (1.0 - smoothstep(1.42, 1.48, p.y))
+			var inflated := c + q * (target / ln) * r
+			out.offset += (inflated - p) * face * ymask * side
+			# Pinnalle päätyvä kohta (ln < 1): normaali ellipsoidin gradientista.
+			var on_surf := face * ymask * side * (1.0 - smoothstep(0.9, 1.3, ln))
+			if on_surf > 0.0:
+				out.normal += (q / r).normalized() * on_surf
+				out.weight += on_surf
+	if out.weight > 0.0:
+		out.normal = (out.normal as Vector3).normalized()
+		out.weight = minf(out.weight, 1.0)
+	return out
 
 
 static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
@@ -441,6 +809,10 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		off.z -= 0.03 * cu * seat
 		var bust := smoothstep(0.0, 0.06, p.z) * exp(-pow((p.y - 1.34) / 0.07, 2.0)) * (1.0 - smoothstep(0.16, 0.22, ax))
 		off.z += 0.025 * cu * bust
+	var bu: float = shape.get("bust", 0.0)
+	if bu > 0.0:
+		# Rintamus (naismalli): ks. _bust.
+		off += _bust(p, bu).offset
 	var sh: float = shape.get("shoulders", 0.0)
 	if sh != 0.0:
 		var band := exp(-pow((p.y - 1.44) / 0.1, 2.0))
