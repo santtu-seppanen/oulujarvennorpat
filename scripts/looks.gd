@@ -20,7 +20,7 @@ static var hat := ""
 static func player(which := "") -> Dictionary:
 	var o := which if which != "" else outfit
 	var look: Dictionary = PLAYER.duplicate(true)
-	look.merge({"player": true, "outfit": o, "hair_color": PLAYER_HAIR, "skin": Color(1.0, 0.92, 0.84), "tattoo": true,
+	look.merge({"mpfb": false, "player": true, "outfit": o, "hair_color": PLAYER_HAIR, "skin": Color(1.0, 0.92, 0.84), "tattoo": true,
 		"cap": "karhu", "shades": "pilotti", "bare_skin": Color(0.95, 0.75, 0.6)}, true)
 	match o:
 		"farkut":
@@ -29,7 +29,7 @@ static func player(which := "") -> Dictionary:
 			look.merge({"shirt": Color(0.78, 0.68, 0.5), "net_shirt": true, "shirt_puff": 0.006, "suspenders": true,
 				"pants": Color(0.46, 0.6, 0.78), "jeans": true, "belt_y": 0.99, "pants_puff": 0.01,
 				"shoes": Color(0.33, 0.22, 0.13), "stripes": false, "shine": 0.0, "hair": "", "letti": true,
-				"shades": "valkoiset", "chain": true, "cap": ""}, true)
+				"shades": "valkoiset", "cap": ""}, true)
 		"tyovaatteet":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
@@ -200,6 +200,8 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	if look.get("player", false):
 		c.set_meta("player_body", true)
 		_add_player_gear(c, look)
+	if look.get("beard", false) and c.get("_mpfb_kind") != "":
+		add_beard(c, look.get("hair_color", Color(0.25, 0.18, 0.12)))
 	if look.get("glam", false):
 		add_glam(c, look.get("glam_hat", true))
 	if look.get("chaplin", false):
@@ -209,6 +211,27 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	if look.get("army", false):
 		add_army_uniform(c)
 	return c
+
+
+## Sänkiparta MPFB-hahmolle: ellipsoidikuori leuan ja poskien päällä (shaders/parta.gdshader).
+const BEARD_POS := Vector3(0, 0.025, -0.04)
+const BEARD_SIZE := Vector3(0.082, 0.088, 0.105)
+static func add_beard(c: Node3D, col: Color) -> void:
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/parta.gdshader")
+	sm.set_shader_parameter("color", col.darkened(0.35))
+	sm.set_shader_parameter("sc", BEARD_SIZE * 2.0)
+	var mi := MeshInstance3D.new()
+	var sp := SphereMesh.new()
+	sp.radial_segments = 48
+	sp.rings = 32
+	mi.mesh = sp
+	mi.scale = BEARD_SIZE * 2.0
+	mi.material_override = sm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var holder := Node3D.new()  # attach ylikirjoittaa solmun transformin: skaala omassa lapsessaan
+	holder.add_child(mi)
+	c.attach("Head", holder, BEARD_POS)
 
 
 ## Glamour-asusteet päähän: leveälierinen olkihattu punaisella nauhalla, isot tummat aurinkolasit ja kultaiset

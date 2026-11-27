@@ -13,6 +13,9 @@ const HAIR_DIR := "res://assets/characters/hair/"
 const SHADER := "res://shaders/character.gdshader"
 const REST_HEIGHT := 1.8
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
+const Mpfb := preload("res://scripts/mpfb_rig.gd")
+const MPFB_HAIR_SHADER := "res://shaders/mpfb_hair.gdshader"
+const MPFB_CLOTH_SHADER := "res://shaders/mpfb_cloth.gdshader"
 
 static var _lib: AnimationLibrary
 static var _meshes := {}
@@ -21,6 +24,10 @@ var skeleton: Skeleton3D
 var anim: AnimationPlayer
 var model: Node3D
 var body_mat: ShaderMaterial
+var body_mi: MeshInstance3D  # MPFB-hahmon vartalon verkko
+var shoe_type := "paljas"
+var _mpfb_kind := ""
+var _scale := 1.0
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
@@ -32,6 +39,9 @@ var _current := ""
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
 ## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE).
 func setup(look: Dictionary) -> void:
+	if Mpfb.enabled(look):
+		_setup_mpfb(look)
+		return
 	var kind: String = look.get("model", "male")
 	model = load(MODELS[kind][0]).instantiate()
 	add_child(model)
@@ -98,6 +108,102 @@ func setup(look: Dictionary) -> void:
 	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	play("Idle", 0.0)
 	anim.seek(randf() * 2.0, true)
+
+
+## MPFB/MakeHuman-hahmo (mpfb_rig.gd, samat rungot kuin Normipäivä-Vaalassa): valmis runko, paita, housut, kengät ja hiukset
+## glb:ssä; tässä valitaan näkyvät osat ja sävytetään ne look-arvoilla. Luunimet ovat kuten Quaterniuksella.
+func _setup_mpfb(look: Dictionary) -> void:
+	var kind := Mpfb.kind_for(look)
+	_mpfb_kind = kind
+	shoe_type = String(look.get("shoe", "paljas" if look.has("sleeve_x") and float(look.sleeve_x) < 0.0 else "lenkkari"))
+	var height := float(look.get("height", REST_HEIGHT))
+	model = Mpfb.instantiate(kind)
+	add_child(model)
+	model.rotation.y = PI
+	model.scale = Vector3.ONE * (height / float(Mpfb.HEIGHT[kind]))
+	_scale = model.scale.y
+	var sole: Dictionary = Mpfb.SOLE[kind]
+	model.position.y = float(sole[""]) * _scale
+	skeleton = model.find_children("*", "Skeleton3D")[0]
+	body_mat = ShaderMaterial.new()
+	var parts := Mpfb.meshes(skeleton)
+	var hair_color: Color = look.get("hair_color", Color(0.25, 0.18, 0.12))
+	var skin: Color = look.get("skin", Color(1.0, 0.95, 0.92))
+	var bare_top: bool = look.has("sleeve_x") and float(look.sleeve_x) < 0.0
+	var shirt_kind := String(look.get("mpfb_shirt", "none" if bare_top else "tube" if look.has("tube_y") else "long" if (look.has("tracksuit") or look.has("flannel")) else "short"))
+	var pants_kind := String(look.get("mpfb_pants", "short" if look.has("shorts_y") else "long"))
+	var hair_name: String = Mpfb.HAIR.get(String(look.get("hair", "Hair_SimpleParted")), "")
+	var shoe_n: int = Mpfb.SHOE.get(shoe_type, 5)  # paljas jalka = ihonvärinen kenkäverkko (rungon jalat on leikattu nilkkaan)
+	for nm: String in parts:
+		var mi: MeshInstance3D = parts[nm]
+		var show := true
+		if nm.begins_with("short") or nm.begins_with("long") or nm.begins_with("bob") or nm.begins_with("ponytail") or nm.begins_with("braid") or nm.begins_with("afro"):
+			show = nm == hair_name
+			if show:
+				_mpfb_hair(mi, hair_color)
+		elif nm.begins_with("shoes"):
+			show = nm == "shoes%02d" % shoe_n
+			if show:
+				_mpfb_tint(mi, look.get("shoes", Color(0.12, 0.1, 0.1)), 0.7)
+		elif nm.begins_with("Shirt_"):
+			show = nm == "Shirt_" + shirt_kind and shirt_kind != "none"
+			if show:
+				_mpfb_cloth(mi, look.get("shirt", Color(0.5, 0.5, 0.5)), look)
+		elif nm.begins_with("Pants_"):
+			show = nm == "Pants_" + pants_kind and pants_kind != "none"
+			if show:
+				_mpfb_cloth(mi, (look.tracksuit.b if look.has("tracksuit") else look.get("pants", Color(0.2, 0.25, 0.4))), look)
+		elif nm == "Body":
+			body_mi = mi
+			_mpfb_tint(mi, skin, -1.0)
+		elif nm.begins_with("eyebrow"):
+			_mpfb_hair(mi, hair_color)
+		elif nm.begins_with("eyelashes"):
+			_mpfb_hair(mi, hair_color.darkened(0.5))
+		elif nm == "low-poly":
+			_mpfb_tint(mi, Color.WHITE, 0.25)
+		mi.visible = show
+	var q: int = Settings.get_v("quality")
+	if q <= 1:
+		for gi in model.find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).visibility_range_end = [60.0, 90.0][q]
+	anim = AnimationPlayer.new()
+	model.add_child(anim)
+	anim.add_animation_library("", Mpfb.library(kind, model, skeleton, _library()))
+	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	play("Idle", 0.0)
+	anim.seek(randf() * 2.0, true)
+
+
+## Ihon, silmien ja kenkien materiaali: jaettu tekstuuri kerrotaan värillä. rough >= 0 ohittaa karheuden.
+func _mpfb_tint(mi: MeshInstance3D, color: Color, rough: float) -> void:
+	var d := StandardMaterial3D.new()
+	d.albedo_texture = Mpfb.texture_for(Mpfb.mesh_key(mi), _mpfb_kind)
+	d.albedo_color = color
+	d.roughness = rough if rough >= 0.0 else 0.62
+	mi.material_override = d
+
+
+## Paita ja housut: umpinainen kangas (sävy look-värissä), kiilto look.shine mukaan, tuulipuvun raidat varjostimessa.
+func _mpfb_cloth(mi: MeshInstance3D, color: Color, look: Dictionary) -> void:
+	var sm := ShaderMaterial.new()
+	sm.shader = load(MPFB_CLOTH_SHADER)
+	sm.set_shader_parameter("color", color)
+	sm.set_shader_parameter("rough", lerpf(0.88, 0.3, clampf(float(look.get("shine", 0.0)), 0.0, 1.0)))
+	if look.get("stripes", false) and look.has("stripe_color"):
+		sm.set_shader_parameter("stripes", 1.0)
+		sm.set_shader_parameter("stripe_color", look.stripe_color)
+		sm.set_shader_parameter("triple", 1.0 if look.get("triple_stripe", false) else 0.0)
+	mi.material_override = sm
+
+
+## Hiukset ja kulmat: tekstuurin kirkkaus antaa suortuvat, väri tulee look-arvosta.
+func _mpfb_hair(mi: MeshInstance3D, color: Color) -> void:
+	var sm := ShaderMaterial.new()
+	sm.shader = load(MPFB_HAIR_SHADER)
+	sm.set_shader_parameter("tex", Mpfb.texture_for(Mpfb.mesh_key(mi), _mpfb_kind))
+	sm.set_shader_parameter("color", color)
+	mi.material_override = sm
 
 
 ## Uusi ulkonäkö paikallaan (pelaajan asun vaihto, looks.gd restyle_player): malli vaihdetaan, mutta tämä solmu,
@@ -192,6 +298,8 @@ func attach(bone: String, node: Node3D, offset: Vector3) -> BoneAttachment3D:
 	var rest := skeleton.get_bone_global_rest(skeleton.find_bone(bone))
 	var inv_model := (model.transform * skeleton.transform).affine_inverse()
 	var target := rest.origin + (inv_model.basis * offset)
+	if _mpfb_kind != "":
+		target += Mpfb.attach_shift(skeleton, bone, _mpfb_kind)
 	node.transform = Transform3D(rest.basis.inverse() * inv_model.basis, rest.basis.inverse() * (target - rest.origin))
 	ba.add_child(node)
 	return ba

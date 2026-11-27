@@ -1,0 +1,3 @@
+Rungot, hiukset, kengät, silmät ja tekstuurit: MakeHuman system assets (https://makehumancommunity.org), lisenssi CC0.
+Rungot on luotu MPFB 2 -Blender-laajennuksella (työkalu, ei kuulu peliin) ja kopioitu Normipäivä-Vaala-pelistä.
+Animaatiot: Quaternius Universal Animation Library, CC0 (ks. ../LICENSE_animations.txt).

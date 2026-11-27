@@ -6,16 +6,13 @@ const CREW := [
 	{
 		"name": "Santtu",
 		"desc": "Lyhyt vaaleanruskea tukka pystyssä, hoikka, kultaketju kaulassa. Naurattaa aina.",
-		"chain": Color(0.95, 0.75, 0.3),
 		"look": {"hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.36, 0.2), "beard": false, "height": 1.8,
 			"belly": 0.2, "bulk": -0.05, "shoulders": 0.05, "skin": Color(1.0, 0.86, 0.8),
 			"pants": Color(0.12, 0.22, 0.48), "shoes": Color(0.86, 0.66, 0.55)},
 	},
 	{
 		"name": "Marko",
-		"desc": "Lyhyeksi ajeltu vaalea tukka, tukeva, hopeinen riipus ja tatuoinnit. Kumiveneen kapteeni.",
-		"chain": Color(0.85, 0.85, 0.88),
-		"pendant": true,
+		"desc": "Lyhyeksi ajeltu vaalea tukka, tukeva ja tatuoinnit. Kumiveneen kapteeni.",
 		"look": {"hair": "Hair_Buzzed", "hair_color": Color(0.86, 0.76, 0.52), "beard": false, "height": 1.79,
 			"belly": 0.65, "bulk": 0.35, "shoulders": 0.25, "skin": Color(1.0, 0.82, 0.76),
 			"pants": Color(0.08, 0.08, 0.09), "shoes": Color(0.9, 0.66, 0.56)},
@@ -40,6 +37,7 @@ const CREW := [
 ## Täydentää ulkonäön: paljas yläruumis (sleeve_x < 0) ja polvipituiset uimashortsit.
 static func look(i: int) -> Dictionary:
 	var l: Dictionary = CREW[i].look.duplicate()
+	l["mpfb"] = false  # päähahmot vanhalla mallilla
 	l["sleeve_x"] = -1.0
 	l["shorts_y"] = 0.58
 	l["shirt"] = l.pants
@@ -66,11 +64,3 @@ static func decorate(i: int, ch: Node3D) -> void:
 	mi.material_override = m
 	ch.attach("neck_01", mi, Vector3(0, -0.04, -0.035))
 	mi.rotate_x(deg_to_rad(-38.0))
-	if c.get("pendant", false):
-		var p := MeshInstance3D.new()
-		var s := SphereMesh.new()
-		s.radius = 0.016
-		s.height = 0.04
-		p.mesh = s
-		p.material_override = m
-		ch.attach("spine_03", p, Vector3(0, 0.06, -0.13))
