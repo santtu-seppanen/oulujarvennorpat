@@ -24,12 +24,11 @@ const SWIM_DRAIN := 3.0
 ## Uidaan, kun vettä on yli tämän verran (m): silloin pelaaja kelluu niin, että pää on pinnalla.
 const SWIM_DEPTH := 1.35
 const FLOAT_Y := -1.25  # vartalon juuren korkeus vedenpinnasta uidessa
-## Humala (promilleina): ohjaus heittelee, raskaassa humalassa ohjaus välillä kääntyy, CRAWL:sta ylöspäin
-## kävely ei onnistu vaan konttaillaan, ja OUT:sta ylöspäin sammutaan, kunnes humala laskee alle CRAWL:n.
-const CRAWL := 3.0
+## Humala (promilleina): ohjaus heittelee ja raskaassa humalassa ohjaus välillä kääntyy (täysi heittely DRUNK_MAX:ssa),
+## ja OUT:sta ylöspäin sammutaan, kunnes humala laskee alle DRUNK_MAX:n.
+const DRUNK_MAX := 3.0
 const OUT := 3.6
 const SOBER_RATE := 0.004  # promillea sekunnissa (1 ‰ haihtuu noin neljässä minuutissa)
-const CRAWL_SPEED := 0.45
 
 var controls_enabled := true
 var world: Node3D
@@ -396,10 +395,6 @@ func _physics_process(delta: float) -> void:
 			throttle *= 1.0 - 0.45 * d * absf(sin(_drunk_t * 0.7))
 			fast = fast and d < 0.6  # kännissä ei juosta
 			jump_pressed = jump_pressed and d < 0.75
-	if pose == "Ryomii":
-		throttle = clampf(throttle, -0.3, 1.0)
-		fast = false
-		jump_pressed = false
 	if pose.begins_with("Sitting"):
 		throttle = 0.0
 		steer = 0.0
@@ -447,8 +442,6 @@ func _physics_process(delta: float) -> void:
 	var want := throttle * (RUN if running else WALK) * gmul
 	if throttle < 0.0:
 		want *= 0.6
-	if pose == "Ryomii":
-		want = throttle * CRAWL_SPEED
 	speed = move_toward(speed, want, 12.0 * delta)
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
@@ -456,7 +449,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = td_dir.normalized().x * absf(speed)
 		velocity.z = td_dir.normalized().z * absf(speed)
 	# Humalassa horjutaan sivuttain.
-	if brain == null and controls_enabled and promille > 0.3 and pose != "Ryomii":
+	if brain == null and controls_enabled and promille > 0.3:
 		var side := Vector3(-fwd.z, 0, fwd.x)
 		var lurch := sin(_drunk_t * 0.9) * 0.7 + sin(_drunk_t * 2.3 + 0.5) * 0.3
 		velocity += side * lurch * drunk() * (0.6 + absf(speed) * 0.35)
@@ -488,9 +481,9 @@ func _top_down() -> bool:
 	return is_player and brain == null and not remote and boat == null and Happybeach.in_building(global_position)
 
 
-## Humala 0..1 (1 = konttausraja).
+## Humala 0..1 (1 = täysi heittely).
 func drunk() -> float:
-	return clampf(promille / CRAWL, 0.0, 1.0)
+	return clampf(promille / DRUNK_MAX, 0.0, 1.0)
 
 
 ## Olut tai viina: promille kasvaa, hahmo ottaa huikan.
@@ -503,19 +496,17 @@ func drink(amount: float) -> void:
 	_sound("glass", -8.0, randf_range(0.9, 1.15))
 
 
-## Humalan asento: konttaus ja sammuminen (eivät koske istumista tai tekoälyn asentoja).
+## Humalan asento: sammuminen (ei koske istumista tai tekoälyn asentoja).
 func _drunk_pose() -> void:
-	if pose != "" and pose != "Ryomii" and pose != "Sammunut" and pose != "Interact":
+	if pose != "" and pose != "Sammunut" and pose != "Interact":
 		return
 	if promille >= OUT:
 		if pose != "Sammunut":
 			_sound("body_fall", -4.0, 1.0)
 		pose = "Sammunut"
-	elif pose == "Sammunut" and promille >= CRAWL:
-		pass  # herätään vasta, kun humala on laskenut konttausrajan alle
-	elif promille >= CRAWL:
-		pose = "Ryomii"
-	elif pose == "Ryomii" or pose == "Sammunut":
+	elif pose == "Sammunut" and promille >= DRUNK_MAX:
+		pass  # herätään vasta, kun humala on laskenut alle täyden heittelyn rajan
+	elif pose == "Sammunut":
 		pose = ""
 
 
@@ -543,9 +534,6 @@ func _animate(delta: float) -> void:
 		return
 	if pose == "Sammunut":
 		_body.play("Idle", 0.5, 0.3)
-		return
-	if pose == "Ryomii":
-		_body.play("Crouch_Fwd" if s > 0.08 else "Crouch_Idle", 0.3, maxf(0.5, s / CRAWL_SPEED))
 		return
 	if pose != "" and s < 0.2:
 		_body.play(pose, 0.35)

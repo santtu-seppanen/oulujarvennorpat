@@ -60,7 +60,7 @@ tultaessa palataan tavalliseen kameraan. V vaihtaa sisälläkin FPS-näkymään.
   - **Työpuhelu saunassa (`scripts/tyopuhelu.gd`), vain Jaakolle:** kun Jaakko istuu lauteilla, puhelin soi 20–50 sekunnin kuluttua, enintään kerran päivässä. E vastaa: työasiat hoituvat (mainepisteet +2), mutta löylyt pilaantuvat (löylypisteet -6, kuumuus ja löyly laskevat). Q jättää vastaamatta: löylypisteet +3, mutta esimies voi jättää ärtyneen viestin (mainepisteet -2, joka toisella kerralla). Soitto päättyy itsestään vastaamattomana 10 sekunnissa. Jos Jaakkoa ohjaa tietokone, hän vain mutisee työpuhelusta. Lopputuloksessa näkyy vastattujen ja vastaamatta jätettyjen puhelujen määrä. Testi: `tools/testit/tyopuhelutesti.gd`.
 - **Kätkö saunan takana:** piilossa havujen alla rinteessä alamökin oikealla puolella (saunan ovea katsottaessa), saunan takakulun muurin takana, on ehtymätön olut- ja viinakätkö (E olut, Q viina). Kompassin kätköosoitin näyttää lähimmän kätkön.
   - Mitä enemmän juo, sitä vaikeampi hahmoa on ohjata: ohjaus heittelee, kuva kahdentuu ja hahmo horjuu sivuttain. Raskaassa humalassa ohjaus kääntyy välillä väärin päin.
-  - 3 promillesta ylöspäin kävely ei enää onnistu, vaan konttaillaan. 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
+  - 3,6 promillesta ylöspäin sammutaan, kunnes humala laskee.
   - Humala haihtuu noin promillen neljässä minuutissa.
 
 Hahmot eivät mene toistensa sisään: istuvaankaan ei voi kävellä, ja pöydästä tai lauteilta noustaan vapaaseen

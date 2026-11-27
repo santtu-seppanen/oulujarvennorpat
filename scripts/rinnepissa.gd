@@ -260,7 +260,7 @@ func _physics_process(delta: float) -> void:
 	_t += delta
 	var p := _player()
 	if _t > 0.3 and (Input.is_action_just_pressed("interact") or Input.is_key_pressed(KEY_F)) or _t >= TIME \
-			or p.pose == "Sammunut" or p.pose == "Ryomii":
+			or p.pose == "Sammunut":
 		stop()
 		return
 	_angle = clampf(_angle + Input.get_axis("back", "forward") * 0.8 * delta, 0.05, 1.3)

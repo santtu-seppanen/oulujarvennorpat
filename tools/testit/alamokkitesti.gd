@@ -2,7 +2,7 @@ extends SceneTree
 ## Alamökin testi (headless): godot --headless --path . -s tools/testit/alamokkitesti.gd
 ## Ovista sisään keittiöön ja saunaan, tietokoneen hahmot lauteilla ja hellalla, saunominen, pyttipannun paisto
 ## (vain Marko), annoksen syönti, kokonainen ristiseiskapeli pöydässä sekä kätkön olut ja viina: humala heittelee
-## ohjausta, tolkuttomana konttaillaan ja lopulta sammutaan.
+## ohjausta, tolkuttomana heittely on täysi ja lopulta sammutaan.
 
 class Push:
 	extends RefCounted
@@ -241,7 +241,7 @@ func _process(delta: float) -> bool:
 				for k in 4:
 					main._beer()
 				print("neljä olutta: %.2f ‰ (%s)" % [p.promille, main.drunk_text(p.promille)])
-				check(p.promille > 0.8 and p.pose != "Ryomii", "humalassa mutta kävelee")
+				check(p.promille > 0.8 and p.pose != "Sammunut", "humalassa mutta kävelee")
 				# Suoraan kävely heittelee: suunta muuttuu, vaikka ohjataan suoraan.
 				ts = now()
 				p.global_position = main.world.mokki.points.piha + Vector3.UP * 0.1
@@ -263,7 +263,7 @@ func _process(delta: float) -> bool:
 		17:
 			if t > 0.3:
 				print("viinan jälkeen %.2f ‰, asento %s" % [p.promille, p.pose])
-				check(p.pose == "Ryomii", "tolkuttomassa humalassa konttaillaan")
+				check(p.promille >= p.DRUNK_MAX and p.pose != "Sammunut", "tolkuttomassa humalassa vielä pystyssä")
 				start_pos = p.global_position
 				Input.action_press("forward")
 				next()
@@ -271,8 +271,8 @@ func _process(delta: float) -> bool:
 			if t > 2.0:
 				Input.action_release("forward")
 				var d: float = p.global_position.distance_to(start_pos)
-				print("konttasi 2 s: %.1f m" % d)
-				check(d < 1.5, "kävely ei onnistu (konttaus hidasta)")
+				print("käveli 2 s: %.1f m" % d)
+				check(d > 0.5, "tolkuttomana vielä kävelee")
 				main._booze()
 				main._booze()
 				next()

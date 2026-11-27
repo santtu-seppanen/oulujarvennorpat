@@ -838,7 +838,7 @@ func _morning() -> void:
 
 func _can_act() -> bool:
 	return player.boat == null and not player.hidden_inside and not player.swimming \
-		and player.pose != "Sammunut" and player.pose != "Ryomii"
+		and player.pose != "Sammunut"
 
 
 ## Huussiin: hahmo piiloon huussin sisään ja minipeli ruudulle (ykkönen tai kakkonen).
@@ -975,8 +975,6 @@ func _interaction() -> Dictionary:
 		if _near_beach_stash():
 			return {"text": "Viinakätkö! E: olut · Q: huikka viinaa", "cb": _beer}
 		return {"text": "E: kylmä olut · Q: huikka viinaa (ehtymätön kätkö)", "cb": _beer}
-	if player.pose == "Ryomii":
-		return {}
 	if Mokki.at_outhouse(player.global_position):
 		return {"text": "E: huussiin, ykkönen · Q: kakkonen", "cb": func() -> void: _start_wc("ykkonen")}
 	if Mokki.at_pee_spot(player.global_position):
@@ -1641,7 +1639,7 @@ func _build_hud() -> void:
 	map_layer.add_child(_map)
 
 
-## Kohtaus käynnissä (saapuminen, konttaus, loppu, päikkärit/yöunet): ei tehtäviä eikä kosketusnappeja.
+## Kohtaus käynnissä (saapuminen, loppu, päikkärit/yöunet): ei tehtäviä eikä kosketusnappeja.
 func in_cutscene() -> bool:
 	return saapuminen.active or loppu.active or _nap_t > 0.0
 

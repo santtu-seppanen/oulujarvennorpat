@@ -26,7 +26,7 @@ class RowBrain:
 		pass
 
 
-## Kävelijä (tai konttaaja) kohti pistettä: samat syötteet kuin ai.gd:ssä.
+## Kävelijä kohti pistettä: samat syötteet kuin ai.gd:ssä.
 class GoBrain:
 	extends RefCounted
 	var body: CharacterBody3D
